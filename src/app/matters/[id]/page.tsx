@@ -4,6 +4,7 @@ import { getMatter } from "@/lib/store";
 import { approveMatter } from "@/app/actions";
 import { ReadinessBadge, StatusBadge } from "@/app/ui";
 import { ApproveButton } from "@/app/approve-button";
+import { DraftActions } from "@/app/draft-actions";
 
 export default async function MatterPage({
   params,
@@ -120,33 +121,44 @@ export default async function MatterPage({
       <section className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">Drafted next step</h2>
         {r.draftEmail ? (
-          <div className="rounded-lg border border-border bg-surface">
-            <div className="border-b border-border px-4 py-2 text-sm">
-              <span className="text-muted">To:</span>{" "}
-              {r.draftEmail.to ?? "(no client email found)"}
-              <br />
-              <span className="text-muted">Subject:</span> {r.draftEmail.subject}
+          <>
+            <div className="rounded-lg border border-border bg-surface">
+              <div className="border-b border-border px-4 py-2 text-sm">
+                <span className="text-muted">To:</span>{" "}
+                {r.draftEmail.to ?? "(no client email found — add it in your mail client)"}
+                <br />
+                <span className="text-muted">Subject:</span> {r.draftEmail.subject}
+              </div>
+              <pre className="whitespace-pre-wrap px-4 py-3 text-sm font-sans">
+                {r.draftEmail.body}
+              </pre>
             </div>
-            <pre className="whitespace-pre-wrap px-4 py-3 text-sm font-sans">
-              {r.draftEmail.body}
-            </pre>
-          </div>
+            <DraftActions
+              id={matter.id}
+              to={r.draftEmail.to}
+              subject={r.draftEmail.subject}
+              body={r.draftEmail.body}
+              approved={matter.status === "approved"}
+              action={approveMatter}
+            />
+          </>
         ) : (
-          <p className="rounded-lg border border-accent bg-surface px-4 py-3 text-sm text-accent">
-            100% ready — no follow-up needed. Flagged for review.
-          </p>
+          <>
+            <p className="rounded-lg border border-accent bg-surface px-4 py-3 text-sm text-accent">
+              100% ready — no follow-up needed. Flagged for review.
+            </p>
+            <div className="flex items-center gap-3 pt-1">
+              <ApproveButton
+                id={matter.id}
+                approved={matter.status === "approved"}
+                action={approveMatter}
+              />
+              <span className="text-xs text-muted">
+                Human gate — Briefly never acts on its own.
+              </span>
+            </div>
+          </>
         )}
-
-        <div className="flex items-center gap-3 pt-1">
-          <ApproveButton
-            id={matter.id}
-            approved={matter.status === "approved"}
-            action={approveMatter}
-          />
-          <span className="text-xs text-muted">
-            Human gate — Briefly never sends or acts on its own. Sending is Phase 1.5.
-          </span>
-        </div>
       </section>
     </div>
   );
