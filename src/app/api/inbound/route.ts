@@ -1,5 +1,8 @@
 import { ingestSubmission } from "@/lib/ingest";
 
+// Runs the pipeline (3 sequential Haiku calls, ~10-20s) — give it headroom.
+export const maxDuration = 60;
+
 /**
  * Inbound email webhook (PRD Phase 1). An inbound mail service (Postmark,
  * SendGrid Inbound Parse, etc.) POSTs a parsed email here; we run the pipeline
