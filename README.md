@@ -71,7 +71,7 @@ supabase/schema.sql     Postgres schema (RLS on, service-role only)
 
 ## Roadmap (from the PRD)
 
-- **Phase 1** — inbound email ingestion (auto-create matters from client email).
+- **Phase 1** — inbound email ingestion. ✅ Webhook route (`POST /api/inbound`, secret-gated via `INBOUND_WEBHOOK_SECRET`) parses an inbound email (Postmark / SendGrid / generic JSON), runs the pipeline, and auto-creates a matter with the envelope sender as the client. Remaining: point a real mail provider + owned domain (MX/DNS) at the webhook.
 - **Phase 1.5** — the "Act" step. ✅ Low-infra send shipped: **Approve & send** opens the professional's own mail client with the draft prefilled (mailto), plus **Copy draft**; the human reviews and sends. Full transactional send (Resend) is the follow-on.
 - **Phase 2** — rubric authoring & reassignment for misclassified matters.
 - **Phase 3** — firm workflow (roles, assignment, senior review).

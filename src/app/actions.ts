@@ -1,11 +1,9 @@
 "use server";
 
-import { randomUUID } from "crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { runPipeline } from "@/lib/pipeline";
-import { saveMatter, getMatter } from "@/lib/store";
-import type { Matter } from "@/lib/types";
+import { ingestSubmission } from "@/lib/ingest";
+import { getMatter, saveMatter } from "@/lib/store";
 
 /**
  * Create a matter from a raw client submission and run the intake pipeline.
@@ -15,23 +13,9 @@ export async function createMatterFromSubmission(formData: FormData): Promise<vo
   const submission = String(formData.get("submission") ?? "").trim();
   if (!submission) return;
 
-  const id = randomUUID();
-  const result = await runPipeline(submission);
-
-  const matter: Matter = {
-    id,
-    createdAt: new Date().toISOString(),
-    clientName: result.clientName,
-    clientEmail: result.clientEmail,
-    submission,
-    result,
-    status: result.readiness >= 100 ? "ready_for_review" : "needs_info",
-    approvedAt: null,
-  };
-
-  await saveMatter(matter);
+  const matter = await ingestSubmission({ submission });
   revalidatePath("/");
-  redirect(`/matters/${id}`);
+  redirect(`/matters/${matter.id}`);
 }
 
 /**
