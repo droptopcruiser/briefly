@@ -5,6 +5,7 @@ import { isConfigured } from "@/lib/anthropic";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { SubmissionForm } from "./submission-form";
 import { ReadinessBadge, StatusBadge } from "./ui";
+import { requireUser } from "@/lib/auth";
 
 // The submission server action runs the pipeline (3 sequential Haiku calls,
 // ~10-20s). Give the route headroom on Vercel (well under the 300s ceiling).
@@ -13,6 +14,7 @@ export const maxDuration = 60;
 const SAMPLE = `Hi, my name is Priya Sharma and I'm hoping to apply for a spousal visa to stay with my partner. We started dating in June 2021 and got married on 2023-09-14. My partner's name is Daniel Okafor and he's a citizen here. I'm currently on a student visa and living in-country. I've attached my passport and some joint bills showing we live together.`;
 
 export default async function Home() {
+  await requireUser();
   const matters = await listMatters(20);
   const live = isConfigured();
   const db = isSupabaseConfigured();

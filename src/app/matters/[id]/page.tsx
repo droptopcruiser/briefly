@@ -5,12 +5,14 @@ import { approveMatter } from "@/app/actions";
 import { ReadinessBadge, StatusBadge } from "@/app/ui";
 import { ApproveButton } from "@/app/approve-button";
 import { DraftActions } from "@/app/draft-actions";
+import { requireUser } from "@/lib/auth";
 
 export default async function MatterPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requireUser();
   const { id } = await params;
   const matter = await getMatter(id);
   if (!matter || !matter.result) notFound();
