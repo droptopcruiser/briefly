@@ -1,5 +1,37 @@
 import type { MatterStatus } from "@/lib/types";
 import type { Usage } from "@/lib/metering";
+import type { MonthStats } from "@/lib/stats";
+
+/** Activity overview: what Briefly handled this month + estimated time saved. */
+export function StatsPanel({ stats }: { stats: MonthStats }) {
+  const tiles: { num: string; cap: string; accent?: boolean }[] = [
+    { num: `${stats.hoursSaved}h`, cap: "saved this month", accent: true },
+    { num: String(stats.matters), cap: "matters processed" },
+    { num: String(stats.ready + stats.approved), cap: "ready / approved" },
+    { num: String(stats.needsInfo), cap: "awaiting client info" },
+  ];
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {tiles.map((t) => (
+        <div
+          key={t.cap}
+          className={`rounded-lg border bg-surface px-4 py-3 ${
+            t.accent ? "border-accent" : "border-border"
+          }`}
+        >
+          <div
+            className={`text-2xl font-semibold tabular-nums tracking-tight ${
+              t.accent ? "text-accent" : ""
+            }`}
+          >
+            {t.num}
+          </div>
+          <div className="text-xs text-muted">{t.cap}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /** Monthly usage meter: extractions used vs the plan cap, plus credits. */
 export function UsageMeter({ usage }: { usage: Usage }) {

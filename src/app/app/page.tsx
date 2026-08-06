@@ -4,9 +4,10 @@ import { listMatters } from "@/lib/store";
 import { isConfigured } from "@/lib/anthropic";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { SubmissionForm } from "../submission-form";
-import { ReadinessBadge, StatusBadge, UsageMeter } from "../ui";
+import { ReadinessBadge, StatusBadge, UsageMeter, StatsPanel } from "../ui";
 import { requireUser } from "@/lib/auth";
 import { getAccountUsage } from "@/lib/metering";
+import { getMonthStats } from "@/lib/stats";
 
 // The submission server action runs the pipeline (3 sequential Haiku calls,
 // ~10-20s). Give the route headroom on Vercel (well under the 300s ceiling).
@@ -21,10 +22,12 @@ export default async function Dashboard() {
   const db = isSupabaseConfigured();
   const au = await getAccountUsage();
   const blocked = au?.usage.blocked ?? false;
+  const stats = au ? await getMonthStats(au.account.id) : null;
 
   return (
     <div className="space-y-10">
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold tracking-tight">This month</h1>
         <Link
           href="/app/rubrics"
           className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-surface"
@@ -32,9 +35,20 @@ export default async function Dashboard() {
           Manage rubrics →
         </Link>
       </div>
+
+      {stats ? (
+        <section className="space-y-2">
+          <StatsPanel stats={stats} />
+          <p className="text-xs text-muted">
+            Time saved is an estimate — about 15 minutes of manual intake per matter (reading,
+            structuring, spotting gaps, drafting the reply).
+          </p>
+        </section>
+      ) : null}
+
       <section className="space-y-4">
         <div className="space-y-2">
-          <h1 className="text-2xl font-semibold tracking-tight">New submission</h1>
+          <h2 className="text-xl font-semibold tracking-tight">New submission</h2>
           <p className="text-muted max-w-2xl">
             Paste a client&apos;s raw enquiry. Briefly classifies it, extracts the facts, builds a
             timeline, flags what&apos;s missing, scores readiness, and drafts the follow-up — then
