@@ -7,14 +7,15 @@ import { createServerClient } from "@supabase/ssr";
  * The authoritative check lives in the DAL (src/lib/auth.ts), called from pages
  * and server actions.
  *
- * Public prefixes stay open — notably /api (the inbound webhook is machine-to-
- * machine, secret-gated, and must never be redirected to a login page).
+ * Only the app itself is gated — /app (the dashboard) and /matters. The public
+ * marketing site at / stays open, as does /api (the inbound webhook is
+ * machine-to-machine, secret-gated, and must never be redirected to a login page).
  */
 
-const PUBLIC_PREFIXES = ["/login", "/auth", "/api", "/access-denied"];
+const PROTECTED_PREFIXES = ["/app", "/matters"];
 
-function isPublic(path: string): boolean {
-  return PUBLIC_PREFIXES.some((p) => path === p || path.startsWith(p + "/"));
+function isProtected(path: string): boolean {
+  return PROTECTED_PREFIXES.some((p) => path === p || path.startsWith(p + "/"));
 }
 
 export async function proxy(request: NextRequest) {
@@ -43,7 +44,7 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user && !isPublic(request.nextUrl.pathname)) {
+  if (!user && isProtected(request.nextUrl.pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

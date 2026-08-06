@@ -22,13 +22,13 @@ export async function createMatterFromSubmission(formData: FormData): Promise<vo
     matter = await ingestSubmission({ submission });
   } catch (err) {
     if (err instanceof QuotaExceededError) {
-      // Over the monthly cap — home shows the blocked state.
-      revalidatePath("/");
-      redirect("/");
+      // Over the monthly cap — the dashboard shows the blocked state.
+      revalidatePath("/app");
+      redirect("/app");
     }
     throw err;
   }
-  revalidatePath("/");
+  revalidatePath("/app");
   redirect(`/matters/${matter.id}`);
 }
 
@@ -48,9 +48,9 @@ export async function approveMatter(formData: FormData): Promise<void> {
   revalidatePath(`/matters/${id}`);
 }
 
-/** Sign the current user out and return to the login page. */
+/** Sign the current user out and return to the public landing page. */
 export async function signOut(): Promise<void> {
   const supabase = await createServerSupabase();
   await supabase.auth.signOut();
-  redirect("/login");
+  redirect("/");
 }

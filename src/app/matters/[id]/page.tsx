@@ -21,7 +21,7 @@ export default async function MatterPage({
 
   return (
     <div className="space-y-8">
-      <Link href="/" className="text-sm text-muted hover:text-foreground">
+      <Link href="/app" className="text-sm text-muted hover:text-foreground">
         ← All matters
       </Link>
 

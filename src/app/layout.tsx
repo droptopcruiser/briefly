@@ -26,6 +26,9 @@ export default async function RootLayout({
             </Link>
             {user ? (
               <div className="flex items-center gap-3 text-xs text-muted">
+                <Link href="/app" className="hover:text-foreground">
+                  Dashboard
+                </Link>
                 <span className="hidden sm:inline">{user.email}</span>
                 <form action={signOut}>
                   <button
@@ -37,7 +40,12 @@ export default async function RootLayout({
                 </form>
               </div>
             ) : (
-              <span className="text-xs text-muted">the intake layer</span>
+              <Link
+                href="/login"
+                className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-background"
+              >
+                Sign in
+              </Link>
             )}
           </div>
         </header>
