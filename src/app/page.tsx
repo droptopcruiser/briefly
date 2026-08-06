@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAuthUser } from "@/lib/auth";
-import { PLANS } from "@/lib/plans";
+import { PLANS, CREDIT_PACK } from "@/lib/plans";
 
 const STEPS = [
   ["Submission", "A client emails or pastes a messy enquiry."],
@@ -171,8 +171,9 @@ export default async function Landing() {
           })}
         </div>
         <p className="text-center text-xs text-muted">
-          Prices shown are illustrative and may change before general availability. Overage is sold
-          as credit packs.
+          14-day free trial, no charge until it ends. Need more than your plan&apos;s monthly
+          matters? Add a credit pack ({CREDIT_PACK.priceLabel} for {CREDIT_PACK.credits}). Prices may
+          change before general availability.
         </p>
       </section>
 
