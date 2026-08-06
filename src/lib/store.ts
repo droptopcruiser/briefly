@@ -17,6 +17,7 @@ const memory: Map<string, Matter> = (globalStore.__brieflyMatters ??= new Map())
 interface MatterRow {
   id: string;
   created_at: string;
+  account_id: string | null;
   client_name: string | null;
   client_email: string | null;
   submission: string;
@@ -29,6 +30,7 @@ function rowToMatter(r: MatterRow): Matter {
   return {
     id: r.id,
     createdAt: r.created_at,
+    accountId: r.account_id,
     clientName: r.client_name,
     clientEmail: r.client_email,
     submission: r.submission,
@@ -42,6 +44,7 @@ function matterToRow(m: Matter): MatterRow {
   return {
     id: m.id,
     created_at: m.createdAt,
+    account_id: m.accountId,
     client_name: m.clientName,
     client_email: m.clientEmail,
     submission: m.submission,

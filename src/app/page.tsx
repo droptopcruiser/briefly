@@ -4,8 +4,9 @@ import { listMatters } from "@/lib/store";
 import { isConfigured } from "@/lib/anthropic";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { SubmissionForm } from "./submission-form";
-import { ReadinessBadge, StatusBadge } from "./ui";
+import { ReadinessBadge, StatusBadge, UsageMeter } from "./ui";
 import { requireUser } from "@/lib/auth";
+import { getAccountUsage } from "@/lib/metering";
 
 // The submission server action runs the pipeline (3 sequential Haiku calls,
 // ~10-20s). Give the route headroom on Vercel (well under the 300s ceiling).
@@ -18,6 +19,8 @@ export default async function Home() {
   const matters = await listMatters(20);
   const live = isConfigured();
   const db = isSupabaseConfigured();
+  const au = await getAccountUsage();
+  const blocked = au?.usage.blocked ?? false;
 
   return (
     <div className="space-y-10">
@@ -31,7 +34,19 @@ export default async function Home() {
           </p>
         </div>
 
-        <SubmissionForm action={createMatterFromSubmission} sample={SAMPLE} />
+        {au ? <UsageMeter usage={au.usage} /> : null}
+
+        {blocked ? (
+          <div className="rounded-lg border border-border bg-surface px-4 py-4 text-sm">
+            <p className="font-medium">You&apos;ve reached this month&apos;s limit.</p>
+            <p className="mt-1 text-muted">
+              Upgrade your plan or add a credit pack to keep processing intake. Until then, new
+              submissions and inbound emails won&apos;t be processed.
+            </p>
+          </div>
+        ) : (
+          <SubmissionForm action={createMatterFromSubmission} sample={SAMPLE} />
+        )}
 
         <div className="flex flex-wrap gap-2 text-xs">
           <span

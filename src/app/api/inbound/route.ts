@@ -1,4 +1,5 @@
 import { ingestSubmission } from "@/lib/ingest";
+import { QuotaExceededError } from "@/lib/metering";
 
 // Runs the pipeline (3 sequential Haiku calls, ~10-20s) — give it headroom.
 export const maxDuration = 60;
@@ -110,6 +111,10 @@ export async function POST(req: Request): Promise<Response> {
       readiness: matter.result?.readiness ?? null,
     });
   } catch (err) {
+    if (err instanceof QuotaExceededError) {
+      // Over the monthly cap — don't process. 200 so the provider doesn't retry.
+      return jsonResponse(200, { status: "skipped", reason: "quota_exceeded" });
+    }
     console.error("inbound ingest failed:", err);
     return jsonResponse(500, { error: "ingest failed" });
   }

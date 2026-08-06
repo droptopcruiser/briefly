@@ -1,4 +1,50 @@
 import type { MatterStatus } from "@/lib/types";
+import type { Usage } from "@/lib/metering";
+
+/** Monthly usage meter: extractions used vs the plan cap, plus credits. */
+export function UsageMeter({ usage }: { usage: Usage }) {
+  const pct = usage.cap > 0 ? Math.min(100, Math.round((usage.used / usage.cap) * 100)) : 0;
+  const overCap = usage.used >= usage.cap;
+  const barColor = usage.blocked
+    ? "bg-red-500"
+    : overCap
+      ? "bg-amber-500"
+      : "bg-accent";
+
+  return (
+    <div className="rounded-lg border border-border bg-surface px-4 py-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <div className="text-sm">
+          <span className="font-medium tabular-nums">
+            {usage.used} / {usage.cap}
+          </span>{" "}
+          <span className="text-muted">extractions this month</span>
+        </div>
+        <div className="text-xs text-muted">
+          {usage.planName} plan
+          {usage.credits > 0 ? (
+            <>
+              {" · "}
+              <span className="tabular-nums">{usage.credits}</span> credits
+            </>
+          ) : null}
+        </div>
+      </div>
+      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-background">
+        <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+      </div>
+      {usage.blocked ? (
+        <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+          Monthly limit reached. Upgrade your plan or add a credit pack to keep processing intake.
+        </p>
+      ) : overCap ? (
+        <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+          Over your plan cap — running on credits ({usage.credits} left).
+        </p>
+      ) : null}
+    </div>
+  );
+}
 
 /** Readiness score pill, coloured by band. */
 export function ReadinessBadge({ value }: { value: number }) {

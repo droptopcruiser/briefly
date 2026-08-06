@@ -1,15 +1,25 @@
 import { randomUUID } from "crypto";
 import { runPipeline } from "./pipeline";
 import { saveMatter } from "./store";
+import {
+  getAccount,
+  getUsage,
+  consumeCreditIfOverCap,
+  QuotaExceededError,
+  DEFAULT_ACCOUNT_ID,
+} from "./metering";
 import type { Matter } from "./types";
 
 /**
  * Turn a raw submission into a saved, processed matter. Shared by the manual
  * submission form (src/app/actions.ts) and inbound email (src/app/api/inbound).
  *
+ * Metering: the owning account's monthly cap (+ credits) is enforced BEFORE the
+ * pipeline runs, so an over-quota submission never spends model tokens. Throws
+ * QuotaExceededError when blocked; a credit is consumed for over-cap extractions.
+ *
  * For inbound email the envelope sender is authoritative, so `clientEmailHint`
- * takes priority for the email; the extracted name wins for the display name
- * (clients usually state it in the body), with the envelope name as fallback.
+ * takes priority for the email; the extracted name wins for the display name.
  */
 export async function ingestSubmission(opts: {
   submission: string;
@@ -17,6 +27,15 @@ export async function ingestSubmission(opts: {
   clientEmailHint?: string | null;
 }): Promise<Matter> {
   const submission = opts.submission.trim();
+
+  const account = await getAccount();
+  let usedBefore = 0;
+  if (account) {
+    const usage = await getUsage(account);
+    if (usage.blocked) throw new QuotaExceededError();
+    usedBefore = usage.used;
+  }
+
   const result = await runPipeline(submission);
 
   // Resolve the client identity, then make the result authoritative so the UI
@@ -32,6 +51,7 @@ export async function ingestSubmission(opts: {
   const matter: Matter = {
     id: randomUUID(),
     createdAt: new Date().toISOString(),
+    accountId: account?.id ?? DEFAULT_ACCOUNT_ID,
     clientName,
     clientEmail,
     submission,
@@ -41,5 +61,6 @@ export async function ingestSubmission(opts: {
   };
 
   await saveMatter(matter);
+  if (account) await consumeCreditIfOverCap(account, usedBefore);
   return matter;
 }

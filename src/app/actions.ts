@@ -6,6 +6,7 @@ import { ingestSubmission } from "@/lib/ingest";
 import { getMatter, saveMatter } from "@/lib/store";
 import { requireUser } from "@/lib/auth";
 import { createServerSupabase } from "@/lib/supabase-server";
+import { QuotaExceededError } from "@/lib/metering";
 
 /**
  * Create a matter from a raw client submission and run the intake pipeline.
@@ -16,7 +17,17 @@ export async function createMatterFromSubmission(formData: FormData): Promise<vo
   const submission = String(formData.get("submission") ?? "").trim();
   if (!submission) return;
 
-  const matter = await ingestSubmission({ submission });
+  let matter;
+  try {
+    matter = await ingestSubmission({ submission });
+  } catch (err) {
+    if (err instanceof QuotaExceededError) {
+      // Over the monthly cap — home shows the blocked state.
+      revalidatePath("/");
+      redirect("/");
+    }
+    throw err;
+  }
   revalidatePath("/");
   redirect(`/matters/${matter.id}`);
 }

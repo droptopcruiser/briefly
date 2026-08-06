@@ -108,6 +108,8 @@ export type MatterStatus =
 export interface Matter {
   id: string;
   createdAt: string;
+  /** Owning account (metering). */
+  accountId: string | null;
   clientName: string | null;
   clientEmail: string | null;
   submission: string;
