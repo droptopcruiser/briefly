@@ -15,7 +15,7 @@ import type {
  * set, runPipeline() uses the real Haiku-backed stages instead.
  */
 
-function pickRubric(text: string): Rubric {
+function pickRubric(text: string, rubrics: Rubric[]): Rubric {
   const t = text.toLowerCase();
   const score = (r: Rubric) =>
     (r.vertical.toLowerCase().split(/\W+/).filter((w) => w && t.includes(w)).length) +
@@ -24,9 +24,9 @@ function pickRubric(text: string): Rubric {
       .toLowerCase()
       .split(/\W+/)
       .filter((w) => w.length > 4 && t.includes(w)).length;
-  let best = SEED_RUBRICS[0];
+  let best = rubrics[0];
   let bestScore = -1;
-  for (const r of SEED_RUBRICS) {
+  for (const r of rubrics) {
     const s = score(r);
     if (s > bestScore) {
       best = r;
@@ -133,8 +133,11 @@ function buildTimeline(text: string): TimelineEvent[] {
   return events;
 }
 
-export function runMockPipeline(submission: string): PipelineResult {
-  const rubric = pickRubric(submission);
+export function runMockPipeline(
+  submission: string,
+  rubrics: Rubric[] = SEED_RUBRICS,
+): PipelineResult {
+  const rubric = pickRubric(submission, rubrics.length > 0 ? rubrics : SEED_RUBRICS);
   const { fields, documentsPresent } = spotField(submission, rubric);
   const gaps = computeGaps(rubric, fields, documentsPresent);
   const readiness = computeReadiness(rubric, gaps);

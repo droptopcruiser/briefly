@@ -24,6 +24,14 @@ export default async function Dashboard() {
 
   return (
     <div className="space-y-10">
+      <div className="flex justify-end">
+        <Link
+          href="/app/rubrics"
+          className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-surface"
+        >
+          Manage rubrics →
+        </Link>
+      </div>
       <section className="space-y-4">
         <div className="space-y-2">
           <h1 className="text-2xl font-semibold tracking-tight">New submission</h1>

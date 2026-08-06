@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { runPipeline } from "./pipeline";
 import { saveMatter } from "./store";
+import { getEffectiveRubrics } from "./rubric-store";
 import {
   getAccount,
   getUsage,
@@ -36,7 +37,10 @@ export async function ingestSubmission(opts: {
     usedBefore = usage.used;
   }
 
-  const result = await runPipeline(submission);
+  // Classify + extract against this firm's own rubrics (BYOR), or the built-in
+  // set if they haven't authored any yet.
+  const rubrics = await getEffectiveRubrics(account?.id ?? null);
+  const result = await runPipeline(submission, rubrics);
 
   // Resolve the client identity, then make the result authoritative so the UI
   // (which reads `result`) and the drafted email agree with the matter record.

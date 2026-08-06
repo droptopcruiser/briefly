@@ -1,5 +1,5 @@
 import { jsonCall, isConfigured } from "./anthropic";
-import { SEED_RUBRICS, getRubric } from "./rubrics";
+import { SEED_RUBRICS } from "./rubrics";
 import { computeGaps, computeReadiness } from "./gaps";
 import { runMockPipeline } from "./mock";
 import type {
@@ -59,10 +59,13 @@ interface DraftOut {
 /** Stage 1 — classify the submission against the firm's rubrics. */
 async function classify(
   submission: string,
+  rubrics: Rubric[],
 ): Promise<{ out: ClassifyOut; costCents: number }> {
-  const rubricList = SEED_RUBRICS.map(
-    (r) => `- id: "${r.id}"\n  name: ${r.name}\n  vertical: ${r.vertical}\n  when: ${r.description}`,
-  ).join("\n");
+  const rubricList = rubrics
+    .map(
+      (r) => `- id: "${r.id}"\n  name: ${r.name}\n  vertical: ${r.vertical}\n  when: ${r.description}`,
+    )
+    .join("\n");
 
   const system = `You are the intake classifier for a professional services firm.
 Match the client's submission to exactly one of the firm's matter-type rubrics below.
@@ -77,7 +80,7 @@ ${rubricList}`;
     type: "object",
     additionalProperties: false,
     properties: {
-      rubricId: { type: "string", enum: SEED_RUBRICS.map((r) => r.id) },
+      rubricId: { type: "string", enum: rubrics.map((r) => r.id) },
       confidence: { type: "number" },
       clientName: { type: "string" },
       clientEmail: { type: "string" },
@@ -211,17 +214,22 @@ ${missing}`;
   return { out: data, costCents };
 }
 
-/** Run the full pipeline for one submission. */
-export async function runPipeline(submission: string): Promise<PipelineResult> {
+/** Run the full pipeline for one submission against the given rubric set. */
+export async function runPipeline(
+  submission: string,
+  rubrics: Rubric[] = SEED_RUBRICS,
+): Promise<PipelineResult> {
+  const activeRubrics = rubrics.length > 0 ? rubrics : SEED_RUBRICS;
+
   if (!isConfigured()) {
-    return runMockPipeline(submission);
+    return runMockPipeline(submission, activeRubrics);
   }
 
   let costCents = 0;
 
-  const { out: cls, costCents: c1 } = await classify(submission);
+  const { out: cls, costCents: c1 } = await classify(submission, activeRubrics);
   costCents += c1;
-  const rubric = getRubric(cls.rubricId) ?? SEED_RUBRICS[0];
+  const rubric = activeRubrics.find((r) => r.id === cls.rubricId) ?? activeRubrics[0];
 
   const { out: ext, costCents: c2 } = await extract(submission, rubric);
   costCents += c2;
