@@ -6,8 +6,8 @@ import { ingestSubmission } from "@/lib/ingest";
 import { getMatter, saveMatter } from "@/lib/store";
 import { requireUser } from "@/lib/auth";
 import { createServerSupabase } from "@/lib/supabase-server";
-import { QuotaExceededError } from "@/lib/metering";
-import { isEmailConfigured, sendEmail } from "@/lib/email";
+import { QuotaExceededError, getAccount, setFirmName, DEFAULT_ACCOUNT_ID } from "@/lib/metering";
+import { isEmailConfigured, sendEmail, senderFrom } from "@/lib/email";
 
 /**
  * Create a matter from a raw client submission and run the intake pipeline.
@@ -83,8 +83,12 @@ export async function approveAndSendMatter(
     };
   }
 
+  // Send as "Briefly on behalf of {Firm}" using the account's firm name.
+  const account = await getAccount();
+  const from = senderFrom(account?.name);
+
   try {
-    await sendEmail({ to: draft.to, subject: draft.subject, body: draft.body });
+    await sendEmail({ to: draft.to, subject: draft.subject, body: draft.body, from });
   } catch (err) {
     return { ok: false, error: `Send failed: ${err instanceof Error ? err.message : "unknown error"}` };
   }
@@ -94,6 +98,31 @@ export async function approveAndSendMatter(
   await saveMatter(matter);
   revalidatePath(`/matters/${id}`);
   return { ok: true };
+}
+
+/** Result of saving account settings, surfaced back to the client UI. */
+export type SettingsResult = { ok: boolean; error?: string; savedName?: string };
+
+/**
+ * Save the firm name used in the outbound sender line ("Briefly on behalf of
+ * {Firm}"). Shaped for `useActionState`.
+ */
+export async function saveFirmName(
+  _prev: SettingsResult,
+  formData: FormData,
+): Promise<SettingsResult> {
+  await requireUser();
+  const name = String(formData.get("firmName") ?? "").replace(/["\r\n]/g, "").trim();
+  if (!name) return { ok: false, error: "Enter a firm name." };
+  if (name.length > 80) return { ok: false, error: "Keep the firm name under 80 characters." };
+
+  try {
+    await setFirmName(DEFAULT_ACCOUNT_ID, name);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not save." };
+  }
+  revalidatePath("/app/settings");
+  return { ok: true, savedName: name };
 }
 
 /** Sign the current user out and return to the public landing page. */

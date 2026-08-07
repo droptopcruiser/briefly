@@ -9,8 +9,9 @@
  * Configure with:
  *   POSTMARK_SERVER_TOKEN — a Postmark *Server* API token (distinct from the
  *                           inbound webhook secret).
- *   MAIL_FROM             — a verified sender signature or domain address,
- *                           e.g. "Briefly <luke@brieflyhub.app>".
+ *   MAIL_FROM             — the default From, e.g. "Briefly <luke@brieflyhub.app>".
+ *   MAIL_FROM_ADDRESS     — optional bare address used when building per-firm
+ *                           sender names; derived from MAIL_FROM when unset.
  *   MAIL_REPLY_TO         — optional Reply-To (e.g. the firm's own address).
  *
  * When the token or from-address is missing, isEmailConfigured() reports false
@@ -19,14 +20,44 @@
 
 const POSTMARK_ENDPOINT = "https://api.postmarkapp.com/email";
 
+/** The seed placeholder in accounts.name — treated as "firm name not set yet". */
+const FIRM_PLACEHOLDER = "Default firm";
+
 export function isEmailConfigured(): boolean {
   return Boolean(process.env.POSTMARK_SERVER_TOKEN && process.env.MAIL_FROM);
+}
+
+/** The bare sending address (no display name). Used to build per-firm From lines. */
+export function senderAddress(): string {
+  const explicit = process.env.MAIL_FROM_ADDRESS?.trim();
+  if (explicit) return explicit;
+  // Fall back to the address inside MAIL_FROM ("Name <addr>"), or MAIL_FROM itself.
+  const inAngles = process.env.MAIL_FROM?.match(/<([^>]+)>/);
+  return (inAngles ? inAngles[1] : process.env.MAIL_FROM ?? "").trim();
+}
+
+/**
+ * Build the From line for a firm. While every firm sends from the shared,
+ * verified address, we present it honestly as "Briefly on behalf of {Firm}" —
+ * which matches the sending domain and avoids a name/domain mismatch that would
+ * look like spoofing. Falls back to the plain MAIL_FROM when the firm hasn't set
+ * a name. The display name is sanitised to prevent header injection.
+ */
+export function senderFrom(firmName?: string | null): string {
+  const defaultFrom = process.env.MAIL_FROM ?? "";
+  const name = firmName?.replace(/["\r\n]/g, "").trim();
+  if (!name || name === FIRM_PLACEHOLDER) return defaultFrom;
+  const address = senderAddress();
+  if (!address) return defaultFrom;
+  return `"Briefly on behalf of ${name}" <${address}>`;
 }
 
 export interface SendEmailInput {
   to: string;
   subject: string;
   body: string;
+  /** Overrides MAIL_FROM for this message (e.g. a per-firm sender line). */
+  from?: string;
   /** Overrides MAIL_REPLY_TO for this message. */
   replyTo?: string;
 }
@@ -35,10 +66,10 @@ export interface SendEmailInput {
  * Send one plain-text email through Postmark. Resolves on success; throws with a
  * human-readable message (Postmark's own, when available) on failure.
  */
-export async function sendEmail({ to, subject, body, replyTo }: SendEmailInput): Promise<void> {
+export async function sendEmail({ to, subject, body, from, replyTo }: SendEmailInput): Promise<void> {
   const token = process.env.POSTMARK_SERVER_TOKEN;
-  const from = process.env.MAIL_FROM;
-  if (!token || !from) {
+  const fromLine = from ?? process.env.MAIL_FROM;
+  if (!token || !fromLine) {
     throw new Error("Email not configured (POSTMARK_SERVER_TOKEN / MAIL_FROM).");
   }
 
@@ -50,7 +81,7 @@ export async function sendEmail({ to, subject, body, replyTo }: SendEmailInput):
       "X-Postmark-Server-Token": token,
     },
     body: JSON.stringify({
-      From: from,
+      From: fromLine,
       To: to,
       Subject: subject,
       TextBody: body,

@@ -55,6 +55,17 @@ export async function getAccount(): Promise<Account | null> {
   return (data as Account) ?? null;
 }
 
+/** Update the firm/display name for an account (drives the outbound sender line). */
+export async function setFirmName(accountId: string, name: string): Promise<void> {
+  const db = getSupabase();
+  if (!db) return;
+  const { error } = await db
+    .from("accounts")
+    .update({ name: name.trim() })
+    .eq("id", accountId);
+  if (error) throw new Error(`setFirmName: ${error.message}`);
+}
+
 export async function getUsage(account: Account): Promise<Usage> {
   const db = getSupabase()!;
   const { count } = await db
