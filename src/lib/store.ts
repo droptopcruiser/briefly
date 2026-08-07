@@ -64,23 +64,41 @@ export async function saveMatter(m: Matter): Promise<void> {
   if (error) throw new Error(`saveMatter: ${error.message}`);
 }
 
-export async function getMatter(id: string): Promise<Matter | null> {
+/**
+ * Fetch a matter, scoped to its owning account. Returns null when the id doesn't
+ * exist OR belongs to a different account — the tenant-isolation guard for the
+ * matter view.
+ */
+export async function getMatter(id: string, accountId: string): Promise<Matter | null> {
   const db = getSupabase();
-  if (!db) return memory.get(id) ?? null;
+  if (!db) {
+    const m = memory.get(id);
+    return m && m.accountId === accountId ? m : null;
+  }
 
-  const { data, error } = await db.from("matters").select("*").eq("id", id).maybeSingle();
+  const { data, error } = await db
+    .from("matters")
+    .select("*")
+    .eq("id", id)
+    .eq("account_id", accountId)
+    .maybeSingle();
   if (error) throw new Error(`getMatter: ${error.message}`);
   return data ? rowToMatter(data as MatterRow) : null;
 }
 
-export async function listMatters(limit = 50): Promise<Matter[]> {
+/** List an account's matters, most recent first. */
+export async function listMatters(accountId: string, limit = 50): Promise<Matter[]> {
   const db = getSupabase();
   if (!db) {
-    return [...memory.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit);
+    return [...memory.values()]
+      .filter((m) => m.accountId === accountId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, limit);
   }
   const { data, error } = await db
     .from("matters")
     .select("*")
+    .eq("account_id", accountId)
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) throw new Error(`listMatters: ${error.message}`);

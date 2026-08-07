@@ -1,5 +1,5 @@
 import { ingestSubmission } from "@/lib/ingest";
-import { QuotaExceededError } from "@/lib/metering";
+import { QuotaExceededError, getAccountById, DEFAULT_ACCOUNT_ID } from "@/lib/metering";
 
 // Runs the pipeline (3 sequential Haiku calls, ~10-20s) — give it headroom.
 export const maxDuration = 60;
@@ -100,8 +100,12 @@ export async function POST(req: Request): Promise<Response> {
     : email.body;
 
   try {
+    // Phase A: all inbound still routes to the default account. Phase C resolves
+    // the owning account from the recipient localpart (per-firm intake address).
+    const account = await getAccountById(DEFAULT_ACCOUNT_ID);
     const matter = await ingestSubmission({
       submission,
+      account,
       clientNameHint: email.fromName,
       clientEmailHint: email.fromEmail,
     });

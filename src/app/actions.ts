@@ -6,7 +6,12 @@ import { ingestSubmission } from "@/lib/ingest";
 import { getMatter, saveMatter } from "@/lib/store";
 import { requireUser } from "@/lib/auth";
 import { createServerSupabase } from "@/lib/supabase-server";
-import { QuotaExceededError, getAccount, setFirmName, DEFAULT_ACCOUNT_ID } from "@/lib/metering";
+import {
+  QuotaExceededError,
+  getCurrentAccount,
+  setFirmName,
+  DEFAULT_ACCOUNT_ID,
+} from "@/lib/metering";
 import { isEmailConfigured, sendEmail, senderFrom } from "@/lib/email";
 
 /**
@@ -18,9 +23,11 @@ export async function createMatterFromSubmission(formData: FormData): Promise<vo
   const submission = String(formData.get("submission") ?? "").trim();
   if (!submission) return;
 
+  const account = await getCurrentAccount();
+
   let matter;
   try {
-    matter = await ingestSubmission({ submission });
+    matter = await ingestSubmission({ submission, account });
   } catch (err) {
     if (err instanceof QuotaExceededError) {
       // Over the monthly cap — the dashboard shows the blocked state.
@@ -41,7 +48,8 @@ export async function approveMatter(formData: FormData): Promise<void> {
   await requireUser();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
-  const matter = await getMatter(id);
+  const account = await getCurrentAccount();
+  const matter = await getMatter(id, account?.id ?? DEFAULT_ACCOUNT_ID);
   if (!matter) return;
   matter.status = "approved";
   matter.approvedAt = new Date().toISOString();
@@ -67,7 +75,8 @@ export async function approveAndSendMatter(
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false, error: "Missing matter id." };
 
-  const matter = await getMatter(id);
+  const account = await getCurrentAccount();
+  const matter = await getMatter(id, account?.id ?? DEFAULT_ACCOUNT_ID);
   const draft = matter?.result?.draftEmail;
   if (!matter || !draft) return { ok: false, error: "No drafted email to send." };
   if (!draft.to) {
@@ -84,7 +93,6 @@ export async function approveAndSendMatter(
   }
 
   // Send as "Briefly on behalf of {Firm}" using the account's firm name.
-  const account = await getAccount();
   const from = senderFrom(account?.name);
 
   try {
@@ -116,8 +124,9 @@ export async function saveFirmName(
   if (!name) return { ok: false, error: "Enter a firm name." };
   if (name.length > 80) return { ok: false, error: "Keep the firm name under 80 characters." };
 
+  const account = await getCurrentAccount();
   try {
-    await setFirmName(DEFAULT_ACCOUNT_ID, name);
+    await setFirmName(account?.id ?? DEFAULT_ACCOUNT_ID, name);
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not save." };
   }

@@ -6,7 +6,7 @@ import { isSupabaseConfigured } from "@/lib/supabase";
 import { SubmissionForm } from "../submission-form";
 import { ReadinessBadge, StatusBadge, UsageMeter, StatsPanel } from "../ui";
 import { requireUser } from "@/lib/auth";
-import { getAccountUsage } from "@/lib/metering";
+import { getAccountUsage, DEFAULT_ACCOUNT_ID } from "@/lib/metering";
 import { getMonthStats } from "@/lib/stats";
 
 // The submission server action runs the pipeline (3 sequential Haiku calls,
@@ -17,10 +17,11 @@ const SAMPLE = `Hi, my name is Priya Sharma and I'm hoping to apply for a spousa
 
 export default async function Dashboard() {
   await requireUser();
-  const matters = await listMatters(20);
   const live = isConfigured();
   const db = isSupabaseConfigured();
   const au = await getAccountUsage();
+  const accountId = au?.account.id ?? DEFAULT_ACCOUNT_ID;
+  const matters = await listMatters(accountId, 20);
   const blocked = au?.usage.blocked ?? false;
   const stats = au ? await getMonthStats(au.account.id) : null;
 

@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { getAccount } from "@/lib/metering";
+import { getCurrentAccount } from "@/lib/metering";
 import { senderAddress, isEmailConfigured } from "@/lib/email";
 import { saveFirmName } from "@/app/actions";
 import { SettingsForm } from "@/app/settings-form";
 
 export default async function SettingsPage() {
   await requireUser();
-  const account = await getAccount();
+  const account = await getCurrentAccount();
   const address = senderAddress();
   const configured = isEmailConfigured();
 

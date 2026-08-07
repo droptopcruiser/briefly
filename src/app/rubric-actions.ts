@@ -4,7 +4,7 @@ import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import { getAccount, DEFAULT_ACCOUNT_ID } from "@/lib/metering";
+import { getCurrentAccount, DEFAULT_ACCOUNT_ID } from "@/lib/metering";
 import {
   saveRubric as storeSaveRubric,
   deleteRubric as storeDeleteRubric,
@@ -34,7 +34,7 @@ function keyer() {
 }
 
 async function currentAccountId(): Promise<string> {
-  const account = await getAccount();
+  const account = await getCurrentAccount();
   return account?.id ?? DEFAULT_ACCOUNT_ID;
 }
 

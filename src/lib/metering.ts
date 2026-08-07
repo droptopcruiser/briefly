@@ -1,5 +1,6 @@
 import { getSupabase } from "./supabase";
 import { planFor } from "./plans";
+import { getAuthUser } from "./auth";
 
 /**
  * Metering: usage counting + hard caps, provider-agnostic. Usage is the number
@@ -14,11 +15,49 @@ import { planFor } from "./plans";
 
 export const DEFAULT_ACCOUNT_ID = "00000000-0000-4000-8000-000000000001";
 
+/** The inbound intake domain (catch-all MX → Postmark). Prod default. */
+export const INBOUND_DOMAIN = process.env.MAIL_INBOUND_DOMAIN ?? "inbound.brieflyhub.app";
+
+/** The full inbound intake email address for an account (null until onboarded). */
+export function intakeAddress(inboundToken: string | null): string | null {
+  return inboundToken ? `${inboundToken}@${INBOUND_DOMAIN}` : null;
+}
+
 export interface Account {
   id: string;
   name: string;
   plan: string;
   credits: number;
+  /** Readable identifier (from firm name). Null until onboarding. */
+  slug: string | null;
+  /** Full localpart of this firm's inbound intake address (slug + token). */
+  inboundToken: string | null;
+  /** The single owner user (teams come later). Null on the legacy default. */
+  ownerUserId: string | null;
+}
+
+interface AccountRow {
+  id: string;
+  name: string;
+  plan: string;
+  credits: number;
+  slug: string | null;
+  inbound_token: string | null;
+  owner_user_id: string | null;
+}
+
+const ACCOUNT_COLS = "id,name,plan,credits,slug,inbound_token,owner_user_id";
+
+function rowToAccount(r: AccountRow): Account {
+  return {
+    id: r.id,
+    name: r.name,
+    plan: r.plan,
+    credits: r.credits,
+    slug: r.slug,
+    inboundToken: r.inbound_token,
+    ownerUserId: r.owner_user_id,
+  };
 }
 
 export interface Usage {
@@ -43,16 +82,42 @@ function monthStartISO(): string {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
 }
 
-/** The account that owns matters. Null when metering is disabled (no Supabase). */
-export async function getAccount(): Promise<Account | null> {
+/** Look up an account by id. Null when not found or metering is disabled. */
+export async function getAccountById(id: string): Promise<Account | null> {
   const db = getSupabase();
   if (!db) return null;
+  const { data } = await db.from("accounts").select(ACCOUNT_COLS).eq("id", id).maybeSingle();
+  return data ? rowToAccount(data as AccountRow) : null;
+}
+
+/**
+ * The signed-in user's account (one owner-user per account for now). Null when
+ * the user has none yet (provisioning happens in onboarding) or no Supabase.
+ * This is the primary resolver for all user-context reads/writes.
+ */
+export async function getCurrentAccount(): Promise<Account | null> {
+  const db = getSupabase();
+  if (!db) return null;
+  const user = await getAuthUser();
+  if (!user) return null;
   const { data } = await db
     .from("accounts")
-    .select("id,name,plan,credits")
-    .eq("id", DEFAULT_ACCOUNT_ID)
+    .select(ACCOUNT_COLS)
+    .eq("owner_user_id", user.id)
     .maybeSingle();
-  return (data as Account) ?? null;
+  return data ? rowToAccount(data as AccountRow) : null;
+}
+
+/** Resolve an account by its inbound intake localpart (for the email webhook). */
+export async function getAccountByInboundToken(token: string): Promise<Account | null> {
+  const db = getSupabase();
+  if (!db || !token) return null;
+  const { data } = await db
+    .from("accounts")
+    .select(ACCOUNT_COLS)
+    .eq("inbound_token", token)
+    .maybeSingle();
+  return data ? rowToAccount(data as AccountRow) : null;
 }
 
 /** Update the firm/display name for an account (drives the outbound sender line). */
@@ -92,7 +157,7 @@ export async function getUsage(account: Account): Promise<Usage> {
 
 /** Current account + usage, or null when metering is disabled. For the UI. */
 export async function getAccountUsage(): Promise<{ account: Account; usage: Usage } | null> {
-  const account = await getAccount();
+  const account = await getCurrentAccount();
   if (!account) return null;
   return { account, usage: await getUsage(account) };
 }

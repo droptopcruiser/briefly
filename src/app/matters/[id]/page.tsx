@@ -6,6 +6,7 @@ import { ReadinessBadge, StatusBadge } from "@/app/ui";
 import { ApproveButton } from "@/app/approve-button";
 import { DraftActions } from "@/app/draft-actions";
 import { requireUser } from "@/lib/auth";
+import { getCurrentAccount, DEFAULT_ACCOUNT_ID } from "@/lib/metering";
 
 export default async function MatterPage({
   params,
@@ -14,7 +15,8 @@ export default async function MatterPage({
 }) {
   await requireUser();
   const { id } = await params;
-  const matter = await getMatter(id);
+  const account = await getCurrentAccount();
+  const matter = await getMatter(id, account?.id ?? DEFAULT_ACCOUNT_ID);
   if (!matter || !matter.result) notFound();
 
   const r = matter.result;
