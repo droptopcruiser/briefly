@@ -1,14 +1,12 @@
 import Link from "next/link";
-import { requireUser } from "@/lib/auth";
-import { getCurrentAccount } from "@/lib/metering";
+import { requireAccount } from "@/lib/metering";
 import { getAccountRubrics } from "@/lib/rubric-store";
 import { SEED_RUBRICS } from "@/lib/rubrics";
 import { deleteRubric, duplicateSeed } from "@/app/rubric-actions";
 
 export default async function RubricsPage() {
-  await requireUser();
-  const account = await getCurrentAccount();
-  const rubrics = account ? await getAccountRubrics(account.id) : [];
+  const account = await requireAccount();
+  const rubrics = await getAccountRubrics(account.id);
 
   return (
     <div className="space-y-8">

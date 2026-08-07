@@ -66,12 +66,12 @@ export default async function Landing() {
           emails arrive as structured, review-ready matters, waiting the moment you sit down.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-          <a
-            href="#moment"
+          <Link
+            href="/login"
             className="rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-accent-fg hover:opacity-90"
           >
-            See what you&apos;d open to
-          </a>
+            Start free
+          </Link>
           <a
             href="#how"
             className="rounded-md border border-border px-5 py-2.5 text-sm font-medium hover:bg-surface"
@@ -79,6 +79,13 @@ export default async function Landing() {
             See how it works
           </a>
         </div>
+        <p className="text-xs text-muted">
+          Invite-only during early access —{" "}
+          <a href={EARLY_ACCESS} className="underline underline-offset-2 hover:text-foreground">
+            request a code
+          </a>
+          .
+        </p>
       </section>
 
       {/* The moment — what you open to instead of an inbox */}
@@ -269,16 +276,16 @@ export default async function Landing() {
                   </span>{" "}
                   matters / month
                 </div>
-                <a
-                  href={EARLY_ACCESS}
+                <Link
+                  href="/login"
                   className={`mt-auto rounded-md px-4 py-2 text-sm font-medium text-center ${
                     featured
                       ? "bg-accent text-accent-fg hover:opacity-90"
                       : "border border-border hover:bg-background"
                   }`}
                 >
-                  Request access
-                </a>
+                  Start free
+                </Link>
               </div>
             );
           })}
@@ -296,12 +303,12 @@ export default async function Landing() {
           Arrive to work that&apos;s already prepared.
         </h2>
         <div className="flex justify-center">
-          <a
-            href={EARLY_ACCESS}
+          <Link
+            href="/login"
             className="rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-accent-fg hover:opacity-90"
           >
-            Request early access
-          </a>
+            Start free
+          </Link>
         </div>
       </section>
     </div>

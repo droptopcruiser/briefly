@@ -5,8 +5,7 @@ import { isConfigured } from "@/lib/anthropic";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { SubmissionForm } from "../submission-form";
 import { ReadinessBadge, StatusBadge, UsageMeter, StatsPanel } from "../ui";
-import { requireUser } from "@/lib/auth";
-import { getAccountUsage, DEFAULT_ACCOUNT_ID } from "@/lib/metering";
+import { requireAccount, getUsage, intakeAddress } from "@/lib/metering";
 import { getMonthStats } from "@/lib/stats";
 
 // The submission server action runs the pipeline (3 sequential Haiku calls,
@@ -16,14 +15,14 @@ export const maxDuration = 60;
 const SAMPLE = `Hi, my name is Priya Sharma and I'm hoping to apply for a spousal visa to stay with my partner. We started dating in June 2021 and got married on 2023-09-14. My partner's name is Daniel Okafor and he's a citizen here. I'm currently on a student visa and living in-country. I've attached my passport and some joint bills showing we live together.`;
 
 export default async function Dashboard() {
-  await requireUser();
+  const account = await requireAccount();
   const live = isConfigured();
   const db = isSupabaseConfigured();
-  const au = await getAccountUsage();
-  const accountId = au?.account.id ?? DEFAULT_ACCOUNT_ID;
-  const matters = await listMatters(accountId, 20);
-  const blocked = au?.usage.blocked ?? false;
-  const stats = au ? await getMonthStats(au.account.id) : null;
+  const usage = await getUsage(account);
+  const stats = await getMonthStats(account.id);
+  const matters = await listMatters(account.id, 20);
+  const blocked = usage.blocked;
+  const intake = intakeAddress(account.inboundToken);
 
   return (
     <div className="space-y-10">
@@ -55,6 +54,17 @@ export default async function Dashboard() {
         </section>
       ) : null}
 
+      {intake ? (
+        <section className="rounded-lg border border-border bg-surface px-4 py-3">
+          <div className="text-xs uppercase tracking-wide text-muted">Your intake address</div>
+          <div className="mt-1 font-mono text-sm break-all">{intake}</div>
+          <p className="mt-1 text-xs text-muted">
+            Forward client enquiries here (or set up auto-forwarding) and Briefly turns each one into
+            a matter automatically.
+          </p>
+        </section>
+      ) : null}
+
       <section className="space-y-4">
         <div className="space-y-2">
           <h2 className="text-xl font-semibold tracking-tight">New submission</h2>
@@ -65,7 +75,7 @@ export default async function Dashboard() {
           </p>
         </div>
 
-        {au ? <UsageMeter usage={au.usage} /> : null}
+        <UsageMeter usage={usage} />
 
         {blocked ? (
           <div className="rounded-lg border border-border bg-surface px-4 py-4 text-sm">

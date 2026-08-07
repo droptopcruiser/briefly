@@ -1,6 +1,8 @@
+import { randomBytes } from "crypto";
+import { redirect } from "next/navigation";
 import { getSupabase } from "./supabase";
 import { planFor } from "./plans";
-import { getAuthUser } from "./auth";
+import { getAuthUser, requireUser } from "./auth";
 
 /**
  * Metering: usage counting + hard caps, provider-agnostic. Usage is the number
@@ -81,6 +83,77 @@ export function resolveReplyTo(account: Account): string | null {
   if (account.replyToMode === "intake") return intakeAddress(account.inboundToken);
   if (account.replyToMode === "firm") return account.replyToEmail?.trim() || null;
   return null;
+}
+
+// ── Onboarding + provisioning (multi-tenant signup) ──────────────────────────
+
+const FIRM_PLACEHOLDER = "Default firm";
+
+/** A firm is onboarded once it has set a real firm name (past the placeholder). */
+export function isOnboarded(account: Account | null): account is Account {
+  const name = account?.name.trim();
+  return Boolean(name && name !== FIRM_PLACEHOLDER);
+}
+
+/**
+ * App gate: require a signed-in user AND a provisioned, onboarded account.
+ * Bounces to /app/welcome (invite code → firm name) otherwise. Returns the
+ * account so pages don't have to re-resolve it.
+ */
+export async function requireAccount(): Promise<Account> {
+  await requireUser();
+  const account = await getCurrentAccount();
+  if (!isOnboarded(account)) redirect("/app/welcome");
+  return account;
+}
+
+function slugify(s: string): string {
+  return (
+    s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 24) || "firm"
+  );
+}
+
+/** A globally-unique inbound intake localpart, "{slug}-{random}". */
+export async function generateInboundToken(slug: string): Promise<string> {
+  for (let i = 0; i < 5; i++) {
+    const token = `${slug}-${randomBytes(3).toString("hex")}`;
+    if (!(await getAccountByInboundToken(token))) return token;
+  }
+  return `${slug}-${randomBytes(6).toString("hex")}`;
+}
+
+/** Create a trial account owned by the user (idempotent). Firm name is set later. */
+export async function provisionAccount(userId: string): Promise<Account> {
+  const db = getSupabase();
+  if (!db) throw new Error("Database not configured.");
+
+  const { data: existing } = await db
+    .from("accounts")
+    .select(ACCOUNT_COLS)
+    .eq("owner_user_id", userId)
+    .maybeSingle();
+  if (existing) return rowToAccount(existing as AccountRow);
+
+  const { data, error } = await db
+    .from("accounts")
+    .insert({ owner_user_id: userId, name: "", plan: "trial", credits: 0 })
+    .select(ACCOUNT_COLS)
+    .single();
+  if (error) throw new Error(`provisionAccount: ${error.message}`);
+  return rowToAccount(data as AccountRow);
+}
+
+/** Finish onboarding: set the firm name, a slug, and the inbound intake token. */
+export async function completeOnboarding(account: Account, name: string): Promise<void> {
+  const db = getSupabase();
+  if (!db) return;
+  const slug = slugify(name);
+  const inbound_token = account.inboundToken ?? (await generateInboundToken(slug));
+  const { error } = await db
+    .from("accounts")
+    .update({ name: name.trim(), slug, inbound_token })
+    .eq("id", account.id);
+  if (error) throw new Error(`completeOnboarding: ${error.message}`);
 }
 
 export interface Usage {

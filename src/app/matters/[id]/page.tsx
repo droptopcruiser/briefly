@@ -5,8 +5,7 @@ import { approveMatter, approveAndSendMatter } from "@/app/actions";
 import { ReadinessBadge, StatusBadge } from "@/app/ui";
 import { ApproveButton } from "@/app/approve-button";
 import { DraftActions } from "@/app/draft-actions";
-import { requireUser } from "@/lib/auth";
-import { getCurrentAccount, DEFAULT_ACCOUNT_ID } from "@/lib/metering";
+import { requireAccount } from "@/lib/metering";
 import { composeEmailBody } from "@/lib/email";
 
 export default async function MatterPage({
@@ -14,10 +13,9 @@ export default async function MatterPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireUser();
   const { id } = await params;
-  const account = await getCurrentAccount();
-  const matter = await getMatter(id, account?.id ?? DEFAULT_ACCOUNT_ID);
+  const account = await requireAccount();
+  const matter = await getMatter(id, account.id);
   if (!matter || !matter.result) notFound();
 
   const r = matter.result;

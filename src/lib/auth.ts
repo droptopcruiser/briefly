@@ -5,13 +5,12 @@ import type { User } from "@supabase/supabase-js";
 
 /**
  * Data Access Layer for auth. `getAuthUser` reads the signed-in user (cached
- * per request). `requireUser` is the gate — call it at the top of any protected
- * page or server action; it redirects unauthenticated users to /login and
- * authenticated-but-not-allowlisted users to /access-denied.
+ * per request). `requireUser` is the auth gate — call it at the top of any
+ * protected page or server action; it redirects unauthenticated users to /login.
  *
- * The allowlist (ALLOWED_EMAILS, comma-separated) keeps the app locked to the
- * professional(s) even though anyone can technically authenticate with Google.
- * If ALLOWED_EMAILS is unset, any authenticated user is allowed (dev fallback).
+ * Signup is open (any Google user may authenticate); access to the app itself is
+ * gated by having a provisioned, onboarded account — see `requireAccount` in
+ * metering.ts, which is invite-code gated at provisioning time.
  */
 
 export const getAuthUser = cache(async (): Promise<User | null> => {
@@ -22,24 +21,8 @@ export const getAuthUser = cache(async (): Promise<User | null> => {
   return user;
 });
 
-function allowlist(): string[] | null {
-  const raw = process.env.ALLOWED_EMAILS?.trim();
-  if (!raw) return null;
-  return raw
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-}
-
-export function isAllowed(email: string | null | undefined): boolean {
-  const list = allowlist();
-  if (!list) return true;
-  return Boolean(email && list.includes(email.toLowerCase()));
-}
-
 export const requireUser = cache(async (): Promise<User> => {
   const user = await getAuthUser();
   if (!user) redirect("/login");
-  if (!isAllowed(user.email)) redirect("/access-denied");
   return user;
 });
