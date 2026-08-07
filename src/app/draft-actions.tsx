@@ -1,14 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useActionState, useState } from "react";
+import type { SendResult } from "@/app/actions";
 
 /**
- * Phase 1.5 — the "Act" step, low-infra variant.
- *
- * The AI never sends. "Approve & send" opens the professional's own mail client
- * with the draft prefilled (mailto) and records approval; the human reviews and
- * hits send there. "Copy draft" is the fallback for long emails or clients that
- * don't honour mailto. The full transactional-send path (Resend) comes later.
+ * The "act" step. "Approve & send" is the human gate: on click, Briefly sends
+ * the drafted follow-up to the client (server-side, via Postmark) and marks the
+ * matter approved. "Copy draft" and the mail-client link are always-available
+ * fallbacks — for long emails, or when no client email was detected.
  */
 export function DraftActions({
   id,
@@ -23,10 +22,12 @@ export function DraftActions({
   subject: string;
   body: string;
   approved: boolean;
-  action: (formData: FormData) => void | Promise<void>;
+  action: (prev: SendResult, formData: FormData) => Promise<SendResult>;
 }) {
+  const [state, formAction, pending] = useActionState<SendResult, FormData>(action, {
+    ok: approved,
+  });
   const [copied, setCopied] = useState(false);
-  const [pending, startTransition] = useTransition();
 
   const mailto = `mailto:${encodeURIComponent(to ?? "")}?subject=${encodeURIComponent(
     subject,
@@ -42,14 +43,6 @@ export function DraftActions({
     }
   }
 
-  function approveAndSend() {
-    // Open the professional's mail client. They review and send it themselves.
-    window.location.href = mailto;
-    const fd = new FormData();
-    fd.set("id", id);
-    startTransition(() => action(fd));
-  }
-
   const copyBtn = (
     <button
       type="button"
@@ -60,6 +53,7 @@ export function DraftActions({
     </button>
   );
 
+  // Already approved & sent.
   if (approved) {
     return (
       <div className="flex flex-wrap items-center gap-3 pt-1">
@@ -77,20 +71,54 @@ export function DraftActions({
     );
   }
 
+  // No client email detected — Briefly can't auto-send; offer manual paths.
+  if (!to) {
+    return (
+      <div className="space-y-2 pt-1">
+        <div className="flex flex-wrap items-center gap-3">
+          <a
+            href={mailto}
+            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:opacity-90"
+          >
+            Send in mail client
+          </a>
+          {copyBtn}
+        </div>
+        <p className="text-xs text-muted">
+          No client email was detected in this enquiry, so Briefly can&apos;t send it for you. Add
+          the address in your mail client and send there.
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-wrap items-center gap-3 pt-1">
-      <button
-        type="button"
-        onClick={approveAndSend}
-        disabled={pending}
-        className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg disabled:opacity-60"
-      >
-        {pending ? "Approving…" : "Approve & send"}
-      </button>
-      {copyBtn}
-      <span className="text-xs text-muted">
-        Opens your mail client — review and hit send there. Briefly never sends on its own.
-      </span>
+    <div className="space-y-2 pt-1">
+      <form action={formAction} className="flex flex-wrap items-center gap-3">
+        <input type="hidden" name="id" value={id} />
+        <button
+          type="submit"
+          disabled={pending}
+          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg disabled:opacity-60"
+        >
+          {pending ? "Sending…" : "Approve & send"}
+        </button>
+        {copyBtn}
+        <a
+          href={mailto}
+          className="text-xs text-muted underline underline-offset-2 hover:text-foreground"
+        >
+          or send from your own mail client
+        </a>
+      </form>
+      {state.error ? (
+        <p className="text-xs text-red-600 dark:text-red-400">{state.error}</p>
+      ) : (
+        <p className="text-xs text-muted">
+          Sends the follow-up to {to} from your firm&apos;s address. Briefly never sends without
+          your approval.
+        </p>
+      )}
     </div>
   );
 }

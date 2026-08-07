@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getMatter } from "@/lib/store";
-import { approveMatter } from "@/app/actions";
+import { approveMatter, approveAndSendMatter } from "@/app/actions";
 import { ReadinessBadge, StatusBadge } from "@/app/ui";
 import { ApproveButton } from "@/app/approve-button";
 import { DraftActions } from "@/app/draft-actions";
@@ -141,7 +141,7 @@ export default async function MatterPage({
               subject={r.draftEmail.subject}
               body={r.draftEmail.body}
               approved={matter.status === "approved"}
-              action={approveMatter}
+              action={approveAndSendMatter}
             />
           </>
         ) : (

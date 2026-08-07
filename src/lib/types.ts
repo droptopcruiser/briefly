@@ -115,6 +115,6 @@ export interface Matter {
   submission: string;
   result: PipelineResult | null;
   status: MatterStatus;
-  /** Set when the human approves; send is not wired (Phase 1.5). */
+  /** Set when the human approves; if there's a draft, the follow-up is sent then. */
   approvedAt: string | null;
 }
