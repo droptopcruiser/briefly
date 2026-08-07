@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { getCurrentAccount } from "@/lib/metering";
+import { getCurrentAccount, intakeAddress } from "@/lib/metering";
 import { senderAddress, isEmailConfigured } from "@/lib/email";
-import { saveFirmName } from "@/app/actions";
+import { saveSettings } from "@/app/actions";
 import { SettingsForm } from "@/app/settings-form";
 
 export default async function SettingsPage() {
@@ -33,8 +33,16 @@ export default async function SettingsPage() {
         </p>
       ) : (
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold tracking-tight">Sender identity</h2>
-          <SettingsForm initialName={currentName} address={address} action={saveFirmName} />
+          <h2 className="text-lg font-semibold tracking-tight">Outbound follow-ups</h2>
+          <SettingsForm
+            initialName={currentName}
+            initialSignature={account.emailSignature ?? ""}
+            initialReplyToMode={account.replyToMode ?? ""}
+            initialReplyToEmail={account.replyToEmail ?? ""}
+            address={address}
+            intakeAddress={intakeAddress(account.inboundToken)}
+            action={saveSettings}
+          />
           <p className="text-xs text-muted max-w-xl">
             Emails send from a shared, verified Briefly address, shown as{" "}
             <span className="font-medium">&ldquo;Briefly on behalf of your firm&rdquo;</span> — honest

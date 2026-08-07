@@ -189,7 +189,9 @@ async function draft(
 The email requests EXACTLY the missing items listed — nothing more.
 Do NOT give advice, legal/financial opinions, or timelines. Do NOT invent facts.
 Address the client by name if provided. Keep it concise and courteous. Plain text only.
-Sign off as "The team" (the professional will edit before sending).`;
+End after the request with a brief courteous closing sentence. Do NOT add a sign-off,
+closing salutation, or signature line (no "Best regards", no name) — the firm's own
+signature is appended automatically.`;
 
   const user = `Client name: ${clientName || "(not provided)"}
 Missing items to request:

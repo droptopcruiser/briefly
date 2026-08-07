@@ -52,6 +52,24 @@ export function senderFrom(firmName?: string | null): string {
   return `"Briefly on behalf of ${name}" <${address}>`;
 }
 
+/**
+ * Compose the final email body sent to the client: the drafted content plus the
+ * firm's signature/footer. The pipeline draft ends WITHOUT a sign-off, so this
+ * provides the closing — the firm's signature when set, otherwise a plain
+ * "Kind regards, {Firm}" (or "The team" before a firm name is set).
+ */
+export function composeEmailBody(
+  draftBody: string,
+  opts: { signature?: string | null; firmName?: string | null },
+): string {
+  const body = draftBody.trim();
+  const signature = opts.signature?.trim();
+  if (signature) return `${body}\n\n${signature}`;
+  const name = opts.firmName?.trim();
+  const closer = name && name !== FIRM_PLACEHOLDER ? name : "The team";
+  return `${body}\n\nKind regards,\n${closer}`;
+}
+
 export interface SendEmailInput {
   to: string;
   subject: string;

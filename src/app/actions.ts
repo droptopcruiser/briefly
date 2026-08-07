@@ -9,10 +9,12 @@ import { createServerSupabase } from "@/lib/supabase-server";
 import {
   QuotaExceededError,
   getCurrentAccount,
-  setFirmName,
+  updateAccountSettings,
+  resolveReplyTo,
   DEFAULT_ACCOUNT_ID,
+  type ReplyToMode,
 } from "@/lib/metering";
-import { isEmailConfigured, sendEmail, senderFrom } from "@/lib/email";
+import { isEmailConfigured, sendEmail, senderFrom, composeEmailBody } from "@/lib/email";
 
 /**
  * Create a matter from a raw client submission and run the intake pipeline.
@@ -92,11 +94,17 @@ export async function approveAndSendMatter(
     };
   }
 
-  // Send as "Briefly on behalf of {Firm}" using the account's firm name.
+  // Send as "Briefly on behalf of {Firm}", with the firm's signature appended and
+  // replies routed per the account's Reply-To preference.
   const from = senderFrom(account?.name);
+  const replyTo = account ? resolveReplyTo(account) ?? undefined : undefined;
+  const body = composeEmailBody(draft.body, {
+    signature: account?.emailSignature,
+    firmName: account?.name,
+  });
 
   try {
-    await sendEmail({ to: draft.to, subject: draft.subject, body: draft.body, from });
+    await sendEmail({ to: draft.to, subject: draft.subject, body, from, replyTo });
   } catch (err) {
     return { ok: false, error: `Send failed: ${err instanceof Error ? err.message : "unknown error"}` };
   }
@@ -109,29 +117,50 @@ export async function approveAndSendMatter(
 }
 
 /** Result of saving account settings, surfaced back to the client UI. */
-export type SettingsResult = { ok: boolean; error?: string; savedName?: string };
+export type SettingsResult = { ok: boolean; error?: string };
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
- * Save the firm name used in the outbound sender line ("Briefly on behalf of
- * {Firm}"). Shaped for `useActionState`.
+ * Save the firm's outbound settings: sender name ("Briefly on behalf of {Firm}"),
+ * signature/footer, and Reply-To preference. Shaped for `useActionState`.
  */
-export async function saveFirmName(
+export async function saveSettings(
   _prev: SettingsResult,
   formData: FormData,
 ): Promise<SettingsResult> {
   await requireUser();
+
   const name = String(formData.get("firmName") ?? "").replace(/["\r\n]/g, "").trim();
   if (!name) return { ok: false, error: "Enter a firm name." };
   if (name.length > 80) return { ok: false, error: "Keep the firm name under 80 characters." };
 
+  const signature = String(formData.get("signature") ?? "").trim();
+  if (signature.length > 1000) {
+    return { ok: false, error: "Keep the signature under 1000 characters." };
+  }
+
+  const rawMode = String(formData.get("replyToMode") ?? "");
+  const replyToMode: ReplyToMode | null =
+    rawMode === "firm" || rawMode === "intake" ? rawMode : null;
+  const replyToEmail = String(formData.get("replyToEmail") ?? "").trim();
+  if (replyToMode === "firm" && !EMAIL_RE.test(replyToEmail)) {
+    return { ok: false, error: "Enter a valid reply-to email address." };
+  }
+
   const account = await getCurrentAccount();
   try {
-    await setFirmName(account?.id ?? DEFAULT_ACCOUNT_ID, name);
+    await updateAccountSettings(account?.id ?? DEFAULT_ACCOUNT_ID, {
+      name,
+      emailSignature: signature || null,
+      replyToMode,
+      replyToEmail: replyToMode === "firm" ? replyToEmail : null,
+    });
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not save." };
   }
   revalidatePath("/app/settings");
-  return { ok: true, savedName: name };
+  return { ok: true };
 }
 
 /** Sign the current user out and return to the public landing page. */

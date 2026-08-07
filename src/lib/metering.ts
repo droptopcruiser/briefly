@@ -23,6 +23,9 @@ export function intakeAddress(inboundToken: string | null): string | null {
   return inboundToken ? `${inboundToken}@${INBOUND_DOMAIN}` : null;
 }
 
+/** Where client replies to a follow-up should land. */
+export type ReplyToMode = "firm" | "intake";
+
 export interface Account {
   id: string;
   name: string;
@@ -34,6 +37,12 @@ export interface Account {
   inboundToken: string | null;
   /** The single owner user (teams come later). Null on the legacy default. */
   ownerUserId: string | null;
+  /** Signature/footer appended to every sent follow-up. Null = a default signoff. */
+  emailSignature: string | null;
+  /** 'firm' -> replyToEmail; 'intake' -> loop into the intake address; null = none. */
+  replyToMode: ReplyToMode | null;
+  /** The firm's own reply address (used when replyToMode === 'firm'). */
+  replyToEmail: string | null;
 }
 
 interface AccountRow {
@@ -44,9 +53,13 @@ interface AccountRow {
   slug: string | null;
   inbound_token: string | null;
   owner_user_id: string | null;
+  email_signature: string | null;
+  reply_to_mode: string | null;
+  reply_to_email: string | null;
 }
 
-const ACCOUNT_COLS = "id,name,plan,credits,slug,inbound_token,owner_user_id";
+const ACCOUNT_COLS =
+  "id,name,plan,credits,slug,inbound_token,owner_user_id,email_signature,reply_to_mode,reply_to_email";
 
 function rowToAccount(r: AccountRow): Account {
   return {
@@ -57,7 +70,17 @@ function rowToAccount(r: AccountRow): Account {
     slug: r.slug,
     inboundToken: r.inbound_token,
     ownerUserId: r.owner_user_id,
+    emailSignature: r.email_signature,
+    replyToMode: r.reply_to_mode === "firm" || r.reply_to_mode === "intake" ? r.reply_to_mode : null,
+    replyToEmail: r.reply_to_email,
   };
+}
+
+/** Resolve the Reply-To address for an account's outbound mail (null = none). */
+export function resolveReplyTo(account: Account): string | null {
+  if (account.replyToMode === "intake") return intakeAddress(account.inboundToken);
+  if (account.replyToMode === "firm") return account.replyToEmail?.trim() || null;
+  return null;
 }
 
 export interface Usage {
@@ -129,6 +152,32 @@ export async function setFirmName(accountId: string, name: string): Promise<void
     .update({ name: name.trim() })
     .eq("id", accountId);
   if (error) throw new Error(`setFirmName: ${error.message}`);
+}
+
+export interface AccountSettingsInput {
+  name: string;
+  emailSignature: string | null;
+  replyToMode: ReplyToMode | null;
+  replyToEmail: string | null;
+}
+
+/** Save the firm's outbound settings (name, signature, reply-to) in one write. */
+export async function updateAccountSettings(
+  accountId: string,
+  s: AccountSettingsInput,
+): Promise<void> {
+  const db = getSupabase();
+  if (!db) return;
+  const { error } = await db
+    .from("accounts")
+    .update({
+      name: s.name.trim(),
+      email_signature: s.emailSignature?.trim() || null,
+      reply_to_mode: s.replyToMode,
+      reply_to_email: s.replyToEmail?.trim() || null,
+    })
+    .eq("id", accountId);
+  if (error) throw new Error(`updateAccountSettings: ${error.message}`);
 }
 
 export async function getUsage(account: Account): Promise<Usage> {

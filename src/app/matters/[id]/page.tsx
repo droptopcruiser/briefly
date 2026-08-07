@@ -7,6 +7,7 @@ import { ApproveButton } from "@/app/approve-button";
 import { DraftActions } from "@/app/draft-actions";
 import { requireUser } from "@/lib/auth";
 import { getCurrentAccount, DEFAULT_ACCOUNT_ID } from "@/lib/metering";
+import { composeEmailBody } from "@/lib/email";
 
 export default async function MatterPage({
   params,
@@ -20,6 +21,15 @@ export default async function MatterPage({
   if (!matter || !matter.result) notFound();
 
   const r = matter.result;
+
+  // What the client will actually receive: draft body + the firm's signature (or
+  // a default signoff). Used for both the preview and the copy/mail-client draft.
+  const emailBody = r.draftEmail
+    ? composeEmailBody(r.draftEmail.body, {
+        signature: account?.emailSignature,
+        firmName: account?.name,
+      })
+    : null;
 
   return (
     <div className="space-y-8">
@@ -134,14 +144,14 @@ export default async function MatterPage({
                 <span className="text-muted">Subject:</span> {r.draftEmail.subject}
               </div>
               <pre className="whitespace-pre-wrap px-4 py-3 text-sm font-sans">
-                {r.draftEmail.body}
+                {emailBody}
               </pre>
             </div>
             <DraftActions
               id={matter.id}
               to={r.draftEmail.to}
               subject={r.draftEmail.subject}
-              body={r.draftEmail.body}
+              body={emailBody ?? r.draftEmail.body}
               approved={matter.status === "approved"}
               action={approveAndSendMatter}
             />

@@ -159,9 +159,6 @@ ${items}
 
 Once you send these over we can move ahead.
 
-Best regards,
-The team
-
 [Draft generated in demo mode — set ANTHROPIC_API_KEY for live drafting.]`,
     };
   }
