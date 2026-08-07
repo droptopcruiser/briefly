@@ -5,9 +5,9 @@ import { getAuthUser } from "@/lib/auth";
 import { signOut } from "./actions";
 
 export const metadata: Metadata = {
-  title: "Briefly — AI intake layer",
+  title: "Briefly — your work, ready when you are",
   description:
-    "Turn a messy client submission into a structured, reviewed, action-ready matter — before you touch it.",
+    "Briefly prepares your work before you get to it — the way your firm works. Client emails arrive as structured, review-ready matters, waiting the moment you sit down.",
 };
 
 export default async function RootLayout({

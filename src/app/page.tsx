@@ -14,11 +14,18 @@ const VERTICALS = [
 
 const FLOW = [
   "A client emails you.",
-  "Briefly identifies which of your intake types it is.",
-  "Extracts everything that type requires.",
+  "Briefly recognises which of your workflows applies.",
+  "Extracts everything that workflow requires.",
   "Shows you exactly what's missing.",
   "Drafts the follow-up for the missing items.",
   "You review and approve.",
+];
+
+// The "moment" — what you open to instead of a pile of unread email.
+const OPENS_TO = [
+  { n: "7", label: "matters ready to review" },
+  { n: "2", label: "waiting on documents" },
+  { n: "4", label: "follow-ups drafted" },
 ];
 
 const COMPARISON = [
@@ -47,23 +54,23 @@ export default async function Landing() {
       {/* Hero */}
       <section className="pt-10 sm:pt-16 flex flex-col items-center text-center gap-6">
         <span className="rounded-full border border-border px-3 py-1 text-xs text-muted">
-          Intake that runs on your rules
+          Prepared before you open it
         </span>
         <h1 className="max-w-3xl text-4xl sm:text-5xl font-semibold tracking-tight text-balance leading-[1.1]">
-          Your workflow. Your rules.
+          Arrive to work
           <br />
-          AI that follows them.
+          that&apos;s ready.
         </h1>
         <p className="max-w-2xl text-lg text-muted">
-          Turn client emails into structured, review-ready matters — using intake workflows{" "}
-          <em>your</em> firm defines, not ours. Same engine, any profession, no code.
+          Briefly prepares your work before you get to it — the way <em>your</em> firm works. Client
+          emails arrive as structured, review-ready matters, waiting the moment you sit down.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
           <a
-            href={EARLY_ACCESS}
+            href="#moment"
             className="rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-accent-fg hover:opacity-90"
           >
-            Request early access
+            See what you&apos;d open to
           </a>
           <a
             href="#how"
@@ -74,16 +81,50 @@ export default async function Landing() {
         </div>
       </section>
 
+      {/* The moment — what you open to instead of an inbox */}
+      <section id="moment" className="space-y-8 scroll-mt-20">
+        <div className="space-y-2 text-center">
+          <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight text-balance">
+            You don&apos;t open an inbox. You open your work.
+          </h2>
+          <p className="text-muted max-w-xl mx-auto">
+            Overnight, Briefly did the preparation. This is what&apos;s waiting when you sit down.
+          </p>
+        </div>
+        <div className="mx-auto grid max-w-3xl gap-4 sm:grid-cols-2 sm:items-stretch">
+          {/* The old way */}
+          <div className="rounded-xl border border-border bg-surface/50 p-6 flex flex-col justify-center">
+            <div className="text-xs uppercase tracking-wide text-muted">Without Briefly</div>
+            <div className="mt-3 text-4xl font-semibold tabular-nums text-muted">43</div>
+            <div className="text-sm text-muted">unread emails to triage</div>
+          </div>
+          {/* The Briefly way */}
+          <div className="rounded-xl border border-accent bg-surface p-6 space-y-3">
+            <div className="text-xs uppercase tracking-wide text-accent">With Briefly</div>
+            <ul className="space-y-2">
+              {OPENS_TO.map((o) => (
+                <li key={o.label} className="flex items-baseline gap-3">
+                  <span className="text-2xl font-semibold tabular-nums text-accent w-8 shrink-0">
+                    {o.n}
+                  </span>
+                  <span className="text-sm">{o.label}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
+
       {/* The differentiator — right away */}
       <section className="space-y-6 text-center">
         <div className="space-y-3 max-w-2xl mx-auto">
           <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight text-balance">
-            Most AI makes you adapt to it. Briefly adapts to you.
+            Teach Briefly how your business works.
           </h2>
           <p className="text-muted">
-            Every practice works differently. So you define your own intake types — the facts to
-            capture, the documents required, what makes a matter complete. Briefly learns your
-            workflow, not the other way around.
+            Show it once — the facts you capture, the documents you require, what &ldquo;complete&rdquo;
+            means for you. From then on, every client email follows your workflow automatically.
+            Most AI makes you adapt to it. Briefly adapts to you.
           </p>
         </div>
         <div className="flex flex-wrap justify-center gap-2 text-sm">
@@ -181,11 +222,12 @@ export default async function Landing() {
       {/* Vision seed */}
       <section className="rounded-2xl border border-border bg-surface p-8 sm:p-12 text-center space-y-4">
         <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight text-balance">
-          Stop working from your inbox.
+          Email is where conversations begin.
+          <br className="hidden sm:block" /> Briefly is where work begins.
         </h2>
         <p className="text-muted max-w-xl mx-auto">
-          Every client email becomes structured, review-ready work — before you even open it. That&apos;s
-          where Briefly is headed: the place your client work begins.
+          Today that work arrives by email. Tomorrow it&apos;s forms, voice, and messages too — all
+          prepared the same way, in your workflow, before you get to it.
         </p>
       </section>
 
@@ -251,7 +293,7 @@ export default async function Landing() {
       {/* Closing */}
       <section className="text-center space-y-5">
         <h2 className="text-2xl font-semibold tracking-tight text-balance">
-          Build your own intake. Let Briefly run it.
+          Arrive to work that&apos;s already prepared.
         </h2>
         <div className="flex justify-center">
           <a
