@@ -1,4 +1,5 @@
-import { ingestSubmission } from "@/lib/ingest";
+import { ingestSubmission, ingestReply } from "@/lib/ingest";
+import { getMatter, findOpenMatterByClient } from "@/lib/store";
 import { QuotaExceededError, getAccountByInboundToken } from "@/lib/metering";
 
 // Runs the pipeline (3 sequential Haiku calls, ~10-20s) — give it headroom.
@@ -67,21 +68,28 @@ function parseEmail(f: Record<string, unknown>) {
 }
 
 /**
- * The intake localpart the email was delivered to — this is how we route to the
- * owning firm. For forwarded mail, Postmark's OriginalRecipient is the intake
- * address (not the client's original To), so it takes priority.
+ * The intake localpart the email was delivered to. Routes to the owning firm and,
+ * for replies to a follow-up, carries a `+{matterId}` sub-address so we can thread
+ * the reply back to the exact matter. For forwarded mail, Postmark's
+ * OriginalRecipient is the intake address (not the client's To), so it wins.
  */
-function recipientToken(f: Record<string, unknown>): string | null {
+function recipientParts(f: Record<string, unknown>): { token: string | null; matterRef: string | null } {
   const toFull = f.ToFull as Array<Record<string, unknown>> | undefined;
   const raw =
     str(f.OriginalRecipient) ||
     str(toFull?.[0]?.Email) ||
     str(f.To || f.to || f.recipient);
-  if (!raw) return null;
+  if (!raw) return { token: null, matterRef: null };
   const angle = raw.match(/<([^>]+)>/);
   const email = (angle ? angle[1] : raw).trim().toLowerCase();
   const at = email.indexOf("@");
-  return at > 0 ? email.slice(0, at) : null;
+  if (at <= 0) return { token: null, matterRef: null };
+  const localpart = email.slice(0, at);
+  const plus = localpart.indexOf("+");
+  if (plus >= 0) {
+    return { token: localpart.slice(0, plus), matterRef: localpart.slice(plus + 1) || null };
+  }
+  return { token: localpart, matterRef: null };
 }
 
 export async function POST(req: Request): Promise<Response> {
@@ -115,17 +123,33 @@ export async function POST(req: Request): Promise<Response> {
 
   // Route to the firm whose intake address this was sent to. Unknown address =>
   // skip (200 so the provider doesn't retry); no tokens are spent.
-  const token = recipientToken(fields);
+  const { token, matterRef } = recipientParts(fields);
   const account = token ? await getAccountByInboundToken(token) : null;
   if (!account) {
     return jsonResponse(200, { status: "skipped", reason: "unknown_recipient" });
   }
 
-  const submission = email.subject
-    ? `Subject: ${email.subject}\n\n${email.body}`
-    : email.body;
+  // Is this a reply to an existing matter? Prefer the tagged matter id, else fall
+  // back to the most recent open matter from this client's email address.
+  let existing = matterRef ? await getMatter(matterRef, account.id) : null;
+  if (!existing && email.fromEmail) {
+    existing = await findOpenMatterByClient(account.id, email.fromEmail);
+  }
 
   try {
+    if (existing) {
+      const matter = await ingestReply({ account, matter: existing, message: email.body });
+      return jsonResponse(200, {
+        id: matter.id,
+        status: matter.status,
+        readiness: matter.result?.readiness ?? null,
+        threaded: true,
+      });
+    }
+
+    const submission = email.subject
+      ? `Subject: ${email.subject}\n\n${email.body}`
+      : email.body;
     const matter = await ingestSubmission({
       submission,
       account,

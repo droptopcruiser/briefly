@@ -25,6 +25,7 @@ interface MatterRow {
   status: MatterStatus;
   approved_at: string | null;
   assigned_to: string | null;
+  updated_at: string | null;
 }
 
 function rowToMatter(r: MatterRow): Matter {
@@ -39,6 +40,7 @@ function rowToMatter(r: MatterRow): Matter {
     status: r.status,
     approvedAt: r.approved_at,
     assignedTo: r.assigned_to ?? null,
+    updatedAt: r.updated_at ?? r.created_at,
   };
 }
 
@@ -54,6 +56,7 @@ function matterToRow(m: Matter): MatterRow {
     status: m.status,
     approved_at: m.approvedAt,
     assigned_to: m.assignedTo ?? null,
+    updated_at: m.updatedAt ?? m.createdAt,
   };
 }
 
@@ -98,6 +101,7 @@ export async function listMatters(
   opts: { assignee?: string | "unassigned"; limit?: number } = {},
 ): Promise<Matter[]> {
   const { assignee, limit = 50 } = opts;
+  const sortKey = (m: Matter) => m.updatedAt ?? m.createdAt;
   const db = getSupabase();
   if (!db) {
     return [...memory.values()]
@@ -109,7 +113,7 @@ export async function listMatters(
             ? !m.assignedTo
             : m.assignedTo === assignee,
       )
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .sort((a, b) => sortKey(b).localeCompare(sortKey(a)))
       .slice(0, limit);
   }
   let query = db.from("matters").select("*").eq("account_id", accountId);
@@ -117,8 +121,41 @@ export async function listMatters(
   else if (assignee) query = query.eq("assigned_to", assignee);
 
   const { data, error } = await query
-    .order("created_at", { ascending: false })
+    .order("updated_at", { ascending: false })
     .limit(limit);
   if (error) throw new Error(`listMatters: ${error.message}`);
   return (data as MatterRow[]).map(rowToMatter);
+}
+
+/**
+ * The most recent non-approved matter for a client (by email) in an account — the
+ * threading fallback when a reply arrives without a matter tag.
+ */
+export async function findOpenMatterByClient(
+  accountId: string,
+  email: string,
+): Promise<Matter | null> {
+  const db = getSupabase();
+  if (!db) {
+    return (
+      [...memory.values()]
+        .filter(
+          (m) =>
+            m.accountId === accountId &&
+            m.status !== "approved" &&
+            m.clientEmail?.toLowerCase() === email.toLowerCase(),
+        )
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null
+    );
+  }
+  const { data, error } = await db
+    .from("matters")
+    .select("*")
+    .eq("account_id", accountId)
+    .neq("status", "approved")
+    .ilike("client_email", email)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error) throw new Error(`findOpenMatterByClient: ${error.message}`);
+  return data?.[0] ? rowToMatter(data[0] as MatterRow) : null;
 }

@@ -119,4 +119,6 @@ export interface Matter {
   approvedAt: string | null;
   /** Team member (user id) this matter is assigned to, or null (unassigned). */
   assignedTo: string | null;
+  /** Bumped on every change (reply, approve, assign) so active matters sort first. */
+  updatedAt: string | null;
 }

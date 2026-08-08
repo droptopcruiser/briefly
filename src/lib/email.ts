@@ -70,6 +70,29 @@ export function composeEmailBody(
   return `${body}\n\nKind regards,\n${closer}`;
 }
 
+/**
+ * The "Ready for you" nudge — sent to the assignee/owner when a client reply
+ * completes a matter. Internal (to the firm), so it uses the firm sender line.
+ */
+export async function sendMatterReadyEmail(
+  to: string,
+  firmName: string,
+  clientName: string | null,
+  matterUrl: string,
+): Promise<void> {
+  const who = clientName || "A matter";
+  await sendEmail({
+    to,
+    from: senderFrom(firmName),
+    subject: `Ready for review: ${who}`,
+    body: `${who} is now ready for your review — everything required is in.
+
+Open it: ${matterUrl}
+
+— Briefly`,
+  });
+}
+
 export interface SendEmailInput {
   to: string;
   subject: string;

@@ -12,11 +12,12 @@ import {
   requireAccount,
   requireManager,
   updateAccountSettings,
-  resolveReplyTo,
   DEFAULT_ACCOUNT_ID,
+  INBOUND_DOMAIN,
   type ReplyToMode,
 } from "@/lib/metering";
 import { setAssignee } from "@/lib/team";
+import { addEvent } from "@/lib/events";
 import { isEmailConfigured, sendEmail, senderFrom, composeEmailBody } from "@/lib/email";
 
 /**
@@ -58,7 +59,9 @@ export async function approveMatter(formData: FormData): Promise<void> {
   if (!matter) return;
   matter.status = "approved";
   matter.approvedAt = new Date().toISOString();
+  matter.updatedAt = matter.approvedAt;
   await saveMatter(matter);
+  await addEvent(matter.accountId, matter.id, "approved", "Approved");
   revalidatePath(`/matters/${id}`);
 }
 
@@ -97,10 +100,16 @@ export async function approveAndSendMatter(
     };
   }
 
-  // Send as "Briefly on behalf of {Firm}", with the firm's signature appended and
-  // replies routed per the account's Reply-To preference.
+  // Send as "Briefly on behalf of {Firm}", signature appended. Reply-To carries a
+  // per-matter tag so the client's reply threads back to THIS matter and re-scores
+  // it — unless the firm chose to route replies to its own inbox.
   const from = senderFrom(account?.name);
-  const replyTo = account ? resolveReplyTo(account) ?? undefined : undefined;
+  const replyTo =
+    account?.replyToMode === "firm"
+      ? account.replyToEmail?.trim() || undefined
+      : account?.inboundToken
+        ? `${account.inboundToken}+${matter.id}@${INBOUND_DOMAIN}`
+        : undefined;
   const body = composeEmailBody(draft.body, {
     signature: account?.emailSignature,
     firmName: account?.name,
@@ -114,7 +123,9 @@ export async function approveAndSendMatter(
 
   matter.status = "approved";
   matter.approvedAt = new Date().toISOString();
+  matter.updatedAt = matter.approvedAt;
   await saveMatter(matter);
+  await addEvent(matter.accountId, matter.id, "sent", "Follow-up sent to client · approved");
   revalidatePath(`/matters/${id}`);
   return { ok: true };
 }
@@ -126,6 +137,7 @@ export async function approveAndSendMatter(
 export async function assignMatter(matterId: string, userId: string | null): Promise<void> {
   const account = await requireAccount();
   await setAssignee(account.id, matterId, userId || null);
+  await addEvent(account.id, matterId, "assigned", userId ? "Assigned to a teammate" : "Unassigned");
   revalidatePath(`/matters/${matterId}`);
   revalidatePath("/app");
 }

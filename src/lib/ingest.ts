@@ -1,7 +1,10 @@
 import { randomUUID } from "crypto";
-import { runPipeline } from "./pipeline";
+import { runPipeline, rescoreWithRubric } from "./pipeline";
 import { saveMatter } from "./store";
 import { getEffectiveRubrics } from "./rubric-store";
+import { addEvent } from "./events";
+import { listMembers } from "./team";
+import { isEmailConfigured, sendMatterReadyEmail } from "./email";
 import {
   getUsage,
   consumeCreditIfOverCap,
@@ -10,6 +13,8 @@ import {
   type Account,
 } from "./metering";
 import type { Matter } from "./types";
+
+const APP_URL = process.env.APP_URL ?? "https://briefly-psi-lake.vercel.app";
 
 /**
  * Turn a raw submission into a saved, processed matter. Shared by the manual
@@ -56,9 +61,10 @@ export async function ingestSubmission(opts: {
     result.draftEmail.to = clientEmail;
   }
 
+  const now = new Date().toISOString();
   const matter: Matter = {
     id: randomUUID(),
-    createdAt: new Date().toISOString(),
+    createdAt: now,
     accountId: account?.id ?? DEFAULT_ACCOUNT_ID,
     clientName,
     clientEmail,
@@ -67,9 +73,100 @@ export async function ingestSubmission(opts: {
     status: result.readiness >= 100 ? "ready_for_review" : "needs_info",
     approvedAt: null,
     assignedTo: null,
+    updatedAt: now,
   };
 
   await saveMatter(matter);
   if (account) await consumeCreditIfOverCap(account, usedBefore);
+  await addEvent(matter.accountId, matter.id, "created", `New matter · ${result.readiness}% ready`);
   return matter;
+}
+
+/**
+ * Fold a client's reply into an EXISTING matter: append the message, re-score
+ * against the matter's rubric (no re-classification), advance the status, and log
+ * the lifecycle events. Replies aren't new matters — no metering — and never
+ * downgrade an already-approved matter. Fires the "ready for review" nudge when a
+ * reply completes the matter.
+ */
+export async function ingestReply(opts: {
+  account: Account | null;
+  matter: Matter;
+  message: string;
+}): Promise<Matter> {
+  const { account, matter } = opts;
+  const message = opts.message.trim();
+
+  const prevReadiness = matter.result?.readiness ?? 0;
+  const prevStatus = matter.status;
+  const wasApproved = prevStatus === "approved";
+
+  const rubrics = await getEffectiveRubrics(account?.id ?? matter.accountId);
+  const rubric = rubrics.find((r) => r.id === matter.result?.rubricId) ?? rubrics[0];
+
+  const combined = `${matter.submission}\n\n--- Client reply (${new Date()
+    .toISOString()
+    .slice(0, 10)}) ---\n${message}`;
+  const result = await rescoreWithRubric(combined, rubric);
+
+  // Keep the original client identity.
+  result.clientName = matter.clientName ?? result.clientName;
+  result.clientEmail = matter.clientEmail ?? result.clientEmail;
+  if (result.draftEmail && !result.draftEmail.to) result.draftEmail.to = result.clientEmail;
+
+  matter.submission = combined;
+  matter.result = result;
+  matter.updatedAt = new Date().toISOString();
+  if (!wasApproved) {
+    matter.status = result.readiness >= 100 ? "ready_for_review" : "needs_info";
+  }
+
+  await saveMatter(matter);
+
+  const acct = account?.id ?? matter.accountId;
+  await addEvent(acct, matter.id, "client_replied", "Client replied");
+  if (result.readiness !== prevReadiness) {
+    await addEvent(
+      acct,
+      matter.id,
+      "readiness_changed",
+      `Readiness ${prevReadiness}% → ${result.readiness}%`,
+    );
+  }
+
+  const becameReady =
+    !wasApproved && prevStatus !== "ready_for_review" && matter.status === "ready_for_review";
+  if (becameReady) {
+    await addEvent(
+      acct,
+      matter.id,
+      "became_ready",
+      "Everything required is now present — ready for review",
+    );
+    await notifyReady(account, matter);
+  }
+
+  return matter;
+}
+
+/** Email the assignee (or the firm owner) that a matter is ready for review. */
+async function notifyReady(account: Account | null, matter: Matter): Promise<void> {
+  if (!account || !isEmailConfigured()) return;
+  try {
+    const members = await listMembers(account.id);
+    let to: string | null = null;
+    if (matter.assignedTo) {
+      to = members.find((m) => m.userId === matter.assignedTo)?.email ?? null;
+    }
+    if (!to) to = members.find((m) => m.role === "owner")?.email ?? null;
+    if (!to) return;
+    await sendMatterReadyEmail(
+      to,
+      account.name,
+      matter.clientName,
+      `${APP_URL}/matters/${matter.id}`,
+    );
+  } catch (err) {
+    console.error("notifyReady failed:", err);
+  }
 }

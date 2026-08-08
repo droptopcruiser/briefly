@@ -178,7 +178,7 @@ export async function setAssignee(
 
   const { error } = await db
     .from("matters")
-    .update({ assigned_to: userId })
+    .update({ assigned_to: userId, updated_at: new Date().toISOString() })
     .eq("id", matterId)
     .eq("account_id", accountId);
   if (error) throw new Error(`setAssignee: ${error.message}`);

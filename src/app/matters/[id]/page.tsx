@@ -8,6 +8,7 @@ import { DraftActions } from "@/app/draft-actions";
 import { AssignControl } from "@/app/assign-control";
 import { requireAccount } from "@/lib/metering";
 import { listMembers } from "@/lib/team";
+import { listEvents } from "@/lib/events";
 import { assignMatter } from "@/app/actions";
 import { composeEmailBody } from "@/lib/email";
 
@@ -26,6 +27,8 @@ export default async function MatterPage({
     userId: m.userId,
     label: m.name || m.email || "Teammate",
   }));
+
+  const events = await listEvents(matter.id);
 
   const r = matter.result;
 
@@ -189,6 +192,24 @@ export default async function MatterPage({
           </>
         )}
       </section>
+
+      {/* Activity trail — the lifecycle over time */}
+      {events.length > 0 ? (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold tracking-tight">Activity</h2>
+          <ol className="relative space-y-4 border-l border-border pl-5">
+            {events.map((e) => (
+              <li key={e.id} className="relative">
+                <span className="absolute -left-[1.42rem] top-1.5 h-2 w-2 rounded-full bg-accent" />
+                <div className="text-sm">{e.detail ?? e.type}</div>
+                <div className="text-xs text-muted tabular-nums">
+                  {new Date(e.createdAt).toLocaleString()}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
     </div>
   );
 }

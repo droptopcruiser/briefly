@@ -216,22 +216,22 @@ ${missing}`;
   return { out: data, costCents };
 }
 
-/** Run the full pipeline for one submission against the given rubric set. */
-export async function runPipeline(
+/**
+ * Extract → normalise → gaps → readiness → draft, against a KNOWN rubric (post
+ * classification). Shared by the full pipeline and by re-scoring a matter after a
+ * client reply.
+ */
+async function buildResult(
   submission: string,
-  rubrics: Rubric[] = SEED_RUBRICS,
+  rubric: Rubric,
+  opts: {
+    classificationConfidence: number;
+    costBefore: number;
+    fallbackName?: string | null;
+    fallbackEmail?: string | null;
+  },
 ): Promise<PipelineResult> {
-  const activeRubrics = rubrics.length > 0 ? rubrics : SEED_RUBRICS;
-
-  if (!isConfigured()) {
-    return runMockPipeline(submission, activeRubrics);
-  }
-
-  let costCents = 0;
-
-  const { out: cls, costCents: c1 } = await classify(submission, activeRubrics);
-  costCents += c1;
-  const rubric = activeRubrics.find((r) => r.id === cls.rubricId) ?? activeRubrics[0];
+  let costCents = opts.costBefore;
 
   const { out: ext, costCents: c2 } = await extract(submission, rubric);
   costCents += c2;
@@ -256,8 +256,8 @@ export async function runPipeline(
   const gaps = computeGaps(rubric, fields, documentsPresent);
   const readiness = computeReadiness(rubric, gaps);
 
-  const clientName = ext.clientName?.trim() || cls.clientName?.trim() || null;
-  const clientEmail = ext.clientEmail?.trim() || cls.clientEmail?.trim() || null;
+  const clientName = ext.clientName?.trim() || opts.fallbackName || null;
+  const clientEmail = ext.clientEmail?.trim() || opts.fallbackEmail || null;
 
   let draftEmail: DraftEmail | null = null;
   if (gaps.length > 0) {
@@ -270,7 +270,7 @@ export async function runPipeline(
     rubricId: rubric.id,
     rubricName: rubric.name,
     vertical: rubric.vertical,
-    classificationConfidence: cls.confidence,
+    classificationConfidence: opts.classificationConfidence,
     clientName,
     clientEmail,
     summary: ext.summary,
@@ -283,4 +283,38 @@ export async function runPipeline(
     costCents,
     mocked: false,
   };
+}
+
+/** Run the full pipeline for one submission against the given rubric set. */
+export async function runPipeline(
+  submission: string,
+  rubrics: Rubric[] = SEED_RUBRICS,
+): Promise<PipelineResult> {
+  const activeRubrics = rubrics.length > 0 ? rubrics : SEED_RUBRICS;
+
+  if (!isConfigured()) {
+    return runMockPipeline(submission, activeRubrics);
+  }
+
+  const { out: cls, costCents: c1 } = await classify(submission, activeRubrics);
+  const rubric = activeRubrics.find((r) => r.id === cls.rubricId) ?? activeRubrics[0];
+
+  return buildResult(submission, rubric, {
+    classificationConfidence: cls.confidence,
+    costBefore: c1,
+    fallbackName: cls.clientName?.trim() || null,
+    fallbackEmail: cls.clientEmail?.trim() || null,
+  });
+}
+
+/**
+ * Re-score a matter against its existing rubric (no re-classification) — used when
+ * a client reply is folded in and readiness may have climbed.
+ */
+export async function rescoreWithRubric(
+  submission: string,
+  rubric: Rubric,
+): Promise<PipelineResult> {
+  if (!isConfigured()) return runMockPipeline(submission, [rubric]);
+  return buildResult(submission, rubric, { classificationConfidence: 1, costBefore: 0 });
 }
