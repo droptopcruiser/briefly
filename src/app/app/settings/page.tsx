@@ -37,6 +37,7 @@ export default async function SettingsPage() {
             initialSignature={account.emailSignature ?? ""}
             initialReplyToMode={account.replyToMode ?? ""}
             initialReplyToEmail={account.replyToEmail ?? ""}
+            initialTimezone={account.timezone ?? ""}
             address={address}
             intakeAddress={intakeAddress(account.inboundToken)}
             action={saveSettings}

@@ -13,6 +13,7 @@ export function SettingsForm({
   initialSignature,
   initialReplyToMode,
   initialReplyToEmail,
+  initialTimezone,
   address,
   intakeAddress,
   action,
@@ -21,6 +22,7 @@ export function SettingsForm({
   initialSignature: string;
   initialReplyToMode: "" | "firm" | "intake";
   initialReplyToEmail: string;
+  initialTimezone: string;
   address: string;
   intakeAddress: string | null;
   action: (prev: SettingsResult, formData: FormData) => Promise<SettingsResult>;
@@ -31,6 +33,14 @@ export function SettingsForm({
   const [state, formAction, pending] = useActionState<SettingsResult, FormData>(action, {
     ok: false,
   });
+
+  // All IANA zones (modern browsers); default to the firm's saved zone or this
+  // browser's zone so the field is never empty.
+  const supported = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] })
+    .supportedValuesOf;
+  const zones = supported ? supported("timeZone") : [];
+  const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const [tz, setTz] = useState(initialTimezone || browserTz);
 
   const trimmed = name.trim();
   const preview = trimmed
@@ -150,6 +160,39 @@ export function SettingsForm({
           </span>
         </label>
       </fieldset>
+
+      {/* Timezone */}
+      <div className="space-y-1.5">
+        <label htmlFor="timezone" className="text-sm font-medium">
+          Timezone
+        </label>
+        {zones.length > 0 ? (
+          <select
+            id="timezone"
+            name="timezone"
+            value={tz}
+            onChange={(e) => setTz(e.target.value)}
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+          >
+            {zones.map((z) => (
+              <option key={z} value={z}>
+                {z.replace(/_/g, " ")}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            id="timezone"
+            name="timezone"
+            value={tz}
+            onChange={(e) => setTz(e.target.value)}
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+          />
+        )}
+        <p className="text-xs text-muted">
+          Used for your &ldquo;this month&rdquo; usage and stats boundaries.
+        </p>
+      </div>
 
       <div className="flex items-center gap-3">
         <button

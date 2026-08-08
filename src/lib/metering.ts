@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getSupabase } from "./supabase";
 import { planFor } from "./plans";
 import { getAuthUser, requireUser } from "./auth";
+import { monthStartISO } from "./month";
 
 /**
  * Metering: usage counting + hard caps, provider-agnostic. Usage is the number
@@ -45,6 +46,8 @@ export interface Account {
   replyToMode: ReplyToMode | null;
   /** The firm's own reply address (used when replyToMode === 'firm'). */
   replyToEmail: string | null;
+  /** IANA timezone for "this month" boundaries (usage + stats). Null = UTC. */
+  timezone: string | null;
 }
 
 interface AccountRow {
@@ -58,10 +61,11 @@ interface AccountRow {
   email_signature: string | null;
   reply_to_mode: string | null;
   reply_to_email: string | null;
+  timezone: string | null;
 }
 
 const ACCOUNT_COLS =
-  "id,name,plan,credits,slug,inbound_token,owner_user_id,email_signature,reply_to_mode,reply_to_email";
+  "id,name,plan,credits,slug,inbound_token,owner_user_id,email_signature,reply_to_mode,reply_to_email,timezone";
 
 function rowToAccount(r: AccountRow): Account {
   return {
@@ -75,6 +79,7 @@ function rowToAccount(r: AccountRow): Account {
     emailSignature: r.email_signature,
     replyToMode: r.reply_to_mode === "firm" || r.reply_to_mode === "intake" ? r.reply_to_mode : null,
     replyToEmail: r.reply_to_email,
+    timezone: r.timezone,
   };
 }
 
@@ -173,11 +178,6 @@ export class QuotaExceededError extends Error {
   }
 }
 
-function monthStartISO(): string {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
-}
-
 /** Look up an account by id. Null when not found or metering is disabled. */
 export async function getAccountById(id: string): Promise<Account | null> {
   const db = getSupabase();
@@ -232,9 +232,10 @@ export interface AccountSettingsInput {
   emailSignature: string | null;
   replyToMode: ReplyToMode | null;
   replyToEmail: string | null;
+  timezone: string | null;
 }
 
-/** Save the firm's outbound settings (name, signature, reply-to) in one write. */
+/** Save the firm's settings (name, signature, reply-to, timezone) in one write. */
 export async function updateAccountSettings(
   accountId: string,
   s: AccountSettingsInput,
@@ -248,6 +249,7 @@ export async function updateAccountSettings(
       email_signature: s.emailSignature?.trim() || null,
       reply_to_mode: s.replyToMode,
       reply_to_email: s.replyToEmail?.trim() || null,
+      timezone: s.timezone?.trim() || null,
     })
     .eq("id", accountId);
   if (error) throw new Error(`updateAccountSettings: ${error.message}`);
@@ -259,7 +261,7 @@ export async function getUsage(account: Account): Promise<Usage> {
     .from("matters")
     .select("id", { count: "exact", head: true })
     .eq("account_id", account.id)
-    .gte("created_at", monthStartISO());
+    .gte("created_at", monthStartISO(account.timezone));
 
   const used = count ?? 0;
   const plan = planFor(account.plan);

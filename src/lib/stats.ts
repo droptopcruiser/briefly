@@ -1,4 +1,5 @@
 import { getSupabase } from "./supabase";
+import { monthStartISO } from "./month";
 
 /**
  * Account activity stats for the dashboard overview. "Hours saved" is an
@@ -16,12 +17,10 @@ export interface MonthStats {
   hoursSaved: number;
 }
 
-function monthStartISO(): string {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
-}
-
-export async function getMonthStats(accountId: string): Promise<MonthStats | null> {
+export async function getMonthStats(
+  accountId: string,
+  timezone?: string | null,
+): Promise<MonthStats | null> {
   const db = getSupabase();
   if (!db) return null;
 
@@ -29,7 +28,7 @@ export async function getMonthStats(accountId: string): Promise<MonthStats | nul
     .from("matters")
     .select("status")
     .eq("account_id", accountId)
-    .gte("created_at", monthStartISO());
+    .gte("created_at", monthStartISO(timezone));
   if (error) throw new Error(`getMonthStats: ${error.message}`);
 
   const rows = (data ?? []) as { status: string }[];

@@ -148,6 +148,8 @@ export async function saveSettings(
     return { ok: false, error: "Enter a valid reply-to email address." };
   }
 
+  const timezone = String(formData.get("timezone") ?? "").trim() || null;
+
   const account = await getCurrentAccount();
   try {
     await updateAccountSettings(account?.id ?? DEFAULT_ACCOUNT_ID, {
@@ -155,6 +157,7 @@ export async function saveSettings(
       emailSignature: signature || null,
       replyToMode,
       replyToEmail: replyToMode === "firm" ? replyToEmail : null,
+      timezone,
     });
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not save." };

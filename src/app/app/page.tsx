@@ -19,7 +19,7 @@ export default async function Dashboard() {
   const live = isConfigured();
   const db = isSupabaseConfigured();
   const usage = await getUsage(account);
-  const stats = await getMonthStats(account.id);
+  const stats = await getMonthStats(account.id, account.timezone);
   const matters = await listMatters(account.id, 20);
   const blocked = usage.blocked;
   const intake = intakeAddress(account.inboundToken);
