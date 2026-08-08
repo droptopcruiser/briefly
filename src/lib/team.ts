@@ -58,12 +58,31 @@ export async function inviteMember(
 ): Promise<void> {
   const db = getSupabase();
   if (!db) return;
-  const { error } = await db
+  const lower = email.toLowerCase();
+
+  // Already on the team?
+  const { data: member } = await db
+    .from("account_members")
+    .select("user_id")
+    .eq("account_id", accountId)
+    .eq("email", lower)
+    .maybeSingle();
+  if (member) throw new Error("That person is already a member of your firm.");
+
+  // Upsert the invite (the unique index is on lower(email), an expression index,
+  // so we can't use ON CONFLICT — check for an existing invite, then update/insert).
+  const { data: existing } = await db
     .from("account_invites")
-    .upsert(
-      { account_id: accountId, email: email.toLowerCase(), role, invited_by: invitedBy },
-      { onConflict: "account_id,email" },
-    );
+    .select("id")
+    .eq("account_id", accountId)
+    .eq("email", lower)
+    .maybeSingle();
+
+  const { error } = existing
+    ? await db.from("account_invites").update({ role, invited_by: invitedBy }).eq("id", existing.id)
+    : await db
+        .from("account_invites")
+        .insert({ account_id: accountId, email: lower, role, invited_by: invitedBy });
   if (error) throw new Error(`inviteMember: ${error.message}`);
 }
 
