@@ -1,5 +1,5 @@
 import { ingestSubmission } from "@/lib/ingest";
-import { QuotaExceededError, getAccountById, DEFAULT_ACCOUNT_ID } from "@/lib/metering";
+import { QuotaExceededError, getAccountByInboundToken } from "@/lib/metering";
 
 // Runs the pipeline (3 sequential Haiku calls, ~10-20s) — give it headroom.
 export const maxDuration = 60;
@@ -66,6 +66,24 @@ function parseEmail(f: Record<string, unknown>) {
   };
 }
 
+/**
+ * The intake localpart the email was delivered to — this is how we route to the
+ * owning firm. For forwarded mail, Postmark's OriginalRecipient is the intake
+ * address (not the client's original To), so it takes priority.
+ */
+function recipientToken(f: Record<string, unknown>): string | null {
+  const toFull = f.ToFull as Array<Record<string, unknown>> | undefined;
+  const raw =
+    str(f.OriginalRecipient) ||
+    str(toFull?.[0]?.Email) ||
+    str(f.To || f.to || f.recipient);
+  if (!raw) return null;
+  const angle = raw.match(/<([^>]+)>/);
+  const email = (angle ? angle[1] : raw).trim().toLowerCase();
+  const at = email.indexOf("@");
+  return at > 0 ? email.slice(0, at) : null;
+}
+
 export async function POST(req: Request): Promise<Response> {
   const secret = process.env.INBOUND_WEBHOOK_SECRET;
   if (!secret) {
@@ -95,14 +113,19 @@ export async function POST(req: Request): Promise<Response> {
     return jsonResponse(400, { error: "empty email body" });
   }
 
+  // Route to the firm whose intake address this was sent to. Unknown address =>
+  // skip (200 so the provider doesn't retry); no tokens are spent.
+  const token = recipientToken(fields);
+  const account = token ? await getAccountByInboundToken(token) : null;
+  if (!account) {
+    return jsonResponse(200, { status: "skipped", reason: "unknown_recipient" });
+  }
+
   const submission = email.subject
     ? `Subject: ${email.subject}\n\n${email.body}`
     : email.body;
 
   try {
-    // Phase A: all inbound still routes to the default account. Phase C resolves
-    // the owning account from the recipient localpart (per-firm intake address).
-    const account = await getAccountById(DEFAULT_ACCOUNT_ID);
     const matter = await ingestSubmission({
       submission,
       account,
