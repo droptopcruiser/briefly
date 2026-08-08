@@ -3,8 +3,9 @@ import Link from "next/link";
 import "./globals.css";
 import { getAuthUser } from "@/lib/auth";
 import { getNotifications } from "@/lib/notifications";
+import { getCurrentProfile } from "@/lib/profile";
 import { NotificationBell } from "./notification-bell";
-import { signOut } from "./actions";
+import { ProfileMenu } from "./profile-menu";
 
 export const metadata: Metadata = {
   title: "Briefly — your work, ready when you are",
@@ -18,6 +19,7 @@ export default async function RootLayout({
   // Non-redirecting read, so /login and /access-denied still render.
   const user = await getAuthUser();
   const notifications = user ? await getNotifications() : null;
+  const profile = user ? await getCurrentProfile() : null;
 
   return (
     <html lang="en" className="h-full antialiased">
@@ -35,15 +37,7 @@ export default async function RootLayout({
                 <Link href="/app" className="hover:text-foreground">
                   Dashboard
                 </Link>
-                <span className="hidden sm:inline">{user.email}</span>
-                <form action={signOut}>
-                  <button
-                    type="submit"
-                    className="rounded-md border border-border px-2.5 py-1 hover:bg-background hover:text-foreground"
-                  >
-                    Sign out
-                  </button>
-                </form>
+                {profile ? <ProfileMenu profile={profile} /> : null}
               </div>
             ) : (
               <Link
