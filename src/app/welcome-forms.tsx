@@ -37,11 +37,8 @@ export function InviteForm({ action }: { action: Action }) {
       </div>
       <p className="text-xs text-muted">
         Briefly is invite-only during early access. Don&apos;t have a code?{" "}
-        <a
-          href="mailto:luke@brieflyhub.app?subject=Briefly%20invite%20request"
-          className="underline underline-offset-2 hover:text-foreground"
-        >
-          Request one
+        <a href="/#waitlist" className="underline underline-offset-2 hover:text-foreground">
+          Join the waitlist
         </a>
         .
       </p>

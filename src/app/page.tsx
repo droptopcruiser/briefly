@@ -2,9 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAuthUser } from "@/lib/auth";
 import { PLANS, CREDIT_PACK } from "@/lib/plans";
-
-const EARLY_ACCESS =
-  "mailto:luke@brieflyhub.app?subject=Early%20access%20to%20Briefly";
+import { WaitlistForm } from "@/app/waitlist-form";
+import { joinWaitlist } from "@/app/waitlist-actions";
 
 const VERTICALS = [
   { name: "Family Law", items: ["Marriage certificate", "Children", "Assets", "Separation date"] },
@@ -81,8 +80,8 @@ export default async function Landing() {
         </div>
         <p className="text-xs text-muted">
           Invite-only during early access —{" "}
-          <a href={EARLY_ACCESS} className="underline underline-offset-2 hover:text-foreground">
-            request a code
+          <a href="#waitlist" className="underline underline-offset-2 hover:text-foreground">
+            join the waitlist
           </a>
           .
         </p>
@@ -295,6 +294,21 @@ export default async function Landing() {
           {CREDIT_PACK.priceLabel} for {CREDIT_PACK.credits}). Prices may change before general
           availability.
         </p>
+      </section>
+
+      {/* Waitlist */}
+      <section
+        id="waitlist"
+        className="rounded-2xl border border-border bg-surface p-8 sm:p-12 text-center space-y-4 scroll-mt-20"
+      >
+        <h2 className="text-2xl font-semibold tracking-tight text-balance">
+          Don&apos;t have an invite yet?
+        </h2>
+        <p className="text-muted max-w-xl mx-auto">
+          Briefly is invite-only during early access. Leave your email and we&apos;ll reach out as
+          spots open up.
+        </p>
+        <WaitlistForm action={joinWaitlist} />
       </section>
 
       {/* Closing */}
