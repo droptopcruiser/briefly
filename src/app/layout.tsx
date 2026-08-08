@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
 import { getAuthUser } from "@/lib/auth";
+import { getNotifications } from "@/lib/notifications";
+import { NotificationBell } from "./notification-bell";
 import { signOut } from "./actions";
 
 export const metadata: Metadata = {
@@ -15,6 +17,7 @@ export default async function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   // Non-redirecting read, so /login and /access-denied still render.
   const user = await getAuthUser();
+  const notifications = user ? await getNotifications() : null;
 
   return (
     <html lang="en" className="h-full antialiased">
@@ -26,6 +29,9 @@ export default async function RootLayout({
             </Link>
             {user ? (
               <div className="flex items-center gap-3 text-xs text-muted">
+                {notifications ? (
+                  <NotificationBell count={notifications.count} items={notifications.items} />
+                ) : null}
                 <Link href="/app" className="hover:text-foreground">
                   Dashboard
                 </Link>
