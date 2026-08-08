@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { randomBytes } from "crypto";
 import { redirect } from "next/navigation";
 import { getSupabase } from "./supabase";
@@ -112,6 +113,18 @@ export async function requireAccount(): Promise<Account> {
   return account;
 }
 
+/**
+ * Gate for manager-only surfaces (team, settings, rubrics). Requires an onboarded
+ * account AND an owner/admin role; sends members back to the dashboard. Returns
+ * the account and the caller's membership.
+ */
+export async function requireManager(): Promise<{ account: Account; membership: Membership }> {
+  const account = await requireAccount();
+  const membership = await getCurrentMembership();
+  if (!membership || !isManager(membership.role)) redirect("/app");
+  return { account, membership };
+}
+
 function slugify(s: string): string {
   return (
     s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 24) || "firm"
@@ -127,8 +140,15 @@ export async function generateInboundToken(slug: string): Promise<string> {
   return `${slug}-${randomBytes(6).toString("hex")}`;
 }
 
-/** Create a trial account owned by the user (idempotent). Firm name is set later. */
-export async function provisionAccount(userId: string): Promise<Account> {
+/**
+ * Create a trial account owned by the user + their owner membership (idempotent).
+ * Firm name is set later in onboarding.
+ */
+export async function provisionAccount(
+  userId: string,
+  email: string | null,
+  name: string | null,
+): Promise<Account> {
   const db = getSupabase();
   if (!db) throw new Error("Database not configured.");
 
@@ -145,7 +165,18 @@ export async function provisionAccount(userId: string): Promise<Account> {
     .select(ACCOUNT_COLS)
     .single();
   if (error) throw new Error(`provisionAccount: ${error.message}`);
-  return rowToAccount(data as AccountRow);
+  const account = rowToAccount(data as AccountRow);
+
+  const { error: memberErr } = await db.from("account_members").insert({
+    account_id: account.id,
+    user_id: userId,
+    email: email?.toLowerCase() ?? null,
+    name: name ?? null,
+    role: "owner",
+  });
+  if (memberErr) throw new Error(`provisionAccount(member): ${memberErr.message}`);
+
+  return account;
 }
 
 /** Finish onboarding: set the firm name, a slug, and the inbound intake token. */
@@ -186,23 +217,43 @@ export async function getAccountById(id: string): Promise<Account | null> {
   return data ? rowToAccount(data as AccountRow) : null;
 }
 
-/**
- * The signed-in user's account (one owner-user per account for now). Null when
- * the user has none yet (provisioning happens in onboarding) or no Supabase.
- * This is the primary resolver for all user-context reads/writes.
- */
-export async function getCurrentAccount(): Promise<Account | null> {
+export interface Membership {
+  accountId: string;
+  userId: string;
+  role: string;
+}
+
+/** Owner and admin are "managers" — they manage team, settings, and rubrics. */
+export function isManager(role: string | null | undefined): boolean {
+  return role === "owner" || role === "admin";
+}
+
+/** The signed-in user's membership (which firm + their role), or null. Cached. */
+export const getCurrentMembership = cache(async (): Promise<Membership | null> => {
   const db = getSupabase();
   if (!db) return null;
   const user = await getAuthUser();
   if (!user) return null;
   const { data } = await db
-    .from("accounts")
-    .select(ACCOUNT_COLS)
-    .eq("owner_user_id", user.id)
+    .from("account_members")
+    .select("account_id,user_id,role")
+    .eq("user_id", user.id)
     .maybeSingle();
-  return data ? rowToAccount(data as AccountRow) : null;
-}
+  return data
+    ? { accountId: data.account_id, userId: data.user_id, role: data.role }
+    : null;
+});
+
+/**
+ * The signed-in user's account, resolved via team membership. Null when the user
+ * belongs to no account yet (onboarding) or no Supabase. Primary resolver for
+ * all user-context reads/writes. Cached per request.
+ */
+export const getCurrentAccount = cache(async (): Promise<Account | null> => {
+  const membership = await getCurrentMembership();
+  if (!membership) return null;
+  return getAccountById(membership.accountId);
+});
 
 /** Resolve an account by its inbound intake localpart (for the email webhook). */
 export async function getAccountByInboundToken(token: string): Promise<Account | null> {

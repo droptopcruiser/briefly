@@ -66,6 +66,7 @@ export async function ingestSubmission(opts: {
     result,
     status: result.readiness >= 100 ? "ready_for_review" : "needs_info",
     approvedAt: null,
+    assignedTo: null,
   };
 
   await saveMatter(matter);

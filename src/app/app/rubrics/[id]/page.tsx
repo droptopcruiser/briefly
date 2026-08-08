@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAccount } from "@/lib/metering";
+import { requireManager } from "@/lib/metering";
 import { getAccountRubric } from "@/lib/rubric-store";
 import { RubricEditor } from "@/app/rubric-editor";
 
@@ -10,7 +10,7 @@ export default async function EditRubricPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const account = await requireAccount();
+  const { account } = await requireManager();
   const rubric = await getAccountRubric(account.id, id);
   if (!rubric) notFound();
 

@@ -36,8 +36,12 @@ export async function redeemInvite(
     return { ok: false, error: "That invite code isn't valid." };
   }
 
+  const name =
+    (user.user_metadata?.name as string | undefined) ??
+    (user.user_metadata?.full_name as string | undefined) ??
+    null;
   try {
-    await provisionAccount(user.id);
+    await provisionAccount(user.id, user.email ?? null, name);
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not create account." };
   }

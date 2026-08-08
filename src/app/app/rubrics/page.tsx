@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { requireAccount } from "@/lib/metering";
+import { requireManager } from "@/lib/metering";
 import { getAccountRubrics } from "@/lib/rubric-store";
 import { SEED_RUBRICS } from "@/lib/rubrics";
 import { deleteRubric, duplicateSeed } from "@/app/rubric-actions";
 
 export default async function RubricsPage() {
-  const account = await requireAccount();
+  const { account } = await requireManager();
   const rubrics = await getAccountRubrics(account.id);
 
   return (

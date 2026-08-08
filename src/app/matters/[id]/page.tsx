@@ -5,7 +5,10 @@ import { approveMatter, approveAndSendMatter } from "@/app/actions";
 import { ReadinessBadge, StatusBadge } from "@/app/ui";
 import { ApproveButton } from "@/app/approve-button";
 import { DraftActions } from "@/app/draft-actions";
+import { AssignControl } from "@/app/assign-control";
 import { requireAccount } from "@/lib/metering";
+import { listMembers } from "@/lib/team";
+import { assignMatter } from "@/app/actions";
 import { composeEmailBody } from "@/lib/email";
 
 export default async function MatterPage({
@@ -17,6 +20,12 @@ export default async function MatterPage({
   const account = await requireAccount();
   const matter = await getMatter(id, account.id);
   if (!matter || !matter.result) notFound();
+
+  const members = await listMembers(account.id);
+  const assignOptions = members.map((m) => ({
+    userId: m.userId,
+    label: m.name || m.email || "Teammate",
+  }));
 
   const r = matter.result;
 
@@ -43,6 +52,14 @@ export default async function MatterPage({
           </h1>
           <ReadinessBadge value={r.readiness} />
           <StatusBadge status={matter.status} />
+          <div className="ml-auto">
+            <AssignControl
+              matterId={matter.id}
+              members={assignOptions}
+              current={matter.assignedTo}
+              action={assignMatter}
+            />
+          </div>
         </div>
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
           <span>

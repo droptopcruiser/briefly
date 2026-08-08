@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { requireAccount, intakeAddress } from "@/lib/metering";
+import { requireManager, intakeAddress } from "@/lib/metering";
 import { senderAddress, isEmailConfigured } from "@/lib/email";
 import { saveSettings } from "@/app/actions";
 import { SettingsForm } from "@/app/settings-form";
 
 export default async function SettingsPage() {
-  const account = await requireAccount();
+  const { account } = await requireManager();
   const address = senderAddress();
   const configured = isEmailConfigured();
 

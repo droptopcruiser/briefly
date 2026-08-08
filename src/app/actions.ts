@@ -9,11 +9,14 @@ import { createServerSupabase } from "@/lib/supabase-server";
 import {
   QuotaExceededError,
   getCurrentAccount,
+  requireAccount,
+  requireManager,
   updateAccountSettings,
   resolveReplyTo,
   DEFAULT_ACCOUNT_ID,
   type ReplyToMode,
 } from "@/lib/metering";
+import { setAssignee } from "@/lib/team";
 import { isEmailConfigured, sendEmail, senderFrom, composeEmailBody } from "@/lib/email";
 
 /**
@@ -116,6 +119,17 @@ export async function approveAndSendMatter(
   return { ok: true };
 }
 
+/**
+ * Assign (or unassign) a matter to a teammate — the hand-off. Any member of the
+ * firm can assign; the assignee must be a member of the same account.
+ */
+export async function assignMatter(matterId: string, userId: string | null): Promise<void> {
+  const account = await requireAccount();
+  await setAssignee(account.id, matterId, userId || null);
+  revalidatePath(`/matters/${matterId}`);
+  revalidatePath("/app");
+}
+
 /** Result of saving account settings, surfaced back to the client UI. */
 export type SettingsResult = { ok: boolean; error?: string };
 
@@ -150,9 +164,9 @@ export async function saveSettings(
 
   const timezone = String(formData.get("timezone") ?? "").trim() || null;
 
-  const account = await getCurrentAccount();
+  const { account } = await requireManager();
   try {
-    await updateAccountSettings(account?.id ?? DEFAULT_ACCOUNT_ID, {
+    await updateAccountSettings(account.id, {
       name,
       emailSignature: signature || null,
       replyToMode,

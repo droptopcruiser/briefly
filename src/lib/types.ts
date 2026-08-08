@@ -117,4 +117,6 @@ export interface Matter {
   status: MatterStatus;
   /** Set when the human approves; if there's a draft, the follow-up is sent then. */
   approvedAt: string | null;
+  /** Team member (user id) this matter is assigned to, or null (unassigned). */
+  assignedTo: string | null;
 }

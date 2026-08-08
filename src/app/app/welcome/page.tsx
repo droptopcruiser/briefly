@@ -1,11 +1,19 @@
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { getCurrentAccount, isOnboarded } from "@/lib/metering";
+import { acceptPendingInvite } from "@/lib/team";
 import { redeemInvite, completeOnboardingAction } from "@/app/onboarding-actions";
 import { InviteForm, OnboardingForm } from "@/app/welcome-forms";
 
 export default async function WelcomePage() {
-  await requireUser();
+  const user = await requireUser();
+
+  // A teammate invited by email joins their firm automatically on first sign-in,
+  // skipping the invite-code + firm-name steps (the firm is already set up).
+  if (!(await getCurrentAccount()) && (await acceptPendingInvite(user))) {
+    redirect("/app");
+  }
+
   const account = await getCurrentAccount();
   if (isOnboarded(account)) redirect("/app");
 

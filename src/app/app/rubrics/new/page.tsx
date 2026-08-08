@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAccount } from "@/lib/metering";
+import { requireManager } from "@/lib/metering";
 import { RubricEditor } from "@/app/rubric-editor";
 import type { Rubric } from "@/lib/types";
 
@@ -13,7 +13,7 @@ const BLANK: Rubric = {
 };
 
 export default async function NewRubricPage() {
-  await requireAccount();
+  await requireManager();
   return (
     <div className="space-y-6">
       <Link href="/app/rubrics" className="text-sm text-muted hover:text-foreground">

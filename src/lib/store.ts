@@ -24,6 +24,7 @@ interface MatterRow {
   result: PipelineResult | null;
   status: MatterStatus;
   approved_at: string | null;
+  assigned_to: string | null;
 }
 
 function rowToMatter(r: MatterRow): Matter {
@@ -37,6 +38,7 @@ function rowToMatter(r: MatterRow): Matter {
     result: r.result,
     status: r.status,
     approvedAt: r.approved_at,
+    assignedTo: r.assigned_to ?? null,
   };
 }
 
@@ -51,6 +53,7 @@ function matterToRow(m: Matter): MatterRow {
     result: m.result,
     status: m.status,
     approved_at: m.approvedAt,
+    assigned_to: m.assignedTo ?? null,
   };
 }
 
@@ -86,19 +89,34 @@ export async function getMatter(id: string, accountId: string): Promise<Matter |
   return data ? rowToMatter(data as MatterRow) : null;
 }
 
-/** List an account's matters, most recent first. */
-export async function listMatters(accountId: string, limit = 50): Promise<Matter[]> {
+/**
+ * List an account's matters, most recent first. `assignee` filters by assignment:
+ * a user id, "unassigned", or undefined for all.
+ */
+export async function listMatters(
+  accountId: string,
+  opts: { assignee?: string | "unassigned"; limit?: number } = {},
+): Promise<Matter[]> {
+  const { assignee, limit = 50 } = opts;
   const db = getSupabase();
   if (!db) {
     return [...memory.values()]
       .filter((m) => m.accountId === accountId)
+      .filter((m) =>
+        assignee === undefined
+          ? true
+          : assignee === "unassigned"
+            ? !m.assignedTo
+            : m.assignedTo === assignee,
+      )
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .slice(0, limit);
   }
-  const { data, error } = await db
-    .from("matters")
-    .select("*")
-    .eq("account_id", accountId)
+  let query = db.from("matters").select("*").eq("account_id", accountId);
+  if (assignee === "unassigned") query = query.is("assigned_to", null);
+  else if (assignee) query = query.eq("assigned_to", assignee);
+
+  const { data, error } = await query
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) throw new Error(`listMatters: ${error.message}`);
