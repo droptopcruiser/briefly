@@ -15,6 +15,7 @@ export function AssignControl({
   action: (matterId: string, userId: string | null) => Promise<void>;
 }) {
   const [value, setValue] = useState(current ?? "");
+  const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
 
   return (
@@ -26,7 +27,12 @@ export function AssignControl({
         onChange={(e) => {
           const v = e.target.value;
           setValue(v);
-          startTransition(() => action(matterId, v || null));
+          setSaved(false);
+          startTransition(async () => {
+            await action(matterId, v || null);
+            setSaved(true);
+            setTimeout(() => setSaved(false), 2000);
+          });
         }}
         className="rounded-md border border-border bg-surface px-2.5 py-1 text-sm outline-none focus:border-accent disabled:opacity-60"
       >
@@ -37,6 +43,9 @@ export function AssignControl({
           </option>
         ))}
       </select>
+      <span className="w-12 text-xs text-muted" aria-live="polite">
+        {pending ? "Saving…" : saved ? <span className="text-accent">Saved ✓</span> : null}
+      </span>
     </label>
   );
 }
