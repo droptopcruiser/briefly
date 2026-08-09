@@ -26,6 +26,8 @@ interface MatterRow {
   approved_at: string | null;
   assigned_to: string | null;
   updated_at: string | null;
+  last_nudged_at: string | null;
+  nudge_count: number | null;
 }
 
 function rowToMatter(r: MatterRow): Matter {
@@ -41,6 +43,8 @@ function rowToMatter(r: MatterRow): Matter {
     approvedAt: r.approved_at,
     assignedTo: r.assigned_to ?? null,
     updatedAt: r.updated_at ?? r.created_at,
+    lastNudgedAt: r.last_nudged_at ?? null,
+    nudgeCount: r.nudge_count ?? 0,
   };
 }
 
@@ -57,6 +61,8 @@ function matterToRow(m: Matter): MatterRow {
     approved_at: m.approvedAt,
     assigned_to: m.assignedTo ?? null,
     updated_at: m.updatedAt ?? m.createdAt,
+    last_nudged_at: m.lastNudgedAt ?? null,
+    nudge_count: m.nudgeCount ?? 0,
   };
 }
 
@@ -127,6 +133,29 @@ export async function listMatters(
   return (data as MatterRow[]).map(rowToMatter);
 }
 
+/**
+ * Matters stuck waiting on the client across ALL accounts (for the reminder
+ * sweep): awaiting_client, no activity for `thresholdDays`, a client email
+ * present, and not nudged within the threshold. Callers filter to those with a
+ * draft to chase.
+ */
+export async function listStuckMatters(thresholdDays: number, limit = 100): Promise<Matter[]> {
+  const db = getSupabase();
+  if (!db) return [];
+  const cutoff = new Date(Date.now() - thresholdDays * 86_400_000).toISOString();
+  const { data, error } = await db
+    .from("matters")
+    .select("*")
+    .eq("status", "awaiting_client")
+    .not("client_email", "is", null)
+    .lt("updated_at", cutoff)
+    .or(`last_nudged_at.is.null,last_nudged_at.lt.${cutoff}`)
+    .order("updated_at", { ascending: true })
+    .limit(limit);
+  if (error) throw new Error(`listStuckMatters: ${error.message}`);
+  return (data as MatterRow[]).map(rowToMatter);
+}
+
 /** All of a client's matters (by email) in an account, most recent first. */
 export async function listMattersByClient(accountId: string, email: string): Promise<Matter[]> {
   const db = getSupabase();
@@ -162,7 +191,7 @@ export async function findOpenMatterByClient(
         .filter(
           (m) =>
             m.accountId === accountId &&
-            m.status !== "approved" &&
+            m.status !== "completed" &&
             m.clientEmail?.toLowerCase() === email.toLowerCase(),
         )
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null
@@ -172,7 +201,7 @@ export async function findOpenMatterByClient(
     .from("matters")
     .select("*")
     .eq("account_id", accountId)
-    .neq("status", "approved")
+    .neq("status", "completed")
     .ilike("client_email", email)
     .order("created_at", { ascending: false })
     .limit(1);

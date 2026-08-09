@@ -58,7 +58,9 @@ export function NotificationBell({ count, items }: { count: number; items: Notif
                       </div>
                       <div
                         className={`text-xs ${
-                          i.reason === "Awaiting client info" ? "text-muted" : "text-accent"
+                          i.reason === "Follow-up ready"
+                            ? "text-amber-700 dark:text-amber-400"
+                            : "text-accent"
                         }`}
                       >
                         {i.reason}

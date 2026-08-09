@@ -76,10 +76,12 @@ export async function ingestSubmission(opts: {
     clientEmail,
     submission,
     result,
-    status: result.readiness >= 100 ? "ready_for_review" : "needs_info",
+    status: result.readiness >= 100 ? "ready_for_you" : "ready_for_review",
     approvedAt: null,
     assignedTo: null,
     updatedAt: now,
+    lastNudgedAt: null,
+    nudgeCount: 0,
   };
 
   await saveMatter(matter);
@@ -106,7 +108,7 @@ export async function ingestReply(opts: {
 
   const prevReadiness = matter.result?.readiness ?? 0;
   const prevStatus = matter.status;
-  const wasApproved = prevStatus === "approved";
+  const wasFinal = prevStatus === "completed";
 
   const rubrics = await getEffectiveRubrics(account?.id ?? matter.accountId);
   const rubric = rubrics.find((r) => r.id === matter.result?.rubricId) ?? rubrics[0];
@@ -133,8 +135,12 @@ export async function ingestReply(opts: {
   matter.submission = combined;
   matter.result = result;
   matter.updatedAt = new Date().toISOString();
-  if (!wasApproved) {
-    matter.status = result.readiness >= 100 ? "ready_for_review" : "needs_info";
+  // The client engaged — clear any pending "stuck" nudge.
+  matter.lastNudgedAt = null;
+  if (!wasFinal) {
+    // Complete → the human's turn (ready_for_you); still gaps → a fresh follow-up
+    // for the human to review & send (ready_for_review).
+    matter.status = result.readiness >= 100 ? "ready_for_you" : "ready_for_review";
   }
 
   await saveMatter(matter);
@@ -152,7 +158,7 @@ export async function ingestReply(opts: {
   }
 
   const becameReady =
-    !wasApproved && prevStatus !== "ready_for_review" && matter.status === "ready_for_review";
+    !wasFinal && prevStatus !== "ready_for_you" && matter.status === "ready_for_you";
   if (becameReady) {
     await addEvent(
       acct,

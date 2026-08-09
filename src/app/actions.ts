@@ -57,11 +57,11 @@ export async function approveMatter(formData: FormData): Promise<void> {
   const account = await getCurrentAccount();
   const matter = await getMatter(id, account?.id ?? DEFAULT_ACCOUNT_ID);
   if (!matter) return;
-  matter.status = "approved";
+  matter.status = "completed";
   matter.approvedAt = new Date().toISOString();
   matter.updatedAt = matter.approvedAt;
   await saveMatter(matter);
-  await addEvent(matter.accountId, matter.id, "approved", "Approved");
+  await addEvent(matter.accountId, matter.id, "approved", "Approved — matter completed");
   revalidatePath(`/matters/${id}`);
 }
 
@@ -125,13 +125,19 @@ export async function approveAndSendMatter(
     return { ok: false, error: `Send failed: ${err instanceof Error ? err.message : "unknown error"}` };
   }
 
-  // Persist exactly what was sent, so the record matches.
+  // Persist exactly what was sent, so the record matches. The follow-up is out —
+  // the matter is now awaiting the client (a fresh outreach cycle: reset the
+  // stuck-nudge state).
   matter.result!.draftEmail = { to: draft.to, subject: editedSubject, body: bodyToSend };
-  matter.status = "approved";
-  matter.approvedAt = new Date().toISOString();
-  matter.updatedAt = matter.approvedAt;
+  const now = new Date().toISOString();
+  matter.status = "awaiting_client";
+  matter.approvedAt = now;
+  matter.updatedAt = now;
+  matter.lastNudgedAt = null;
+  matter.nudgeCount = 0;
   await saveMatter(matter);
-  await addEvent(matter.accountId, matter.id, "sent", "Follow-up sent to client · approved");
+  await addEvent(matter.accountId, matter.id, "approved", "You approved the follow-up");
+  await addEvent(matter.accountId, matter.id, "sent", `Follow-up sent to ${draft.to}`);
   revalidatePath(`/matters/${id}`);
   return { ok: true };
 }

@@ -11,9 +11,8 @@ export const MINUTES_SAVED_PER_MATTER = 15;
 
 export interface MonthStats {
   matters: number;
-  ready: number;
-  needsInfo: number;
-  approved: number;
+  readyForYou: number;
+  awaitingClient: number;
   hoursSaved: number;
 }
 
@@ -37,9 +36,8 @@ export async function getMonthStats(
 
   return {
     matters,
-    ready: count("ready_for_review"),
-    needsInfo: count("needs_info"),
-    approved: count("approved"),
+    readyForYou: count("ready_for_you"),
+    awaitingClient: count("awaiting_client"),
     hoursSaved: Math.round(((matters * MINUTES_SAVED_PER_MATTER) / 60) * 10) / 10,
   };
 }

@@ -104,11 +104,22 @@ export interface PipelineResult {
   mocked: boolean;
 }
 
+/**
+ * Matter lifecycle. "Approved" is deliberately NOT a state — approving is an
+ * action (in the activity trail); the matter moves to awaiting_client (a
+ * follow-up went out) or completed (human finalised).
+ *   preparing        — Briefly is working on it (transient)
+ *   ready_for_review — a follow-up is drafted; the human should review & send it
+ *   awaiting_client  — the next step is the client's; Briefly has asked
+ *   ready_for_you    — client provided what's needed / complete; human to action
+ *   completed        — human has finalised the matter
+ */
 export type MatterStatus =
-  | "processing"
-  | "needs_info"
+  | "preparing"
   | "ready_for_review"
-  | "approved";
+  | "awaiting_client"
+  | "ready_for_you"
+  | "completed";
 
 export interface Matter {
   id: string;
@@ -126,4 +137,8 @@ export interface Matter {
   assignedTo: string | null;
   /** Bumped on every change (reply, approve, assign) so active matters sort first. */
   updatedAt: string | null;
+  /** When Briefly last drafted a follow-up chase for a stuck matter (throttle). */
+  lastNudgedAt: string | null;
+  /** How many chases Briefly has drafted — lets a repeat chase differ from the first. */
+  nudgeCount: number;
 }

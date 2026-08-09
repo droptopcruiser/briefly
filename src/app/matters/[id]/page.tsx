@@ -37,11 +37,19 @@ export default async function MatterPage({
   const r = matter.result;
   const carriedCount = r.fields.filter((f) => f.carried).length;
 
-  // The editable draft the professional will send. Before approval it's the draft
-  // body + the firm's signature; once approved, it's the exact text that was sent
-  // (stored verbatim), so we don't re-append the signature.
+  // A chase Briefly drafted for a stuck matter — awaiting_client + a pending nudge.
+  const pendingChase = matter.status === "awaiting_client" && !!matter.lastNudgedAt;
+  const daysWaiting = pendingChase
+    ? Math.max(1, Math.round((Date.now() - new Date(matter.updatedAt ?? matter.createdAt).getTime()) / 86_400_000))
+    : 0;
+  // The follow-up has gone out and there's nothing to re-send right now → read-only.
+  const alreadySent =
+    (matter.status === "awaiting_client" && !matter.lastNudgedAt) || matter.status === "completed";
+
+  // The editable draft the professional will send. Read-only (already sent) shows
+  // the exact text that went out (verbatim); otherwise compose draft + signature.
   const emailBody = r.draftEmail
-    ? matter.status === "approved"
+    ? alreadySent
       ? r.draftEmail.body
       : composeEmailBody(r.draftEmail.body, {
           signature: account?.emailSignature,
@@ -193,24 +201,36 @@ export default async function MatterPage({
       {/* Drafted next step + human gate */}
       <section className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">Drafted next step</h2>
+
+        {/* Briefly noticed this went quiet — a chase is ready below. */}
+        {pendingChase ? (
+          <div className="rounded-lg border border-amber-500 bg-surface px-4 py-3 text-sm">
+            <p className="font-medium">
+              Briefly noticed this has been waiting {daysWaiting}{" "}
+              {daysWaiting === 1 ? "day" : "days"} since your last message.
+            </p>
+            <p className="mt-1 text-muted">A follow-up is ready below — review and send it.</p>
+          </div>
+        ) : null}
+
         {r.draftEmail ? (
           <DraftActions
             id={matter.id}
             to={r.draftEmail.to}
             initialSubject={r.draftEmail.subject}
             initialBody={emailBody ?? r.draftEmail.body}
-            approved={matter.status === "approved"}
+            approved={alreadySent}
             action={approveAndSendMatter}
           />
         ) : (
           <>
             <p className="rounded-lg border border-accent bg-surface px-4 py-3 text-sm text-accent">
-              100% ready — no follow-up needed. Flagged for review.
+              100% ready — nothing missing. Ready for you to review.
             </p>
             <div className="flex items-center gap-3 pt-1">
               <ApproveButton
                 id={matter.id}
-                approved={matter.status === "approved"}
+                approved={matter.status === "completed"}
                 action={approveMatter}
               />
               <span className="text-xs text-muted">

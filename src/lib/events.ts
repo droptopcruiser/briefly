@@ -13,7 +13,8 @@ export type MatterEventType =
   | "became_ready"
   | "approved"
   | "sent"
-  | "assigned";
+  | "assigned"
+  | "nudge";
 
 export interface MatterEvent {
   id: string;

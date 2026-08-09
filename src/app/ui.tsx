@@ -6,9 +6,9 @@ import type { MonthStats } from "@/lib/stats";
 export function StatsPanel({ stats }: { stats: MonthStats }) {
   const tiles: { num: string; cap: string; accent?: boolean }[] = [
     { num: `${stats.hoursSaved}h`, cap: "saved this month", accent: true },
-    { num: String(stats.matters), cap: "matters processed" },
-    { num: String(stats.ready + stats.approved), cap: "ready / approved" },
-    { num: String(stats.needsInfo), cap: "awaiting client info" },
+    { num: String(stats.matters), cap: "matters this month" },
+    { num: String(stats.readyForYou), cap: "ready for you" },
+    { num: String(stats.awaitingClient), cap: "awaiting client" },
   ];
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -94,21 +94,26 @@ export function ReadinessBadge({ value }: { value: number }) {
 }
 
 const STATUS_LABELS: Record<MatterStatus, string> = {
-  processing: "Processing",
-  needs_info: "Needs info",
+  preparing: "Preparing",
   ready_for_review: "Ready for review",
-  approved: "Approved",
+  awaiting_client: "Awaiting client",
+  ready_for_you: "Ready for you",
+  completed: "Completed",
+};
+
+const STATUS_TONES: Record<MatterStatus, string> = {
+  preparing: "border-border text-muted",
+  ready_for_review: "border-amber-500 text-amber-700 dark:text-amber-300",
+  awaiting_client: "border-border text-muted",
+  ready_for_you: "border-emerald-500 text-emerald-700 dark:text-emerald-300",
+  completed: "border-accent text-accent",
 };
 
 export function StatusBadge({ status }: { status: MatterStatus }) {
-  const tone =
-    status === "approved"
-      ? "border-accent text-accent"
-      : status === "ready_for_review"
-        ? "border-emerald-500 text-emerald-700 dark:text-emerald-300"
-        : "border-border text-muted";
   return (
-    <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs ${tone}`}>
+    <span
+      className={`shrink-0 rounded-full border px-2.5 py-1 text-xs ${STATUS_TONES[status]}`}
+    >
       {STATUS_LABELS[status]}
     </span>
   );

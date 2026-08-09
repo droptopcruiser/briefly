@@ -93,6 +93,30 @@ Open it: ${matterUrl}
   });
 }
 
+/**
+ * Internal nudge to the firm: a matter has been waiting on the client too long and
+ * a follow-up is ready to review/send. Framed around Briefly noticing, not "a job".
+ */
+export async function sendFollowupReadyEmail(
+  to: string,
+  firmName: string,
+  clientName: string | null,
+  daysWaiting: number,
+  matterUrl: string,
+): Promise<void> {
+  const who = clientName || "a client";
+  await sendEmail({
+    to,
+    from: senderFrom(firmName),
+    subject: `Follow-up ready: ${who}`,
+    body: `${who} hasn't replied in ${daysWaiting} days. Briefly has a follow-up ready for you to review and send.
+
+Open it: ${matterUrl}
+
+— Briefly`,
+  });
+}
+
 export interface SendEmailInput {
   to: string;
   subject: string;

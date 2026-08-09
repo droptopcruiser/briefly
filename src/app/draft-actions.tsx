@@ -69,7 +69,7 @@ export function DraftActions({
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <span className="rounded-md border border-accent px-4 py-2 text-sm font-medium text-accent">
-            ✓ Approved &amp; sent
+            ✓ Sent to client
           </span>
           <a
             href={mailto}

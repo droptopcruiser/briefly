@@ -217,6 +217,57 @@ ${missing}`;
 }
 
 /**
+ * Draft a follow-up CHASE for a matter that's gone quiet. `priorChases` = how many
+ * chases have already gone out: 0 → "just following up on my previous email"; >=1
+ * → acknowledge we've already asked ("just checking in — we're still waiting on…").
+ * Aware of the history so it never robotically repeats. No sign-off (appended).
+ */
+export async function chaseDraft(
+  rubric: Rubric,
+  clientName: string,
+  gaps: Gap[],
+  priorChases: number,
+): Promise<DraftOut> {
+  const missing = gaps.map((g) => `- ${g.label} (${g.kind})`).join("\n");
+
+  if (!isConfigured()) {
+    const first = priorChases === 0;
+    const items = gaps.map((g) => `  • ${g.label}`).join("\n");
+    const opener = first
+      ? "Just following up on my previous email"
+      : "Just checking in — we're still waiting on the items below";
+    return {
+      subject: first ? "Following up — a few details needed" : "Still waiting on a few details",
+      body: `Hi${clientName ? " " + clientName.split(" ")[0] : ""},\n\n${opener}. When you have a moment, could you please send:\n\n${items}\n\nOnce we have these we can move forward.\n\n[Draft generated in demo mode — set ANTHROPIC_API_KEY for live drafting.]`,
+    };
+  }
+
+  const tone =
+    priorChases === 0
+      ? "This is a follow-up to a previous email that hasn't been answered yet. Politely follow up and ask again for the outstanding items."
+      : "This is a REPEAT follow-up — you've already asked for these items and are still waiting. Acknowledge that gently (e.g. 'just checking in', 'we're still waiting on'). Keep it brief, warm, and not pushy.";
+
+  const system = `You draft a short follow-up email chasing outstanding items for a "${rubric.name}" matter.
+${tone}
+Request EXACTLY the still-missing items listed — nothing more. No advice, opinions, or timelines. Address the client by name if provided. Plain text only.
+End after the request with a brief courteous closing sentence. Do NOT add a sign-off, closing salutation, or signature (the firm's signature is appended automatically).`;
+
+  const user = `Client name: ${clientName || "(not provided)"}
+Still-missing items to chase:
+${missing}`;
+
+  const schema = {
+    type: "object",
+    additionalProperties: false,
+    properties: { subject: { type: "string" }, body: { type: "string" } },
+    required: ["subject", "body"],
+  };
+
+  const { data } = await jsonCall<DraftOut>({ system, user, schema, maxTokens: 1024 });
+  return data;
+}
+
+/**
  * Extract → normalise → gaps → readiness → draft, against a KNOWN rubric (post
  * classification). Shared by the full pipeline and by re-scoring a matter after a
  * client reply.
