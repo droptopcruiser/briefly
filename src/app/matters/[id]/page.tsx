@@ -9,6 +9,7 @@ import { AssignControl } from "@/app/assign-control";
 import { requireAccount } from "@/lib/metering";
 import { listMembers } from "@/lib/team";
 import { listEvents } from "@/lib/events";
+import { getClientContext } from "@/lib/clients";
 import { assignMatter } from "@/app/actions";
 import { composeEmailBody } from "@/lib/email";
 
@@ -29,8 +30,12 @@ export default async function MatterPage({
   }));
 
   const events = await listEvents(matter.id);
+  const clientContext = matter.clientEmail
+    ? await getClientContext(account.id, matter.clientEmail, matter.id)
+    : null;
 
   const r = matter.result;
+  const carriedCount = r.fields.filter((f) => f.carried).length;
 
   // What the client will actually receive: draft body + the firm's signature (or
   // a default signoff). Used for both the preview and the copy/mail-client draft.
@@ -77,6 +82,32 @@ export default async function MatterPage({
         <p className="max-w-2xl">{r.summary}</p>
       </header>
 
+      {/* Returning client — surfaced prominently, not buried */}
+      {clientContext && clientContext.priorCount > 0 ? (
+        <section className="flex items-center justify-between gap-4 rounded-lg border border-accent bg-surface px-4 py-3">
+          <div>
+            <div className="text-sm font-medium">
+              Returning client · {r.clientName ?? "Client"} · {clientContext.priorCount} previous{" "}
+              {clientContext.priorCount === 1 ? "matter" : "matters"}
+            </div>
+            {carriedCount > 0 ? (
+              <div className="text-xs text-muted">
+                Briefly used {carriedCount} known {carriedCount === 1 ? "fact" : "facts"} from
+                previous matters.
+              </div>
+            ) : null}
+          </div>
+          {clientContext.client ? (
+            <Link
+              href={`/app/clients/${clientContext.client.id}`}
+              className="shrink-0 rounded-md border border-border px-3 py-1.5 text-sm hover:bg-background"
+            >
+              View client →
+            </Link>
+          ) : null}
+        </section>
+      ) : null}
+
       <div className="grid gap-8 md:grid-cols-2">
         {/* Extracted facts */}
         <section className="space-y-3">
@@ -88,9 +119,16 @@ export default async function MatterPage({
                 {f.present ? (
                   <>
                     <dd className="font-medium">{f.value}</dd>
-                    {f.source ? (
-                      <dd className="mt-1 text-xs text-muted italic">“{f.source}”</dd>
-                    ) : null}
+                    {f.carried ? (
+                      <dd className="mt-1 text-xs text-muted">📎 {f.source}</dd>
+                    ) : (
+                      <>
+                        {f.source ? (
+                          <dd className="mt-1 text-xs text-muted italic">“{f.source}”</dd>
+                        ) : null}
+                        <dd className="mt-0.5 text-xs text-accent">✓ Provided in current enquiry</dd>
+                      </>
+                    )}
                   </>
                 ) : (
                   <dd className="text-muted italic">— missing</dd>

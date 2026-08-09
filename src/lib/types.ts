@@ -48,8 +48,13 @@ export interface ExtractedField {
   /** null when the fact is absent from the submission — never invented. */
   value: string | null;
   present: boolean;
-  /** Verbatim snippet from the submission the value was drawn from. */
+  /**
+   * For a fact from this submission: the verbatim snippet it was drawn from.
+   * For a carried fact: the provenance ("On file from previous matter · … · date").
+   */
   source: string | null;
+  /** True when this fact was carried forward from a prior matter (not this one). */
+  carried?: boolean;
 }
 
 /** A chronological event, each tagged to its source snippet. */

@@ -2,8 +2,10 @@ import { randomUUID } from "crypto";
 import { runPipeline, rescoreWithRubric } from "./pipeline";
 import { saveMatter } from "./store";
 import { getEffectiveRubrics } from "./rubric-store";
+import { computeGaps, computeReadiness } from "./gaps";
 import { addEvent } from "./events";
 import { listMembers } from "./team";
+import { upsertClient, getKnownFacts } from "./clients";
 import { isEmailConfigured, sendMatterReadyEmail } from "./email";
 import {
   getUsage,
@@ -12,7 +14,7 @@ import {
   DEFAULT_ACCOUNT_ID,
   type Account,
 } from "./metering";
-import type { Matter } from "./types";
+import type { Matter, PipelineResult, Rubric } from "./types";
 
 const APP_URL = process.env.APP_URL ?? "https://briefly-psi-lake.vercel.app";
 
@@ -61,6 +63,10 @@ export async function ingestSubmission(opts: {
     result.draftEmail.to = clientEmail;
   }
 
+  // Carry forward known facts from this client's prior matters (never documents).
+  const rubric = rubrics.find((r) => r.id === result.rubricId);
+  await applyClientMemory(account?.id ?? null, clientEmail, result, rubric);
+
   const now = new Date().toISOString();
   const matter: Matter = {
     id: randomUUID(),
@@ -79,6 +85,7 @@ export async function ingestSubmission(opts: {
   await saveMatter(matter);
   if (account) await consumeCreditIfOverCap(account, usedBefore);
   await addEvent(matter.accountId, matter.id, "created", `New matter · ${result.readiness}% ready`);
+  await upsertClient(matter.accountId, clientEmail, clientName);
   return matter;
 }
 
@@ -114,6 +121,15 @@ export async function ingestReply(opts: {
   result.clientEmail = matter.clientEmail ?? result.clientEmail;
   if (result.draftEmail && !result.draftEmail.to) result.draftEmail.to = result.clientEmail;
 
+  // Carry forward known facts (excluding this matter itself).
+  await applyClientMemory(
+    account?.id ?? matter.accountId,
+    matter.clientEmail,
+    result,
+    rubric,
+    matter.id,
+  );
+
   matter.submission = combined;
   matter.result = result;
   matter.updatedAt = new Date().toISOString();
@@ -122,6 +138,7 @@ export async function ingestReply(opts: {
   }
 
   await saveMatter(matter);
+  await upsertClient(matter.accountId, matter.clientEmail, matter.clientName);
 
   const acct = account?.id ?? matter.accountId;
   await addEvent(acct, matter.id, "client_replied", "Client replied");
@@ -147,6 +164,41 @@ export async function ingestReply(opts: {
   }
 
   return matter;
+}
+
+/**
+ * Carry forward known FACTS (never documents) from the client's prior matters:
+ * fill only fields the current enquiry left empty — current evidence always wins
+ * and is never overridden — then mark them carried + sourced to the origin matter
+ * and recompute gaps/readiness.
+ */
+async function applyClientMemory(
+  accountId: string | null,
+  clientEmail: string | null,
+  result: PipelineResult,
+  rubric: Rubric | undefined,
+  excludeMatterId?: string,
+): Promise<void> {
+  if (!accountId || !clientEmail || !rubric) return;
+  const known = await getKnownFacts(accountId, clientEmail, excludeMatterId);
+  if (known.length === 0) return;
+
+  const byKey = new Map(known.map((k) => [k.key, k]));
+  let changed = false;
+  for (const f of result.fields) {
+    if (f.present) continue; // current evidence wins — never override a stated fact
+    const k = byKey.get(f.key);
+    if (!k) continue;
+    f.value = k.value;
+    f.present = true;
+    f.carried = true;
+    f.source = `On file from previous matter · ${k.originMatterName} · ${k.date}`;
+    changed = true;
+  }
+  if (changed) {
+    result.gaps = computeGaps(rubric, result.fields, result.documentsPresent);
+    result.readiness = computeReadiness(rubric, result.gaps);
+  }
 }
 
 /** Email the assignee (or the firm owner) that a matter is ready for review. */

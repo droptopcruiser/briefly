@@ -53,28 +53,36 @@ export default async function Dashboard({
     <div className="space-y-10">
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">This month</h1>
-        {manager ? (
-          <div className="flex items-center gap-2">
-            <Link
-              href="/app/team"
-              className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-surface"
-            >
-              Team →
-            </Link>
-            <Link
-              href="/app/rubrics"
-              className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-surface"
-            >
-              Manage rubrics →
-            </Link>
-            <Link
-              href="/app/settings"
-              className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-surface"
-            >
-              Settings →
-            </Link>
-          </div>
-        ) : null}
+        <div className="flex items-center gap-2">
+          <Link
+            href="/app/clients"
+            className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-surface"
+          >
+            Clients →
+          </Link>
+          {manager ? (
+            <>
+              <Link
+                href="/app/team"
+                className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-surface"
+              >
+                Team →
+              </Link>
+              <Link
+                href="/app/rubrics"
+                className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-surface"
+              >
+                Manage rubrics →
+              </Link>
+              <Link
+                href="/app/settings"
+                className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-surface"
+              >
+                Settings →
+              </Link>
+            </>
+          ) : null}
+        </div>
       </div>
 
       {stats ? (

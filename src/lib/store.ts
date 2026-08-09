@@ -127,6 +127,26 @@ export async function listMatters(
   return (data as MatterRow[]).map(rowToMatter);
 }
 
+/** All of a client's matters (by email) in an account, most recent first. */
+export async function listMattersByClient(accountId: string, email: string): Promise<Matter[]> {
+  const db = getSupabase();
+  if (!db) {
+    return [...memory.values()]
+      .filter(
+        (m) => m.accountId === accountId && m.clientEmail?.toLowerCase() === email.toLowerCase(),
+      )
+      .sort((a, b) => (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt));
+  }
+  const { data, error } = await db
+    .from("matters")
+    .select("*")
+    .eq("account_id", accountId)
+    .ilike("client_email", email)
+    .order("updated_at", { ascending: false });
+  if (error) throw new Error(`listMattersByClient: ${error.message}`);
+  return (data as MatterRow[]).map(rowToMatter);
+}
+
 /**
  * The most recent non-approved matter for a client (by email) in an account — the
  * threading fallback when a reply arrives without a matter tag.
