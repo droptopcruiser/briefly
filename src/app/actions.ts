@@ -100,9 +100,17 @@ export async function approveAndSendMatter(
     };
   }
 
-  // Send as "Briefly on behalf of {Firm}", signature appended. Reply-To carries a
-  // per-matter tag so the client's reply threads back to THIS matter and re-scores
-  // it — unless the firm chose to route replies to its own inbox.
+  // The professional may have edited the subject/body in place — send exactly
+  // that (it already includes the signature). Fall back to the composed draft if
+  // somehow empty.
+  const editedSubject = String(formData.get("subject") ?? "").trim() || draft.subject;
+  const editedBody = String(formData.get("body") ?? "").trim();
+  const bodyToSend =
+    editedBody || composeEmailBody(draft.body, { signature: account?.emailSignature, firmName: account?.name });
+
+  // Send as "Briefly on behalf of {Firm}". Reply-To carries a per-matter tag so
+  // the client's reply threads back to THIS matter and re-scores it — unless the
+  // firm routes replies to its own inbox.
   const from = senderFrom(account?.name);
   const replyTo =
     account?.replyToMode === "firm"
@@ -110,17 +118,15 @@ export async function approveAndSendMatter(
       : account?.inboundToken
         ? `${account.inboundToken}+${matter.id}@${INBOUND_DOMAIN}`
         : undefined;
-  const body = composeEmailBody(draft.body, {
-    signature: account?.emailSignature,
-    firmName: account?.name,
-  });
 
   try {
-    await sendEmail({ to: draft.to, subject: draft.subject, body, from, replyTo });
+    await sendEmail({ to: draft.to, subject: editedSubject, body: bodyToSend, from, replyTo });
   } catch (err) {
     return { ok: false, error: `Send failed: ${err instanceof Error ? err.message : "unknown error"}` };
   }
 
+  // Persist exactly what was sent, so the record matches.
+  matter.result!.draftEmail = { to: draft.to, subject: editedSubject, body: bodyToSend };
   matter.status = "approved";
   matter.approvedAt = new Date().toISOString();
   matter.updatedAt = matter.approvedAt;

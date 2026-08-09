@@ -37,13 +37,16 @@ export default async function MatterPage({
   const r = matter.result;
   const carriedCount = r.fields.filter((f) => f.carried).length;
 
-  // What the client will actually receive: draft body + the firm's signature (or
-  // a default signoff). Used for both the preview and the copy/mail-client draft.
+  // The editable draft the professional will send. Before approval it's the draft
+  // body + the firm's signature; once approved, it's the exact text that was sent
+  // (stored verbatim), so we don't re-append the signature.
   const emailBody = r.draftEmail
-    ? composeEmailBody(r.draftEmail.body, {
-        signature: account?.emailSignature,
-        firmName: account?.name,
-      })
+    ? matter.status === "approved"
+      ? r.draftEmail.body
+      : composeEmailBody(r.draftEmail.body, {
+          signature: account?.emailSignature,
+          firmName: account?.name,
+        })
     : null;
 
   return (
@@ -191,27 +194,14 @@ export default async function MatterPage({
       <section className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">Drafted next step</h2>
         {r.draftEmail ? (
-          <>
-            <div className="rounded-lg border border-border bg-surface">
-              <div className="border-b border-border px-4 py-2 text-sm">
-                <span className="text-muted">To:</span>{" "}
-                {r.draftEmail.to ?? "(no client email found — add it in your mail client)"}
-                <br />
-                <span className="text-muted">Subject:</span> {r.draftEmail.subject}
-              </div>
-              <pre className="whitespace-pre-wrap px-4 py-3 text-sm font-sans">
-                {emailBody}
-              </pre>
-            </div>
-            <DraftActions
-              id={matter.id}
-              to={r.draftEmail.to}
-              subject={r.draftEmail.subject}
-              body={emailBody ?? r.draftEmail.body}
-              approved={matter.status === "approved"}
-              action={approveAndSendMatter}
-            />
-          </>
+          <DraftActions
+            id={matter.id}
+            to={r.draftEmail.to}
+            initialSubject={r.draftEmail.subject}
+            initialBody={emailBody ?? r.draftEmail.body}
+            approved={matter.status === "approved"}
+            action={approveAndSendMatter}
+          />
         ) : (
           <>
             <p className="rounded-lg border border-accent bg-surface px-4 py-3 text-sm text-accent">

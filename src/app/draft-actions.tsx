@@ -4,29 +4,31 @@ import { useActionState, useState } from "react";
 import type { SendResult } from "@/app/actions";
 
 /**
- * The "act" step. "Approve & send" is the human gate: on click, Briefly sends
- * the drafted follow-up to the client (server-side, via Postmark) and marks the
- * matter approved. "Copy draft" and the mail-client link are always-available
- * fallbacks — for long emails, or when no client email was detected.
+ * The "act" step. The drafted subject + body are EDITABLE in place — the
+ * professional can tweak wording before sending. "Approve & send" is the gate:
+ * it sends exactly what's in the boxes (Postmark, server-side) and marks the
+ * matter approved. "Copy draft" and the mail-client link use the edited text too.
  */
 export function DraftActions({
   id,
   to,
-  subject,
-  body,
+  initialSubject,
+  initialBody,
   approved,
   action,
 }: {
   id: string;
   to: string | null;
-  subject: string;
-  body: string;
+  initialSubject: string;
+  initialBody: string;
   approved: boolean;
   action: (prev: SendResult, formData: FormData) => Promise<SendResult>;
 }) {
   const [state, formAction, pending] = useActionState<SendResult, FormData>(action, {
     ok: approved,
   });
+  const [subject, setSubject] = useState(initialSubject);
+  const [body, setBody] = useState(initialBody);
   const [copied, setCopied] = useState(false);
 
   const mailto = `mailto:${encodeURIComponent(to ?? "")}?subject=${encodeURIComponent(
@@ -39,7 +41,7 @@ export function DraftActions({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Clipboard blocked (no permission / insecure context) — no-op.
+      // Clipboard blocked — no-op.
     }
   }
 
@@ -53,72 +55,106 @@ export function DraftActions({
     </button>
   );
 
-  // Already approved & sent.
+  // Already sent — show the final version read-only.
   if (approved) {
     return (
-      <div className="flex flex-wrap items-center gap-3 pt-1">
-        <span className="rounded-md border border-accent px-4 py-2 text-sm font-medium text-accent">
-          ✓ Approved &amp; sent
-        </span>
-        <a
-          href={mailto}
-          className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-background"
-        >
-          Reopen in mail client
-        </a>
-        {copyBtn}
-      </div>
-    );
-  }
-
-  // No client email detected — Briefly can't auto-send; offer manual paths.
-  if (!to) {
-    return (
-      <div className="space-y-2 pt-1">
+      <div className="space-y-3">
+        <div className="rounded-lg border border-border bg-surface">
+          <div className="border-b border-border px-4 py-2 text-sm">
+            <span className="text-muted">To:</span> {to ?? "—"}
+            <br />
+            <span className="text-muted">Subject:</span> {subject}
+          </div>
+          <pre className="whitespace-pre-wrap px-4 py-3 text-sm font-sans">{body}</pre>
+        </div>
         <div className="flex flex-wrap items-center gap-3">
+          <span className="rounded-md border border-accent px-4 py-2 text-sm font-medium text-accent">
+            ✓ Approved &amp; sent
+          </span>
           <a
             href={mailto}
-            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:opacity-90"
+            className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-background"
           >
-            Send in mail client
+            Reopen in mail client
           </a>
           {copyBtn}
         </div>
-        <p className="text-xs text-muted">
-          No client email was detected in this enquiry, so Briefly can&apos;t send it for you. Add
-          the address in your mail client and send there.
-        </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-2 pt-1">
-      <form action={formAction} className="flex flex-wrap items-center gap-3">
-        <input type="hidden" name="id" value={id} />
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg disabled:opacity-60"
-        >
-          {pending ? "Sending…" : "Approve & send"}
-        </button>
-        {copyBtn}
-        <a
-          href={mailto}
-          className="text-xs text-muted underline underline-offset-2 hover:text-foreground"
-        >
-          or send from your own mail client
-        </a>
-      </form>
+    <div className="space-y-3">
+      {/* Editable draft */}
+      <div className="rounded-lg border border-border bg-surface focus-within:border-accent">
+        <div className="flex flex-col gap-1 border-b border-border px-4 py-2 text-sm">
+          <div>
+            <span className="text-muted">To:</span>{" "}
+            {to ?? "(no client email found — send from your own mail client)"}
+          </div>
+          <label className="flex items-center gap-2">
+            <span className="text-muted">Subject:</span>
+            <input
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              className="flex-1 bg-transparent font-medium outline-none"
+            />
+          </label>
+        </div>
+        <textarea
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          rows={14}
+          className="w-full resize-y bg-transparent px-4 py-3 text-sm font-sans outline-none"
+        />
+      </div>
+
+      {to ? (
+        <form action={formAction} className="flex flex-wrap items-center gap-3">
+          <input type="hidden" name="id" value={id} />
+          <input type="hidden" name="subject" value={subject} />
+          <input type="hidden" name="body" value={body} />
+          <button
+            type="submit"
+            disabled={pending}
+            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg disabled:opacity-60"
+          >
+            {pending ? "Sending…" : "Approve & send"}
+          </button>
+          {copyBtn}
+          <a
+            href={mailto}
+            className="text-xs text-muted underline underline-offset-2 hover:text-foreground"
+          >
+            or send from your own mail client
+          </a>
+        </form>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <a
+              href={mailto}
+              className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:opacity-90"
+            >
+              Send in mail client
+            </a>
+            {copyBtn}
+          </div>
+          <p className="text-xs text-muted">
+            No client email was detected, so Briefly can&apos;t send it for you. Edit above, then
+            send from your mail client.
+          </p>
+        </div>
+      )}
+
       {state.error ? (
         <p className="text-xs text-red-600 dark:text-red-400">{state.error}</p>
-      ) : (
+      ) : to ? (
         <p className="text-xs text-muted">
-          Sends the follow-up to {to} from your firm&apos;s address. Briefly never sends without
-          your approval.
+          Edit the draft above if you like, then approve — Briefly sends exactly what you see to{" "}
+          {to}. Nothing goes out without your approval.
         </p>
-      )}
+      ) : null}
     </div>
   );
 }
