@@ -104,9 +104,10 @@ export async function getMatter(id: string, accountId: string): Promise<Matter |
  */
 export async function listMatters(
   accountId: string,
-  opts: { assignee?: string | "unassigned"; limit?: number } = {},
+  opts: { assignee?: string | "unassigned"; status?: MatterStatus | MatterStatus[]; limit?: number } = {},
 ): Promise<Matter[]> {
-  const { assignee, limit = 50 } = opts;
+  const { assignee, status, limit = 50 } = opts;
+  const statuses = status ? (Array.isArray(status) ? status : [status]) : null;
   const sortKey = (m: Matter) => m.updatedAt ?? m.createdAt;
   const db = getSupabase();
   if (!db) {
@@ -119,12 +120,14 @@ export async function listMatters(
             ? !m.assignedTo
             : m.assignedTo === assignee,
       )
+      .filter((m) => (statuses ? statuses.includes(m.status) : true))
       .sort((a, b) => sortKey(b).localeCompare(sortKey(a)))
       .slice(0, limit);
   }
   let query = db.from("matters").select("*").eq("account_id", accountId);
   if (assignee === "unassigned") query = query.is("assigned_to", null);
   else if (assignee) query = query.eq("assigned_to", assignee);
+  if (statuses) query = query.in("status", statuses);
 
   const { data, error } = await query
     .order("updated_at", { ascending: false })

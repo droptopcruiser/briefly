@@ -205,7 +205,7 @@ export function SettingsForm({
         {state.ok ? (
           <span className="text-sm text-accent">Saved ✓</span>
         ) : state.error ? (
-          <span className="text-sm text-red-600 dark:text-red-400">{state.error}</span>
+          <span className="text-sm text-error">{state.error}</span>
         ) : null}
       </div>
     </form>

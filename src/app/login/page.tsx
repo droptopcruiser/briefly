@@ -33,7 +33,7 @@ export default function LoginPage() {
         type="button"
         onClick={signInWithGoogle}
         disabled={loading}
-        className="flex items-center justify-center gap-3 rounded-md border border-border bg-surface px-4 py-2.5 text-sm font-medium hover:bg-background disabled:opacity-60"
+        className="flex items-center justify-center gap-3 rounded-md border border-border bg-surface px-4 py-2.5 text-sm font-medium hover:bg-inset disabled:opacity-60"
       >
         <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
           <path
@@ -56,7 +56,7 @@ export default function LoginPage() {
         {loading ? "Redirecting…" : "Continue with Google"}
       </button>
 
-      {error ? <p className="text-center text-sm text-red-600">{error}</p> : null}
+      {error ? <p className="text-center text-sm text-error">{error}</p> : null}
 
       <p className="text-center text-xs text-muted">
         Access is limited to authorised users.

@@ -63,7 +63,7 @@ export default async function ClientDetailPage({
               <li key={m.id}>
                 <Link
                   href={`/matters/${m.id}`}
-                  className="flex items-center gap-4 px-4 py-3 hover:bg-background transition-colors"
+                  className="flex items-center gap-4 px-4 py-3 hover:bg-inset transition-colors"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="font-medium truncate">{m.result?.rubricName ?? "Matter"}</div>

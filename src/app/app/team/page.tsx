@@ -58,7 +58,7 @@ export default async function TeamPage() {
               {m.role !== "owner" ? (
                 <form action={removeTeammate}>
                   <input type="hidden" name="userId" value={m.userId} />
-                  <button type="submit" className="text-sm text-muted hover:text-red-600">
+                  <button type="submit" className="text-sm text-muted hover:text-error">
                     Remove
                   </button>
                 </form>
@@ -83,7 +83,7 @@ export default async function TeamPage() {
                 </div>
                 <form action={revokeTeammateInvite}>
                   <input type="hidden" name="inviteId" value={inv.id} />
-                  <button type="submit" className="text-sm text-muted hover:text-red-600">
+                  <button type="submit" className="text-sm text-muted hover:text-error">
                     Revoke
                   </button>
                 </form>

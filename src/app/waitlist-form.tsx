@@ -46,7 +46,7 @@ export function WaitlistForm({
         {pending ? "Joining…" : "Join the waitlist"}
       </button>
       {state.error ? (
-        <span className="text-sm text-red-600 dark:text-red-400 sm:self-center">{state.error}</span>
+        <span className="text-sm text-error sm:self-center">{state.error}</span>
       ) : null}
     </form>
   );

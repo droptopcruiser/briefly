@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getMatter } from "@/lib/store";
 import { approveMatter, approveAndSendMatter } from "@/app/actions";
-import { ReadinessBadge, StatusBadge } from "@/app/ui";
+import { ReadinessBadge, ReadinessMeter, StatusBadge } from "@/app/ui";
 import { ApproveButton } from "@/app/approve-button";
 import { DraftActions } from "@/app/draft-actions";
 import { AssignControl } from "@/app/assign-control";
@@ -59,8 +59,8 @@ export default async function MatterPage({
 
   return (
     <div className="space-y-8">
-      <Link href="/app" className="text-sm text-muted hover:text-foreground">
-        ← All matters
+      <Link href="/app/matters" className="text-sm text-muted hover:text-foreground">
+        ← Matters
       </Link>
 
       {/* Header */}
@@ -91,6 +91,7 @@ export default async function MatterPage({
           {r.clientEmail ? <span>{r.clientEmail}</span> : null}
         </div>
         <p className="max-w-2xl">{r.summary}</p>
+        <ReadinessMeter value={r.readiness} className="max-w-2xl" />
       </header>
 
       {/* Returning client — surfaced prominently, not buried */}
@@ -111,7 +112,7 @@ export default async function MatterPage({
           {clientContext.client ? (
             <Link
               href={`/app/clients/${clientContext.client.id}`}
-              className="shrink-0 rounded-md border border-border px-3 py-1.5 text-sm hover:bg-background"
+              className="shrink-0 rounded-md border border-border px-3 py-1.5 text-sm hover:bg-inset"
             >
               View client →
             </Link>
@@ -204,7 +205,7 @@ export default async function MatterPage({
 
         {/* Briefly noticed this went quiet — a chase is ready below. */}
         {pendingChase ? (
-          <div className="rounded-lg border border-amber-500 bg-surface px-4 py-3 text-sm">
+          <div className="rounded-lg border border-awaiting bg-surface px-4 py-3 text-sm">
             <p className="font-medium">
               Briefly noticed this has been waiting {daysWaiting}{" "}
               {daysWaiting === 1 ? "day" : "days"} since your last message.

@@ -52,7 +52,7 @@ export default async function RubricsPage() {
               </Link>
               <form action={deleteRubric}>
                 <input type="hidden" name="id" value={r.id} />
-                <button type="submit" className="text-sm text-muted hover:text-red-600">
+                <button type="submit" className="text-sm text-muted hover:text-error">
                   Delete
                 </button>
               </form>

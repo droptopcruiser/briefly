@@ -28,7 +28,7 @@ export default async function ClientsPage() {
             <li key={c.id}>
               <Link
                 href={`/app/clients/${c.id}`}
-                className="flex items-center gap-4 px-4 py-3 hover:bg-background transition-colors"
+                className="flex items-center gap-4 px-4 py-3 hover:bg-inset transition-colors"
               >
                 <div className="min-w-0 flex-1">
                   <div className="font-medium truncate">{c.name ?? c.email}</div>

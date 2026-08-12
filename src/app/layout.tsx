@@ -1,11 +1,16 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import "./globals.css";
 import { getAuthUser } from "@/lib/auth";
 import { getNotifications } from "@/lib/notifications";
 import { getCurrentProfile } from "@/lib/profile";
-import { NotificationBell } from "./notification-bell";
-import { ProfileMenu } from "./profile-menu";
+import {
+  getCurrentAccount,
+  getCurrentMembership,
+  intakeAddress,
+  isManager,
+  isOnboarded,
+} from "@/lib/metering";
+import { Shell } from "./shell";
 
 export const metadata: Metadata = {
   title: "Briefly — your work, ready when you are",
@@ -13,43 +18,42 @@ export const metadata: Metadata = {
     "Briefly prepares your work before you get to it — the way your firm works. Client emails arrive as structured, review-ready matters, waiting the moment you sit down.",
 };
 
+const ROLE_LABELS: Record<string, string> = {
+  owner: "Owner",
+  admin: "Admin",
+  member: "Member",
+};
+
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  // Non-redirecting read, so /login and /access-denied still render.
+  // Non-redirecting reads, so /login and /access-denied still render. Everything
+  // is fetched once here (helpers are request-cached) and handed to the Shell,
+  // so pages never re-query for navigation.
   const user = await getAuthUser();
-  const notifications = user ? await getNotifications() : null;
-  const profile = user ? await getCurrentProfile() : null;
+  const [notifications, profile, membership, account] = user
+    ? await Promise.all([
+        getNotifications(),
+        getCurrentProfile(),
+        getCurrentMembership(),
+        getCurrentAccount(),
+      ])
+    : [null, null, null, null];
 
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="min-h-full flex flex-col">
-        <header className="border-b border-border">
-          <div className="mx-auto max-w-5xl px-6 h-14 flex items-center justify-between">
-            <Link href="/" className="font-semibold tracking-tight text-lg">
-              Briefly
-            </Link>
-            {user ? (
-              <div className="flex items-center gap-3 text-xs text-muted">
-                {notifications ? (
-                  <NotificationBell count={notifications.count} items={notifications.items} />
-                ) : null}
-                <Link href="/app" className="hover:text-foreground">
-                  Dashboard
-                </Link>
-                {profile ? <ProfileMenu profile={profile} /> : null}
-              </div>
-            ) : (
-              <Link
-                href="/login"
-                className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-background"
-              >
-                Sign in
-              </Link>
-            )}
-          </div>
-        </header>
-        <main className="flex-1 mx-auto w-full max-w-5xl px-6 py-8">{children}</main>
+      <body className="min-h-full">
+        <Shell
+          authed={Boolean(user)}
+          isManager={isManager(membership?.role)}
+          profile={profile}
+          notifications={notifications}
+          intake={account ? intakeAddress(account.inboundToken) : null}
+          firmName={isOnboarded(account) ? account.name : null}
+          roleLabel={membership ? ROLE_LABELS[membership.role] ?? null : null}
+        >
+          {children}
+        </Shell>
       </body>
     </html>
   );

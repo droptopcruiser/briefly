@@ -1,36 +1,70 @@
 @import "tailwindcss";
 
+/* ── Briefly design language: calm · competence · relief ─────────────────────
+   Warm paper ground with a green bias, forest green as the single accent, soft
+   semantic colours (honey for waiting, clay for errors — never alarm-red), and
+   a warm serif for headings over a humanist sans. */
+
 :root {
-  --background: #f7f7f5;
+  --background: #f3f4ef;   /* warm paper, faint green bias */
   --surface: #ffffff;
-  --foreground: #1a1a1a;
-  --muted: #6b6b6b;
-  --border: #e6e6e3;
-  --accent: #2f5233;
-  --accent-fg: #ffffff;
+  --raise: #fbfbf8;        /* subtle raised fill (inputs, chips) */
+  --inset: #f5f6f1;        /* inset panels (key facts, etc.) */
+  --foreground: #1d2621;   /* warm near-black */
+  --muted: #565e57;        /* sage grey — AA on --background */
+  --border: #e4e5df;       /* hairline */
+  --accent: #2f5233;       /* forest */
+  --accent-h: #3c6a42;     /* hover */
+  --accent-fg: #f7f8f3;
+  --accent-soft: #e4ece3;  /* pale green surface */
+  --awaiting: #846826;     /* honey — "waiting", not warning (AA on paper) */
+  --awaiting-soft: #f3ebd6;
+  --error: #a4564a;        /* clay — soft, never alarm */
+  --error-soft: #f1ded9;
+  --shadow: 0 6px 26px rgba(29, 38, 33, 0.08);
+  --shadow-sm: 0 1px 3px rgba(29, 38, 33, 0.05);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
+  --color-raise: var(--raise);
+  --color-inset: var(--inset);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-border: var(--border);
   --color-accent: var(--accent);
+  --color-accent-h: var(--accent-h);
   --color-accent-fg: var(--accent-fg);
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --color-accent-soft: var(--accent-soft);
+  --color-awaiting: var(--awaiting);
+  --color-awaiting-soft: var(--awaiting-soft);
+  --color-error: var(--error);
+  --color-error-soft: var(--error-soft);
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, ui-serif, serif;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #121311;
-    --surface: #1c1e1b;
-    --foreground: #ececec;
-    --muted: #9a9a94;
-    --border: #2c2f2a;
-    --accent: #7fa982;
-    --accent-fg: #10120f;
+    --background: #161a15;
+    --surface: #1e221c;
+    --raise: #22271f;
+    --inset: #20241d;
+    --foreground: #e9eae3;
+    --muted: #9aa495;      /* sage — AA on dark ground */
+    --border: #2c312a;
+    --accent: #7fb086;
+    --accent-h: #95c29b;
+    --accent-fg: #12160f;
+    --accent-soft: #22301f;
+    --awaiting: #cdb06a;
+    --awaiting-soft: #2a2a1c;
+    --error: #d08a7e;
+    --error-soft: #2e211d;
+    --shadow: 0 6px 26px rgba(0, 0, 0, 0.35);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
   }
 }
 
@@ -38,4 +72,16 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+}
+
+/* Warm serif carries the headings — competence + calm. */
+h1, h2, h3 {
+  font-family: var(--font-serif);
+}
+
+/* Accessibility: a visible focus ring on any keyboard-focused control. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
 }

@@ -280,7 +280,7 @@ export default async function Landing() {
                   className={`mt-auto rounded-md px-4 py-2 text-sm font-medium text-center ${
                     featured
                       ? "bg-accent text-accent-fg hover:opacity-90"
-                      : "border border-border hover:bg-background"
+                      : "border border-border hover:bg-inset"
                   }`}
                 >
                   Start free

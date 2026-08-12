@@ -64,7 +64,7 @@ export function ProfileForms({
               {avatarState.ok ? (
                 <span className="text-sm text-accent">Updated ✓</span>
               ) : avatarState.error ? (
-                <span className="text-sm text-red-600 dark:text-red-400">{avatarState.error}</span>
+                <span className="text-sm text-error">{avatarState.error}</span>
               ) : null}
             </div>
             <p className="text-xs text-muted">JPG or PNG, up to 2 MB.</p>
@@ -96,7 +96,7 @@ export function ProfileForms({
           {nameState.ok ? (
             <span className="text-sm text-accent">Saved ✓</span>
           ) : nameState.error ? (
-            <span className="text-sm text-red-600 dark:text-red-400">{nameState.error}</span>
+            <span className="text-sm text-error">{nameState.error}</span>
           ) : null}
         </div>
       </form>

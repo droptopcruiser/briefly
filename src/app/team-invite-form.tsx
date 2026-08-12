@@ -39,13 +39,13 @@ export function TeamInviteForm({
       {state.ok ? (
         <span
           className={`text-sm sm:self-center ${
-            state.note ? "text-amber-700 dark:text-amber-400" : "text-accent"
+            state.note ? "text-awaiting" : "text-accent"
           }`}
         >
           {state.note ?? "Invited ✓ — we've emailed them."}
         </span>
       ) : state.error ? (
-        <span className="text-sm text-red-600 dark:text-red-400 sm:self-center">{state.error}</span>
+        <span className="text-sm text-error sm:self-center">{state.error}</span>
       ) : null}
     </form>
   );

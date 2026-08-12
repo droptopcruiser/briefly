@@ -51,14 +51,14 @@ export function ProfileMenu({ profile }: { profile: Profile }) {
             <Link
               href="/app/profile"
               onClick={() => setOpen(false)}
-              className="block px-4 py-2 text-sm hover:bg-background"
+              className="block px-4 py-2 text-sm hover:bg-inset"
             >
               Profile settings
             </Link>
             <form action={signOut}>
               <button
                 type="submit"
-                className="block w-full px-4 py-2 text-left text-sm hover:bg-background"
+                className="block w-full px-4 py-2 text-left text-sm hover:bg-inset"
               >
                 Sign out
               </button>

@@ -185,7 +185,7 @@ export function RubricEditor({ initial }: { initial: Rubric }) {
                     <button
                       type="button"
                       onClick={() => removeField(i)}
-                      className="shrink-0 text-sm text-muted hover:text-red-600"
+                      className="shrink-0 text-sm text-muted hover:text-error"
                       aria-label="Remove field"
                     >
                       ✕
@@ -248,7 +248,7 @@ export function RubricEditor({ initial }: { initial: Rubric }) {
                   <button
                     type="button"
                     onClick={() => removeDoc(i)}
-                    className="shrink-0 text-sm text-muted hover:text-red-600"
+                    className="shrink-0 text-sm text-muted hover:text-error"
                     aria-label="Remove document"
                   >
                     ✕

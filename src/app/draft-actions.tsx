@@ -49,7 +49,7 @@ export function DraftActions({
     <button
       type="button"
       onClick={copyDraft}
-      className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-background"
+      className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-inset"
     >
       {copied ? "Copied ✓" : "Copy draft"}
     </button>
@@ -73,7 +73,7 @@ export function DraftActions({
           </span>
           <a
             href={mailto}
-            className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-background"
+            className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-inset"
           >
             Reopen in mail client
           </a>
@@ -148,7 +148,7 @@ export function DraftActions({
       )}
 
       {state.error ? (
-        <p className="text-xs text-red-600 dark:text-red-400">{state.error}</p>
+        <p className="text-xs text-error">{state.error}</p>
       ) : to ? (
         <p className="text-xs text-muted">
           Edit the draft above if you like, then approve — Briefly sends exactly what you see to{" "}

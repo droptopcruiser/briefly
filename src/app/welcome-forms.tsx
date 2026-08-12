@@ -32,7 +32,7 @@ export function InviteForm({ action }: { action: Action }) {
           {pending ? "Checking…" : "Continue"}
         </button>
         {state.error ? (
-          <span className="text-sm text-red-600 dark:text-red-400">{state.error}</span>
+          <span className="text-sm text-error">{state.error}</span>
         ) : null}
       </div>
       <p className="text-xs text-muted">
@@ -78,7 +78,7 @@ export function OnboardingForm({ action }: { action: Action }) {
           {pending ? "Setting up…" : "Enter Briefly"}
         </button>
         {state.error ? (
-          <span className="text-sm text-red-600 dark:text-red-400">{state.error}</span>
+          <span className="text-sm text-error">{state.error}</span>
         ) : null}
       </div>
     </form>
