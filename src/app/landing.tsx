@@ -185,122 +185,15 @@ function PreparedMatter({
 // ── 1. Hero: the arrival — email fragments resolve into a prepared matter ─────
 export function HeroSequence() {
   const reduced = useReducedMotion();
-  const [phase, setPhase] = useState<"incoming" | "align" | "prepared">("incoming");
-  const started = useRef(false);
-
-  const play = () => {
-    setPhase("incoming");
-    window.setTimeout(() => setPhase("align"), 450);
-    window.setTimeout(() => setPhase("prepared"), 1450);
-  };
-
-  useEffect(() => {
-    if (started.current) return;
-    started.current = true;
-    if (reduced) {
-      setPhase("prepared");
-      return;
-    }
-    const t1 = window.setTimeout(() => setPhase("align"), 550);
-    const t2 = window.setTimeout(() => setPhase("prepared"), 1550);
-    return () => {
-      window.clearTimeout(t1);
-      window.clearTimeout(t2);
-    };
-  }, [reduced]);
-
-  const prepared = phase === "prepared";
-  const cardTransition = `all 700ms ${EASE}`;
-
-  // Incoming email fragments — real intake, not decorative mail.
-  const cards = [
-    {
-      base: "left-0 top-4 -rotate-3",
-      aligned: "left-2 top-2 rotate-0",
-      body: (
-        <>
-          <div className="text-xs font-medium text-foreground">Priya Sharma</div>
-          <p className="mt-1 text-[11px] leading-snug text-muted">
-            …hoping to apply for a spousal visa to stay with my partner…
-          </p>
-        </>
-      ),
-    },
-    {
-      base: "left-24 top-16 rotate-2",
-      aligned: "left-6 top-6 rotate-0",
-      body: (
-        <>
-          <div className="flex items-center gap-1.5 text-[11px] text-muted">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <path d="M7 10l5 5 5-5" />
-              <path d="M12 15V3" />
-            </svg>
-            2 attachments
-          </div>
-          <div className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-inset px-1.5 py-0.5 text-[11px] text-foreground">
-            passport.pdf
-          </div>
-        </>
-      ),
-    },
-    {
-      base: "left-8 top-32 -rotate-1",
-      aligned: "left-10 top-10 rotate-0",
-      body: (
-        <>
-          <div className="text-[11px] text-muted">Detail</div>
-          <p className="mt-1 text-[11px] leading-snug text-foreground">
-            …we got married on 2023-09-14…
-          </p>
-        </>
-      ),
-    },
-  ];
-
+  const [runId, setRunId] = useState(0);
   return (
     <div className="relative">
-      <div className="relative h-[420px]">
-        {/* Incoming fragments */}
-        {cards.map((c, i) => (
-          <div
-            key={i}
-            className={`glass absolute w-56 rounded-2xl px-3.5 py-3 ${
-              phase === "incoming" ? c.base : c.aligned
-            }`}
-            style={{
-              transition: cardTransition,
-              opacity: prepared ? 0 : phase === "align" ? 0.85 : 1,
-              zIndex: 10 - i,
-              transform: prepared ? "translateY(-8px) scale(0.98)" : undefined,
-            }}
-            aria-hidden={prepared}
-          >
-            {c.body}
-          </div>
-        ))}
-
-        {/* The resolved matter */}
-        <div
-          className="absolute inset-x-0 top-0"
-          style={{
-            transition: `opacity 700ms ${EASE}, transform 700ms ${EASE}`,
-            opacity: prepared ? 1 : 0,
-            transform: prepared ? "none" : "translateY(10px) scale(0.98)",
-          }}
-          aria-hidden={!prepared}
-        >
-          <div className="anim-float">
-            <PreparedMatter show={6} />
-          </div>
-        </div>
-      </div>
-
+      {/* keyed so "See it happen" remounts and replays from the start */}
+      <MatterReveal key={runId} reduced={reduced} />
       <button
         type="button"
-        onClick={play}
-        className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-muted transition-colors hover:text-accent"
+        onClick={() => setRunId((n) => n + 1)}
+        className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-muted transition-colors hover:text-accent"
       >
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
@@ -308,6 +201,194 @@ export function HeroSequence() {
         </svg>
         See it happen
       </button>
+    </div>
+  );
+}
+
+/**
+ * One continuous transformation inside a single, stable matter-card frame. The
+ * email content fades and blurs out as the matched-rubric header rises into the
+ * same space; the card then grows as extracted fields (staggered 75ms, with
+ * source tags just after), a missing-information panel, and a drafted-follow-up
+ * panel expand from zero height + padding; finally a "Ready for your review"
+ * action bar slides up from the bottom of the same card and holds. One easing
+ * curve, no bounce, no loop. Under reduced motion it resolves instantly.
+ */
+function MatterReveal({ reduced }: { reduced: boolean }) {
+  const [on, setOn] = useState(reduced);
+  useEffect(() => {
+    if (reduced) {
+      setOn(true);
+      return;
+    }
+    const r = requestAnimationFrame(() => setOn(true));
+    return () => cancelAnimationFrame(r);
+  }, [reduced]);
+
+  // A transition with a per-property delay, or none at all under reduced motion.
+  const tr = (delay: number, dur: number, props: string) =>
+    reduced
+      ? undefined
+      : props
+          .split(",")
+          .map((p) => `${p.trim()} ${dur}ms ${EASE} ${delay}ms`)
+          .join(", ");
+
+  // Panels grow from zero height + padding; content inside reveals shortly after.
+  const panel = (start: number) => ({
+    overflow: "hidden" as const,
+    maxHeight: on ? 260 : 0,
+    marginTop: on ? 12 : 0,
+    opacity: on ? 1 : 0,
+    transition: tr(start, 450, "max-height, margin-top, opacity"),
+  });
+
+  const fields = [
+    { value: "Priya Sharma", label: "Applicant", source: "from message" },
+    { value: "14 Sep 2023", label: "Marriage date", source: "from message" },
+    { value: "Daniel Okafor", label: "Sponsor", source: "from message" },
+  ];
+
+  return (
+    <div className="glass glass-sheen rounded-[28px] p-3 sm:p-4">
+      <div className="rounded-2xl border border-border bg-surface p-4">
+        {/* The name persists; the email collapses + blurs as the rubric header rises */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-sm font-semibold">Priya Sharma</div>
+
+            <div
+              style={{
+                overflow: "hidden",
+                maxHeight: on ? 0 : 84,
+                opacity: on ? 0 : 1,
+                filter: on ? "blur(4px)" : "blur(0px)",
+                transform: on ? "translateY(-6px)" : "none",
+                transition: tr(150, 620, "max-height, opacity, filter, transform"),
+              }}
+              aria-hidden={on}
+            >
+              <p className="mt-1 text-[11px] leading-snug text-muted">
+                …hoping to apply for a spousal visa to stay with my partner. We got married on
+                2023-09-14…
+              </p>
+              <div className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-inset px-1.5 py-0.5 text-[11px] text-foreground">
+                passport.pdf
+              </div>
+            </div>
+
+            <div
+              style={{
+                overflow: "hidden",
+                maxHeight: on ? 22 : 0,
+                opacity: on ? 1 : 0,
+                transform: on ? "none" : "translateY(6px)",
+                transition: tr(320, 600, "max-height, opacity, transform"),
+              }}
+            >
+              <div className="mt-1 text-xs text-muted">Spousal visa · matched</div>
+            </div>
+          </div>
+
+          <span
+            className="shrink-0 rounded-full bg-accent-soft px-2.5 py-1 text-xs font-semibold tabular-nums text-accent"
+            style={{
+              opacity: on ? 1 : 0,
+              transform: on ? "none" : "translateY(4px)",
+              transition: tr(650, 400, "opacity, transform"),
+            }}
+          >
+            82%
+          </span>
+        </div>
+
+        {/* Readiness meter fills */}
+        <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-inset">
+          <div
+            className="h-full rounded-full bg-accent"
+            style={{ width: on ? "82%" : "0%", transition: tr(760, 720, "width") }}
+          />
+        </div>
+
+        {/* Extracted fields — staggered, source tags revealing just after each */}
+        <div style={panel(920)}>
+          <div className="space-y-2 rounded-xl border border-border bg-raise p-3">
+            {fields.map((f, i) => (
+              <div
+                key={f.label}
+                className="flex items-baseline justify-between gap-3"
+                style={{
+                  opacity: on ? 1 : 0,
+                  transform: on ? "none" : "translateY(6px)",
+                  transition: tr(1020 + i * 75, 340, "opacity, transform"),
+                }}
+              >
+                <div className="min-w-0">
+                  <div className="truncate text-[13px] font-medium text-foreground">{f.value}</div>
+                  <div className="text-[11px] text-muted">{f.label}</div>
+                </div>
+                <span
+                  className="shrink-0 text-[10px] text-accent"
+                  style={{ opacity: on ? 1 : 0, transition: tr(1020 + i * 75 + 140, 300, "opacity") }}
+                >
+                  {f.source}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Missing information — expands from zero, then content */}
+        <div style={panel(1560)}>
+          <div
+            className="flex items-center gap-2 rounded-xl border border-error/40 bg-error-soft px-3 py-2 text-xs text-error"
+            style={{ opacity: on ? 1 : 0, transition: tr(1760, 300, "opacity") }}
+          >
+            <span className="font-medium">Missing</span> · Marriage certificate not attached
+          </div>
+        </div>
+
+        {/* Drafted follow-up — expands from zero, then content */}
+        <div style={panel(2040)}>
+          <div
+            className="rounded-xl border border-border bg-inset px-3 py-2"
+            style={{ opacity: on ? 1 : 0, transition: tr(2240, 300, "opacity") }}
+          >
+            <div className="text-[11px] font-medium uppercase tracking-wide text-muted">
+              Follow-up drafted
+            </div>
+            <p className="mt-1 text-xs text-foreground">
+              Hi Priya — could you send your marriage certificate so we can complete your
+              application?
+            </p>
+          </div>
+        </div>
+
+        {/* Review action bar slides up from the bottom of the same card, then holds */}
+        <div
+          style={{
+            overflow: "hidden",
+            maxHeight: on ? 64 : 0,
+            transition: tr(2560, 500, "max-height"),
+          }}
+        >
+          <div
+            className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3"
+            style={{
+              opacity: on ? 1 : 0,
+              transform: on ? "none" : "translateY(12px)",
+              transition: tr(2620, 500, "opacity, transform"),
+            }}
+          >
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-accent">
+              <span className="h-1.5 w-1.5 rounded-full bg-accent" /> Ready for your review
+            </span>
+            <span className="rounded-md border border-accent px-2.5 py-1 text-xs font-medium text-accent">
+              Approve &amp; send
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

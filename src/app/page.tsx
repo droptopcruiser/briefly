@@ -78,7 +78,7 @@ export default async function Landing() {
             <div className="absolute top-48 left-[2%] h-[320px] w-[320px] rounded-full bg-awaiting/10 blur-3xl" />
           </div>
 
-          <div className="relative mx-auto grid max-w-6xl items-center gap-14 px-6 pb-20 pt-16 lg:grid-cols-[1fr_1.05fr] lg:gap-12 lg:pb-28 lg:pt-24">
+          <div className="relative mx-auto grid max-w-6xl items-center gap-14 px-6 pb-20 pt-16 lg:grid-cols-[1fr_1.05fr] lg:items-start lg:gap-12 lg:pb-28 lg:pt-24">
             <div className="anim-rise">
               <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.14em] text-muted">
                 <span className="h-1.5 w-1.5 rounded-full bg-accent" />
