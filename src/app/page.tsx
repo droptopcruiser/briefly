@@ -12,6 +12,7 @@ import {
   ProcessCanvas,
   ThreadingProof,
 } from "@/app/landing";
+import { ThemeToggle } from "@/app/theme-toggle";
 
 const PRICING = [PLANS.trial, PLANS.solo, PLANS.practice, PLANS.firm];
 
@@ -27,12 +28,15 @@ function Nav() {
           <a href="#pricing" className="hover:text-foreground">Pricing</a>
           <Link href="/login" className="hover:text-foreground">Sign in</Link>
         </nav>
-        <Link
-          href="/login"
-          className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90"
-        >
-          Start free
-        </Link>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <Link
+            href="/login"
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90"
+          >
+            Start free
+          </Link>
+        </div>
       </div>
     </header>
   );

@@ -611,20 +611,34 @@ const PIPELINE = ["Classify", "Extract", "Flag gaps", "Draft reply", "Ready for 
 
 export function ProcessCanvas() {
   const reduced = useReducedMotion();
-  const { ref, inView } = useInView<HTMLDivElement>(0.4);
-  const [stage, setStage] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+  const [stage, setStage] = useState(reduced ? PIPELINE.length : 0);
 
   useEffect(() => {
-    if (!inView) return;
     if (reduced) {
       setStage(PIPELINE.length);
       return;
     }
-    const timers = PIPELINE.map((_, i) =>
-      window.setTimeout(() => setStage(i + 1), 350 + i * 480),
+    const el = ref.current;
+    if (!el) return;
+    let timers: number[] = [];
+    // Start only once the canvas is centred in view, and pace the beats slowly
+    // so the visitor can follow each step. Replays if they scroll back to it.
+    const io = new IntersectionObserver(
+      ([e]) => {
+        if (!e.isIntersecting) return;
+        timers.forEach(clearTimeout);
+        setStage(0);
+        timers = PIPELINE.map((_, i) => window.setTimeout(() => setStage(i + 1), 650 + i * 780));
+      },
+      { rootMargin: "-30% 0px -35% 0px" },
     );
-    return () => timers.forEach(clearTimeout);
-  }, [inView, reduced]);
+    io.observe(el);
+    return () => {
+      io.disconnect();
+      timers.forEach(clearTimeout);
+    };
+  }, [reduced]);
 
   const intake = INTAKES["Family Law"];
 

@@ -23,6 +23,68 @@
   --error-soft: #f1ded9;
   --shadow: 0 6px 26px rgba(29, 38, 33, 0.08);
   --shadow-sm: 0 1px 3px rgba(29, 38, 33, 0.05);
+  /* liquid-glass values, tokenised so they follow the theme */
+  --glass-fill: color-mix(in srgb, var(--surface) 58%, transparent);
+  --glass-border: rgba(255, 255, 255, 0.55);
+  --glass-shadow: 0 28px 70px -28px rgba(29, 38, 33, 0.3);
+  --glass-hi: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  --glass-nav-fill: color-mix(in srgb, var(--background) 70%, transparent);
+  --glass-sheen: linear-gradient(135deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 42%);
+}
+
+/* Dark tokens live in one place, applied both to the system default (when the
+   visitor hasn't chosen) and to an explicit data-theme="dark" from the toggle. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --background: #161a15;
+    --surface: #1e221c;
+    --raise: #22271f;
+    --inset: #20241d;
+    --foreground: #e9eae3;
+    --muted: #9aa495;
+    --border: #2c312a;
+    --accent: #7fb086;
+    --accent-h: #95c29b;
+    --accent-fg: #12160f;
+    --accent-soft: #22301f;
+    --awaiting: #cdb06a;
+    --awaiting-soft: #2a2a1c;
+    --error: #d08a7e;
+    --error-soft: #2e211d;
+    --shadow: 0 6px 26px rgba(0, 0, 0, 0.35);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --glass-fill: color-mix(in srgb, var(--surface) 44%, transparent);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-shadow: 0 28px 70px -28px rgba(0, 0, 0, 0.7);
+    --glass-hi: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    --glass-nav-fill: color-mix(in srgb, var(--background) 64%, transparent);
+    --glass-sheen: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 42%);
+  }
+}
+:root[data-theme="dark"] {
+  --background: #161a15;
+  --surface: #1e221c;
+  --raise: #22271f;
+  --inset: #20241d;
+  --foreground: #e9eae3;
+  --muted: #9aa495;
+  --border: #2c312a;
+  --accent: #7fb086;
+  --accent-h: #95c29b;
+  --accent-fg: #12160f;
+  --accent-soft: #22301f;
+  --awaiting: #cdb06a;
+  --awaiting-soft: #2a2a1c;
+  --error: #d08a7e;
+  --error-soft: #2e211d;
+  --shadow: 0 6px 26px rgba(0, 0, 0, 0.35);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --glass-fill: color-mix(in srgb, var(--surface) 44%, transparent);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 28px 70px -28px rgba(0, 0, 0, 0.7);
+  --glass-hi: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --glass-nav-fill: color-mix(in srgb, var(--background) 64%, transparent);
+  --glass-sheen: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 42%);
 }
 
 @theme inline {
@@ -44,28 +106,6 @@
   --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, ui-serif, serif;
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #161a15;
-    --surface: #1e221c;
-    --raise: #22271f;
-    --inset: #20241d;
-    --foreground: #e9eae3;
-    --muted: #9aa495;      /* sage — AA on dark ground */
-    --border: #2c312a;
-    --accent: #7fb086;
-    --accent-h: #95c29b;
-    --accent-fg: #12160f;
-    --accent-soft: #22301f;
-    --awaiting: #cdb06a;
-    --awaiting-soft: #2a2a1c;
-    --error: #d08a7e;
-    --error-soft: #2e211d;
-    --shadow: 0 6px 26px rgba(0, 0, 0, 0.35);
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  }
 }
 
 body {
@@ -92,16 +132,14 @@ h1, h2, h3 {
    A translucent tinted fill, a real backdrop blur + saturation, a bright top
    edge (specular highlight) and soft depth shadow. */
 .glass {
-  background: color-mix(in srgb, var(--surface) 58%, transparent);
+  background: var(--glass-fill);
   -webkit-backdrop-filter: blur(22px) saturate(165%);
   backdrop-filter: blur(22px) saturate(165%);
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  box-shadow:
-    0 28px 70px -28px rgba(29, 38, 33, 0.30),
-    inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow), var(--glass-hi);
 }
 .glass-nav {
-  background: color-mix(in srgb, var(--background) 70%, transparent);
+  background: var(--glass-nav-fill);
   -webkit-backdrop-filter: blur(16px) saturate(160%);
   backdrop-filter: blur(16px) saturate(160%);
   border-bottom: 1px solid var(--border);
@@ -116,22 +154,7 @@ h1, h2, h3 {
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 42%);
-}
-@media (prefers-color-scheme: dark) {
-  .glass {
-    background: color-mix(in srgb, var(--surface) 44%, transparent);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow:
-      0 28px 70px -28px rgba(0, 0, 0, 0.7),
-      inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  }
-  .glass-nav {
-    background: color-mix(in srgb, var(--background) 64%, transparent);
-  }
-  .glass-sheen::after {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 42%);
-  }
+  background: var(--glass-sheen);
 }
 
 /* ── Editorial motion ─────────────────────────────────────────────────────

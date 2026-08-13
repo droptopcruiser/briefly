@@ -41,8 +41,16 @@ export default async function RootLayout({
     : [null, null, null, null];
 
   return (
-    <html lang="en" className="h-full antialiased">
+    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
       <body className="min-h-full">
+        {/* No-flash theme: apply an explicit choice before first paint; absence
+            means "system", which the prefers-color-scheme media query handles. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{var m=localStorage.getItem('briefly:theme');if(m==='light'||m==='dark'){document.documentElement.setAttribute('data-theme',m);}}catch(e){}",
+          }}
+        />
         <Shell
           authed={Boolean(user)}
           isManager={isManager(membership?.role)}

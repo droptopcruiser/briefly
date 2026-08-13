@@ -8,6 +8,7 @@ import type { Profile } from "@/lib/profile";
 import type { NotifItem } from "@/lib/notifications";
 import { NotificationBell } from "./notification-bell";
 import { ProfileMenu } from "./profile-menu";
+import { ThemeToggle } from "./theme-toggle";
 
 /**
  * The app chrome. A single client shell decides, from the pathname, whether a
@@ -454,6 +455,7 @@ function AppChrome({
           </form>
 
           <div className="ml-auto flex items-center gap-2">
+            <ThemeToggle />
             {notifications ? (
               <NotificationBell count={notifications.count} items={notifications.items} />
             ) : null}
@@ -476,21 +478,24 @@ function PublicHeader({ authed, profile }: { authed: boolean; profile: Profile |
         <Link href="/" className="font-serif text-lg font-semibold tracking-tight">
           Briefly
         </Link>
-        {authed ? (
-          <div className="flex items-center gap-3 text-sm text-muted">
-            <Link href="/app" className="hover:text-foreground">
-              Open app
+        <div className="flex items-center gap-3 text-sm text-muted">
+          <ThemeToggle />
+          {authed ? (
+            <>
+              <Link href="/app" className="hover:text-foreground">
+                Open app
+              </Link>
+              {profile ? <ProfileMenu profile={profile} /> : null}
+            </>
+          ) : (
+            <Link
+              href="/login"
+              className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-surface"
+            >
+              Sign in
             </Link>
-            {profile ? <ProfileMenu profile={profile} /> : null}
-          </div>
-        ) : (
-          <Link
-            href="/login"
-            className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-surface"
-          >
-            Sign in
-          </Link>
-        )}
+          )}
+        </div>
       </div>
     </header>
   );
