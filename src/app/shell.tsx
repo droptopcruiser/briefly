@@ -521,6 +521,11 @@ export function Shell(props: ShellProps) {
     );
   }
 
+  // The marketing landing is full-bleed and brings its own glass nav + footer.
+  if (pathname === "/") {
+    return <>{props.children}</>;
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
       <PublicHeader authed={props.authed} profile={props.profile} />
