@@ -17,9 +17,9 @@ export default async function EditRubricPage({
   return (
     <div className="space-y-6">
       <Link href="/app/rubrics" className="text-sm text-muted hover:text-foreground">
-        ← Rubrics
+        ← Matter types
       </Link>
-      <h1 className="text-2xl font-semibold tracking-tight">Edit rubric</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Edit matter type</h1>
       <RubricEditor initial={rubric} />
     </div>
   );

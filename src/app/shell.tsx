@@ -130,7 +130,7 @@ const MANAGE: NavItem[] = [
     icon: (
       <Icon>
         <circle cx="12" cy="12" r="3" />
-        <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1" />
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
       </Icon>
     ),
   },
@@ -213,6 +213,7 @@ function SidebarInner({
   roleLabel,
   pathname,
   onNavigate,
+  headerAction,
 }: {
   isManager: boolean;
   intake: string | null;
@@ -220,10 +221,11 @@ function SidebarInner({
   roleLabel: string | null;
   pathname: string;
   onNavigate?: () => void;
+  headerAction?: ReactNode;
 }) {
   return (
     <>
-      <div className="flex h-14 items-center px-5">
+      <div className="flex h-14 items-center justify-between px-5">
         <Link
           href="/app"
           onClick={onNavigate}
@@ -231,6 +233,7 @@ function SidebarInner({
         >
           Briefly
         </Link>
+        {headerAction}
       </div>
 
       <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4" aria-label="Primary">
@@ -264,7 +267,27 @@ function AppChrome({
   children,
 }: Omit<ShellProps, "authed"> & { pathname: string }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Collapse the persistent desktop rail so it isn't always in view. Persisted;
+  // starts expanded on the server and reconciles after mount to avoid a mismatch.
+  const [collapsed, setCollapsed] = useState(false);
   const panelRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    try {
+      setCollapsed(localStorage.getItem("briefly:navCollapsed") === "1");
+    } catch {
+      /* storage unavailable — stay expanded */
+    }
+  }, []);
+
+  const setCollapsedPersisted = (v: boolean) => {
+    setCollapsed(v);
+    try {
+      localStorage.setItem("briefly:navCollapsed", v ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  };
 
   // Close the drawer whenever the route changes.
   useEffect(() => {
@@ -312,20 +335,38 @@ function AppChrome({
 
   return (
     <div className="min-h-screen lg:flex">
-      {/* Persistent rail ≥1024px */}
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-border bg-surface lg:flex">
+      {/* Persistent rail ≥1024px (hidden when collapsed) */}
+      <aside
+        className={`sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-border bg-surface ${
+          collapsed ? "" : "lg:flex"
+        }`}
+      >
         <SidebarInner
           isManager={isManager}
           intake={intake}
           firmName={firmName}
           roleLabel={roleLabel}
           pathname={pathname}
+          headerAction={
+            <button
+              type="button"
+              onClick={() => setCollapsedPersisted(true)}
+              aria-label="Collapse navigation"
+              title="Collapse"
+              className="rounded-md p-1 text-muted hover:bg-inset hover:text-foreground"
+            >
+              <Icon>
+                <path d="M11 17l-5-5 5-5" />
+                <path d="M18 17l-5-5 5-5" />
+              </Icon>
+            </button>
+          }
         />
       </aside>
 
-      {/* Overlay drawer <1024px */}
+      {/* Overlay drawer: always on mobile; on desktop when the rail is collapsed */}
       <div
-        className={`fixed inset-0 z-50 lg:hidden ${drawerOpen ? "" : "pointer-events-none"}`}
+        className={`fixed inset-0 z-50 ${drawerOpen ? "" : "pointer-events-none"}`}
         aria-hidden={!drawerOpen}
       >
         <div
@@ -348,6 +389,35 @@ function AppChrome({
             roleLabel={roleLabel}
             pathname={pathname}
             onNavigate={() => setDrawerOpen(false)}
+            headerAction={
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCollapsedPersisted(false);
+                    setDrawerOpen(false);
+                  }}
+                  aria-label="Keep navigation open"
+                  title="Pin sidebar"
+                  className="hidden rounded-md p-1 text-muted hover:bg-inset hover:text-foreground lg:inline-flex"
+                >
+                  <Icon>
+                    <path d="M13 17l5-5-5-5" />
+                    <path d="M6 17l5-5-5-5" />
+                  </Icon>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDrawerOpen(false)}
+                  aria-label="Close navigation"
+                  className="rounded-md p-1 text-muted hover:bg-inset hover:text-foreground"
+                >
+                  <Icon>
+                    <path d="M18 6 6 18M6 6l12 12" />
+                  </Icon>
+                </button>
+              </div>
+            }
           />
         </aside>
       </div>
@@ -358,7 +428,9 @@ function AppChrome({
             type="button"
             onClick={() => setDrawerOpen(true)}
             aria-label="Open navigation"
-            className="rounded-md p-1.5 text-muted hover:bg-inset hover:text-foreground lg:hidden"
+            className={`rounded-md p-1.5 text-muted hover:bg-inset hover:text-foreground ${
+              collapsed ? "" : "lg:hidden"
+            }`}
           >
             <Icon>
               <path d="M3 6h18M3 12h18M3 18h18" />

@@ -17,9 +17,9 @@ export default async function NewRubricPage() {
   return (
     <div className="space-y-6">
       <Link href="/app/rubrics" className="text-sm text-muted hover:text-foreground">
-        ← Rubrics
+        ← Matter types
       </Link>
-      <h1 className="text-2xl font-semibold tracking-tight">New rubric</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">New matter type</h1>
       <RubricEditor initial={BLANK} />
     </div>
   );

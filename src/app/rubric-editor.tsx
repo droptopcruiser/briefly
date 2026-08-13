@@ -273,7 +273,7 @@ export function RubricEditor({ initial }: { initial: Rubric }) {
           disabled={pending || !name.trim()}
           className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg disabled:opacity-60"
         >
-          {pending ? "Saving…" : "Save rubric"}
+          {pending ? "Saving…" : "Save matter type"}
         </button>
         <Link href="/app/rubrics" className="text-sm text-muted hover:text-foreground">
           Cancel

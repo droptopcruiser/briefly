@@ -12,24 +12,24 @@ export default async function RubricsPage() {
     <div className="space-y-8">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Rubrics</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Matter types</h1>
           <p className="max-w-2xl text-sm text-muted">
-            A rubric defines a matter type — the facts to extract, the documents required, and
-            what&apos;s mandatory. Briefly classifies and extracts against these, so the same engine
-            adapts to any practice.
+            A matter type defines what Briefly captures — the facts to extract, the documents
+            required, and what&apos;s mandatory. Briefly classifies and extracts against these, so the
+            same engine adapts to any practice.
           </p>
         </div>
         <Link
           href="/app/rubrics/new"
           className="shrink-0 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:opacity-90"
         >
-          New rubric
+          New matter type
         </Link>
       </div>
 
       {rubrics.length === 0 ? (
         <div className="rounded-lg border border-border bg-surface px-4 py-3 text-sm text-muted">
-          You haven&apos;t authored any rubrics yet, so Briefly is using its three built-in ones.
+          You haven&apos;t created any matter types yet, so Briefly is using its three built-in ones.
           Create your own or start from a template below.
         </div>
       ) : (
