@@ -18,6 +18,7 @@ import {
 } from "@/lib/metering";
 import { setAssignee } from "@/lib/team";
 import { addEvent } from "@/lib/events";
+import { recordReview } from "@/lib/reviews";
 import { isEmailConfigured, sendEmail, senderFrom, composeEmailBody } from "@/lib/email";
 
 /**
@@ -52,7 +53,7 @@ export async function createMatterFromSubmission(formData: FormData): Promise<vo
  * that opt out of the Initial Work Brief. No email leaves.
  */
 export async function approveMatter(formData: FormData): Promise<void> {
-  await requireUser();
+  const user = await requireUser();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   const account = await getCurrentAccount();
@@ -63,8 +64,26 @@ export async function approveMatter(formData: FormData): Promise<void> {
   matter.updatedAt = matter.approvedAt;
   await saveMatter(matter);
   await addEvent(matter.accountId, matter.id, "completed", "Matter marked complete");
+  await recordReview(matter, user.id);
   revalidatePath(`/matters/${id}`);
   revalidatePath("/app");
+}
+
+/**
+ * Explicit "Mark reviewed" — records a review baseline of the matter's current
+ * state, so anything the client adds afterward surfaces as "since the last
+ * review". A no-side-effect way to say "I've seen this as it stands now".
+ */
+export async function markMatterReviewed(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  const account = await getCurrentAccount();
+  const matter = await getMatter(id, account?.id ?? DEFAULT_ACCOUNT_ID);
+  if (!matter) return;
+  await recordReview(matter, user.id);
+  await addEvent(matter.accountId, matter.id, "reviewed", "Marked reviewed");
+  revalidatePath(`/matters/${id}`);
 }
 
 /** Result of an approve-and-send attempt, surfaced back to the client UI. */
@@ -81,7 +100,7 @@ export async function approveAndSendMatter(
   _prev: SendResult,
   formData: FormData,
 ): Promise<SendResult> {
-  await requireUser();
+  const user = await requireUser();
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false, error: "Missing matter id." };
 
@@ -140,6 +159,9 @@ export async function approveAndSendMatter(
   await saveMatter(matter);
   await addEvent(matter.accountId, matter.id, "approved", "You approved the follow-up");
   await addEvent(matter.accountId, matter.id, "sent", `Follow-up sent to ${draft.to}`);
+  // Sending the follow-up is a review of the matter as it stands — set the
+  // baseline so the client's reply surfaces as "since the last review".
+  await recordReview(matter, user.id);
   revalidatePath(`/matters/${id}`);
   return { ok: true };
 }

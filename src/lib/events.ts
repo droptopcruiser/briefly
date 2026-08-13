@@ -19,6 +19,7 @@ export type MatterEventType =
   | "brief_refreshed"
   | "brief_approved"
   | "brief_stale"
+  | "reviewed"
   | "completed";
 
 export interface MatterEvent {

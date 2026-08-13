@@ -6,6 +6,7 @@ import { getMatter, saveMatter } from "@/lib/store";
 import { getCurrentAccount, DEFAULT_ACCOUNT_ID } from "@/lib/metering";
 import { getEffectiveRubrics } from "@/lib/rubric-store";
 import { addEvent } from "@/lib/events";
+import { recordReview } from "@/lib/reviews";
 import {
   getActiveBrief,
   createBriefForMatter,
@@ -57,6 +58,9 @@ export async function approveWorkBrief(formData: FormData): Promise<void> {
     "brief_approved",
     `Initial Work Brief v${brief.version} approved — matter in progress`,
   );
+  // Approving the brief is a genuine review of the matter — set the baseline so
+  // later client activity surfaces as "since the last review".
+  await recordReview(matter, user.id);
   revalidatePath(`/matters/${id}`);
   revalidatePath("/app");
 }

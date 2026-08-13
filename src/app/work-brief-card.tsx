@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useFormStatus } from "react-dom";
 import type { WorkBriefContent, WorkBriefState } from "@/lib/work-brief";
+import { SubmitButton } from "@/app/pending-button";
 
 /**
  * The Initial Work Brief review surface. Briefly prepares; the professional
@@ -10,33 +10,12 @@ import type { WorkBriefContent, WorkBriefState } from "@/lib/work-brief";
  * so every claim is traceable. Approving is an internal step (matter → in
  * progress); the suggested client message is a draft the professional sends
  * themselves — nothing here leaves automatically.
+ *
+ * Refresh is deliberate and versioned: a manual "Refresh draft" before any new
+ * information, or — once a reply/document makes the brief stale — an explanatory
+ * "Prepare updated brief" that supersedes the current version (never a silent
+ * rewrite).
  */
-
-function ApproveSubmit() {
-  const { pending } = useFormStatus();
-  return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg disabled:opacity-60"
-    >
-      {pending ? "Approving…" : "Approve brief"}
-    </button>
-  );
-}
-
-function RefreshSubmit({ label }: { label: string }) {
-  const { pending } = useFormStatus();
-  return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-inset disabled:opacity-60"
-    >
-      {pending ? "Refreshing…" : label}
-    </button>
-  );
-}
 
 function Bullets({ items }: { items: string[] }) {
   return (
@@ -115,16 +94,16 @@ export function WorkBriefCard({
         ) : null}
       </div>
 
-      {/* Stale banner */}
+      {/* Stale banner — versioned, explanatory refresh (never a silent rewrite) */}
       {stale ? (
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-awaiting bg-awaiting-soft px-5 py-3">
           <div className="text-sm text-awaiting">
-            <span className="font-medium">Updated since review.</span> New information has arrived on
-            this matter — this brief may be out of date.
+            <span className="font-medium">Updated since review.</span> New client information has
+            arrived since Brief v{version} was created.
           </div>
           <form action={refreshAction}>
             <input type="hidden" name="id" value={id} />
-            <RefreshSubmit label="Refresh brief" />
+            <SubmitButton idleLabel="Prepare updated brief" pendingLabel="Preparing…" variant="secondary" />
           </form>
         </div>
       ) : null}
@@ -245,28 +224,34 @@ export function WorkBriefCard({
         ) : null}
       </div>
 
-      {/* Human gate */}
+      {/* Human gate. When stale, the refresh CTA lives in the banner above
+          ("Prepare updated brief"); the footer keeps only the plain manual
+          "Refresh draft" for a deliberate refresh before any new information. */}
       <div className="flex flex-wrap items-center gap-3 border-t border-border px-5 py-4">
         {approved ? (
           <>
             <span className="rounded-md border border-accent px-4 py-2 text-sm font-medium text-accent">
               ✓ Brief approved
             </span>
-            <form action={refreshAction}>
-              <input type="hidden" name="id" value={id} />
-              <RefreshSubmit label="Refresh draft" />
-            </form>
+            {!stale ? (
+              <form action={refreshAction}>
+                <input type="hidden" name="id" value={id} />
+                <SubmitButton idleLabel="Refresh draft" pendingLabel="Refreshing…" variant="secondary" />
+              </form>
+            ) : null}
           </>
         ) : (
           <>
             <form action={approveAction}>
               <input type="hidden" name="id" value={id} />
-              <ApproveSubmit />
+              <SubmitButton idleLabel="Approve brief" pendingLabel="Approving…" />
             </form>
-            <form action={refreshAction}>
-              <input type="hidden" name="id" value={id} />
-              <RefreshSubmit label="Refresh draft" />
-            </form>
+            {!stale ? (
+              <form action={refreshAction}>
+                <input type="hidden" name="id" value={id} />
+                <SubmitButton idleLabel="Refresh draft" pendingLabel="Refreshing…" variant="secondary" />
+              </form>
+            ) : null}
             <span className="text-xs text-muted">
               Human gate — approving begins the work. Nothing is sent.
             </span>

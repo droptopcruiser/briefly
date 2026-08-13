@@ -7,14 +7,17 @@ import { ReadinessBadge, ReadinessMeter, StatusBadge } from "@/app/ui";
 import { ApproveButton } from "@/app/approve-button";
 import { DraftActions } from "@/app/draft-actions";
 import { WorkBriefCard } from "@/app/work-brief-card";
+import { SinceReviewCard } from "@/app/since-review-card";
+import { SubmitButton } from "@/app/pending-button";
 import { AssignControl } from "@/app/assign-control";
 import { requireAccount } from "@/lib/metering";
 import { listMembers } from "@/lib/team";
 import { listEvents } from "@/lib/events";
 import { getActiveBrief, isBriefStale } from "@/lib/work-brief";
+import { getBaselineReview, computeMatterChanges } from "@/lib/reviews";
 import { getEffectiveRubrics } from "@/lib/rubric-store";
 import { getClientContext } from "@/lib/clients";
-import { assignMatter } from "@/app/actions";
+import { assignMatter, markMatterReviewed } from "@/app/actions";
 import { composeEmailBody } from "@/lib/email";
 
 export default async function MatterPage({
@@ -41,16 +44,29 @@ export default async function MatterPage({
   const r = matter.result;
   const carriedCount = r.fields.filter((f) => f.carried).length;
 
+  // Resolve this matter's rubric once — used for the brief opt-out check and for
+  // labelling newly-received documents in the "since review" diff.
+  const rubrics = await getEffectiveRubrics(account.id);
+  const rubric = rubrics.find((x) => x.id === r.rubricId);
+
   // Path B — a ready matter carries an Initial Work Brief. Load it (and whether a
   // later reply may have made it stale). Only relevant when nothing is missing.
   const brief = !r.draftEmail ? await getActiveBrief(matter.id) : null;
   const briefStale = brief ? isBriefStale(brief, matter) : false;
-  let briefsEnabled = true;
-  if (!r.draftEmail && !brief) {
-    const rubrics = await getEffectiveRubrics(account.id);
-    const rb = rubrics.find((x) => x.id === r.rubricId);
-    briefsEnabled = !rb || rb.prepareBriefWhenReady !== false;
-  }
+  const briefsEnabled = !r.draftEmail && !brief ? !rubric || rubric.prepareBriefWhenReady !== false : true;
+
+  // "Since the last review" — diff the matter against its stored baseline. The
+  // card shows only when there's a real baseline and something changed (or a
+  // prepared artifact may now be stale).
+  const baseline = await getBaselineReview(matter.id);
+  const changes = baseline ? computeMatterChanges(matter, baseline.snapshot, rubric) : null;
+  const needsAttention =
+    brief && briefStale
+      ? "A client reply has arrived since the brief was prepared — refresh it to include the new information."
+      : changes?.readinessDelta && changes.readinessDelta.to < changes.readinessDelta.from
+        ? `Readiness fell from ${changes.readinessDelta.from}% to ${changes.readinessDelta.to}% since the last review.`
+        : null;
+  const showSinceReview = !!changes && (changes.hasChanges || !!needsAttention);
 
   // A chase Briefly drafted for a stuck matter — awaiting_client + a pending nudge.
   const pendingChase = matter.status === "awaiting_client" && !!matter.lastNudgedAt;
@@ -78,6 +94,16 @@ export default async function MatterPage({
         ← Matters
       </Link>
 
+      {/* Since the last review — evidence-backed diff against the stored baseline */}
+      {showSinceReview && changes ? (
+        <SinceReviewCard
+          id={matter.id}
+          changes={changes}
+          needsAttention={needsAttention}
+          markReviewedAction={markMatterReviewed}
+        />
+      ) : null}
+
       {/* Header */}
       <header className="space-y-3">
         <div className="flex flex-wrap items-center gap-3">
@@ -86,7 +112,19 @@ export default async function MatterPage({
           </h1>
           <ReadinessBadge value={r.readiness} />
           <StatusBadge status={matter.status} />
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            {!showSinceReview ? (
+              <form action={markMatterReviewed}>
+                <input type="hidden" name="id" value={matter.id} />
+                <button
+                  type="submit"
+                  title="Snapshot the matter as it stands, so Briefly can show what changes next"
+                  className="rounded-md border border-border px-3 py-1.5 text-sm text-muted hover:bg-inset hover:text-foreground"
+                >
+                  Mark reviewed
+                </button>
+              </form>
+            ) : null}
             <AssignControl
               matterId={matter.id}
               members={assignOptions}
@@ -283,13 +321,11 @@ export default async function MatterPage({
             </p>
             <form action={generateWorkBrief}>
               <input type="hidden" name="id" value={matter.id} />
-              <button
-                type="submit"
-                className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg"
-              >
-                Prepare Initial Work Brief
-              </button>
+              <SubmitButton idleLabel="Prepare Initial Work Brief" pendingLabel="Preparing the brief…" />
             </form>
+            <p className="text-xs text-muted">
+              Briefly reads the matter and drafts a structured brief — this takes a few seconds.
+            </p>
           </div>
         ) : (
           <>
