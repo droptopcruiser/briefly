@@ -2,13 +2,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getMatter } from "@/lib/store";
 import { approveMatter, approveAndSendMatter } from "@/app/actions";
+import { approveWorkBrief, refreshWorkBrief, generateWorkBrief } from "@/app/brief-actions";
 import { ReadinessBadge, ReadinessMeter, StatusBadge } from "@/app/ui";
 import { ApproveButton } from "@/app/approve-button";
 import { DraftActions } from "@/app/draft-actions";
+import { WorkBriefCard } from "@/app/work-brief-card";
 import { AssignControl } from "@/app/assign-control";
 import { requireAccount } from "@/lib/metering";
 import { listMembers } from "@/lib/team";
 import { listEvents } from "@/lib/events";
+import { getActiveBrief, isBriefStale } from "@/lib/work-brief";
+import { getEffectiveRubrics } from "@/lib/rubric-store";
 import { getClientContext } from "@/lib/clients";
 import { assignMatter } from "@/app/actions";
 import { composeEmailBody } from "@/lib/email";
@@ -36,6 +40,17 @@ export default async function MatterPage({
 
   const r = matter.result;
   const carriedCount = r.fields.filter((f) => f.carried).length;
+
+  // Path B — a ready matter carries an Initial Work Brief. Load it (and whether a
+  // later reply may have made it stale). Only relevant when nothing is missing.
+  const brief = !r.draftEmail ? await getActiveBrief(matter.id) : null;
+  const briefStale = brief ? isBriefStale(brief, matter) : false;
+  let briefsEnabled = true;
+  if (!r.draftEmail && !brief) {
+    const rubrics = await getEffectiveRubrics(account.id);
+    const rb = rubrics.find((x) => x.id === r.rubricId);
+    briefsEnabled = !rb || rb.prepareBriefWhenReady !== false;
+  }
 
   // A chase Briefly drafted for a stuck matter — awaiting_client + a pending nudge.
   const pendingChase = matter.status === "awaiting_client" && !!matter.lastNudgedAt;
@@ -182,7 +197,8 @@ export default async function MatterPage({
         </h2>
         {r.gaps.length === 0 ? (
           <p className="rounded-lg border border-accent bg-surface px-4 py-3 text-sm text-accent">
-            Nothing missing — this matter is ready for your review.
+            Every required fact and document is present — this matter is ready. The prepared brief is
+            below.
           </p>
         ) : (
           <ul className="rounded-lg border border-border bg-surface divide-y divide-border">
@@ -199,9 +215,12 @@ export default async function MatterPage({
         )}
       </section>
 
-      {/* Drafted next step + human gate */}
+      {/* Next step + human gate. Path A: a missing-info follow-up to send.
+          Path B: the matter is ready → the Initial Work Brief for review. */}
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">Drafted next step</h2>
+        <h2 className="text-lg font-semibold tracking-tight">
+          {r.draftEmail ? "Drafted next step" : "Prepared work"}
+        </h2>
 
         {/* Briefly noticed this went quiet — a chase is ready below. */}
         {pendingChase ? (
@@ -223,17 +242,62 @@ export default async function MatterPage({
             approved={alreadySent}
             action={approveAndSendMatter}
           />
+        ) : brief ? (
+          <div className="space-y-4">
+            <WorkBriefCard
+              id={matter.id}
+              version={brief.version}
+              state={brief.state}
+              content={brief.content}
+              stale={briefStale}
+              mocked={brief.mocked}
+              approveAction={approveWorkBrief}
+              refreshAction={refreshWorkBrief}
+            />
+            {matter.status === "in_progress" ? (
+              <form action={approveMatter} className="flex flex-wrap items-center gap-3">
+                <input type="hidden" name="id" value={matter.id} />
+                <button
+                  type="submit"
+                  className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-inset"
+                >
+                  Mark matter complete
+                </button>
+                <span className="text-xs text-muted">Close this matter once the work is done.</span>
+              </form>
+            ) : matter.status === "completed" ? (
+              <p className="text-sm text-accent">✓ Matter completed.</p>
+            ) : null}
+          </div>
+        ) : matter.status === "completed" ? (
+          // Legacy matter finalised before briefs existed — no brief to show.
+          <p className="rounded-lg border border-accent bg-surface px-4 py-3 text-sm text-accent">
+            ✓ Matter completed.
+          </p>
+        ) : briefsEnabled ? (
+          <div className="space-y-3 rounded-lg border border-accent bg-surface px-4 py-4 text-sm">
+            <p className="font-medium text-accent">This matter is ready — nothing missing.</p>
+            <p className="text-muted">
+              Prepare the Initial Work Brief so you can review the matter and decide the next step
+              without reconstructing the email thread.
+            </p>
+            <form action={generateWorkBrief}>
+              <input type="hidden" name="id" value={matter.id} />
+              <button
+                type="submit"
+                className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg"
+              >
+                Prepare Initial Work Brief
+              </button>
+            </form>
+          </div>
         ) : (
           <>
             <p className="rounded-lg border border-accent bg-surface px-4 py-3 text-sm text-accent">
               100% ready — nothing missing. Ready for you to review.
             </p>
             <div className="flex items-center gap-3 pt-1">
-              <ApproveButton
-                id={matter.id}
-                approved={matter.status === "completed"}
-                action={approveMatter}
-              />
+              <ApproveButton id={matter.id} approved={false} action={approveMatter} />
               <span className="text-xs text-muted">
                 Human gate — Briefly never acts on its own.
               </span>

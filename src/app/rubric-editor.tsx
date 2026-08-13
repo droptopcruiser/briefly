@@ -29,6 +29,7 @@ export function RubricEditor({ initial }: { initial: Rubric }) {
   const [name, setName] = useState(initial.name);
   const [vertical, setVertical] = useState(initial.vertical);
   const [description, setDescription] = useState(initial.description);
+  const [prepareBrief, setPrepareBrief] = useState(initial.prepareBriefWhenReady !== false);
   const [fields, setFields] = useState<FieldRow[]>(
     initial.fields.map((f) => ({
       key: f.key,
@@ -95,6 +96,7 @@ export function RubricEditor({ initial }: { initial: Rubric }) {
         description: d.description,
         required: d.required,
       })),
+      prepareBriefWhenReady: prepareBrief,
     };
     startTransition(() => saveRubric(rubric));
   }
@@ -264,6 +266,27 @@ export function RubricEditor({ initial }: { initial: Rubric }) {
             ))}
           </div>
         )}
+      </section>
+
+      {/* When ready */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold tracking-tight">When ready</h2>
+        <label className="flex items-start gap-3 rounded-lg border border-border bg-surface p-4">
+          <input
+            type="checkbox"
+            checked={prepareBrief}
+            onChange={(e) => setPrepareBrief(e.target.checked)}
+            className="mt-0.5"
+          />
+          <span className="space-y-1">
+            <span className="block text-sm font-medium">Prepare an Initial Work Brief when ready</span>
+            <span className="block text-sm text-muted">
+              When a matter of this type meets its requirements, Briefly prepares a concise,
+              source-backed brief for you to review and approve — turning a ready intake into
+              review-ready work. Leave off to keep this type at “ready” with no brief.
+            </span>
+          </span>
+        </label>
       </section>
 
       <div className="flex items-center gap-3 border-t border-border pt-5">

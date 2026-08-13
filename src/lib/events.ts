@@ -14,7 +14,12 @@ export type MatterEventType =
   | "approved"
   | "sent"
   | "assigned"
-  | "nudge";
+  | "nudge"
+  | "brief_created"
+  | "brief_refreshed"
+  | "brief_approved"
+  | "brief_stale"
+  | "completed";
 
 export interface MatterEvent {
   id: string;

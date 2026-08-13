@@ -4,6 +4,7 @@ import { saveMatter } from "./store";
 import { getEffectiveRubrics } from "./rubric-store";
 import { computeGaps, computeReadiness } from "./gaps";
 import { addEvent } from "./events";
+import { ensureBriefOnReady, getActiveBrief, isBriefStale } from "./work-brief";
 import { listMembers } from "./team";
 import { upsertClient, getKnownFacts } from "./clients";
 import { isEmailConfigured, sendMatterReadyEmail } from "./email";
@@ -88,6 +89,15 @@ export async function ingestSubmission(opts: {
   if (account) await consumeCreditIfOverCap(account, usedBefore);
   await addEvent(matter.accountId, matter.id, "created", `New matter · ${result.readiness}% ready`);
   await upsertClient(matter.accountId, clientEmail, clientName);
+
+  // Born ready (nothing missing) → prepare the Initial Work Brief straight away,
+  // so intake that arrives complete lands as review-ready work, not a dead end.
+  if (matter.status === "ready_for_you") {
+    const brief = await ensureBriefOnReady(matter, rubric);
+    if (brief) {
+      await addEvent(matter.accountId, matter.id, "brief_created", "Initial Work Brief prepared for review");
+    }
+  }
   return matter;
 }
 
@@ -166,7 +176,19 @@ export async function ingestReply(opts: {
       "became_ready",
       "Everything required is now present — ready for review",
     );
+    // Readiness is a trigger, not a finish line: prepare the Initial Work Brief.
+    const brief = await ensureBriefOnReady(matter, rubric);
+    if (brief) {
+      await addEvent(acct, matter.id, "brief_created", "Initial Work Brief prepared for review");
+    }
     await notifyReady(account, matter);
+  } else {
+    // Already ready with a live brief? The new reply may have made it stale —
+    // flag it so the professional can refresh without losing the reviewed one.
+    const active = await getActiveBrief(matter.id);
+    if (active && isBriefStale(active, matter)) {
+      await addEvent(acct, matter.id, "brief_stale", "New information arrived — brief may need a refresh");
+    }
   }
 
   return matter;

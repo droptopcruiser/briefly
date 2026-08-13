@@ -39,6 +39,14 @@ export interface Rubric {
   vertical: string;
   fields: RubricField[];
   documents: RubricDocument[];
+  /**
+   * When this matter type reaches its ready criteria, prepare an Initial Work
+   * Brief for professional review. Undefined = true (the default for every
+   * matter type); set false to keep a type at "ready" without a brief. This is
+   * the first, deliberately small step of the firm-configurable "what to
+   * prepare when ready" model — profession-neutral, no code required.
+   */
+  prepareBriefWhenReady?: boolean;
 }
 
 /** One extracted fact. Grounding rule: fill only what is explicitly present. */
@@ -105,13 +113,15 @@ export interface PipelineResult {
 }
 
 /**
- * Matter lifecycle. "Approved" is deliberately NOT a state — approving is an
- * action (in the activity trail); the matter moves to awaiting_client (a
- * follow-up went out) or completed (human finalised).
+ * Matter workflow state — where the matter sits in the professional's workflow.
+ * (Distinct from the readiness ASSESSMENT — the rubric completeness score on the
+ * result — and from a work artifact's own state; see WorkBrief. "Approved" is
+ * deliberately NOT a state — approving is an action in the activity trail.)
  *   preparing        — Briefly is working on it (transient)
- *   ready_for_review — a follow-up is drafted; the human should review & send it
+ *   ready_for_review — a missing-info follow-up is drafted; review & send it (Path A)
  *   awaiting_client  — the next step is the client's; Briefly has asked
- *   ready_for_you    — client provided what's needed / complete; human to action
+ *   ready_for_you    — matter is ready; an Initial Work Brief awaits your review (Path B)
+ *   in_progress      — you approved the brief; the work is underway
  *   completed        — human has finalised the matter
  */
 export type MatterStatus =
@@ -119,6 +129,7 @@ export type MatterStatus =
   | "ready_for_review"
   | "awaiting_client"
   | "ready_for_you"
+  | "in_progress"
   | "completed";
 
 export interface Matter {

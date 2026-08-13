@@ -47,8 +47,9 @@ export async function createMatterFromSubmission(formData: FormData): Promise<vo
 }
 
 /**
- * Human approval gate for a matter with nothing to send (100% ready). Marks it
- * approved; no email leaves. Used by the ApproveButton.
+ * Finalise a matter — the human close-out. Used to mark an in-progress matter
+ * complete once the work is done, and as the fallback approve for matter types
+ * that opt out of the Initial Work Brief. No email leaves.
  */
 export async function approveMatter(formData: FormData): Promise<void> {
   await requireUser();
@@ -61,8 +62,9 @@ export async function approveMatter(formData: FormData): Promise<void> {
   matter.approvedAt = new Date().toISOString();
   matter.updatedAt = matter.approvedAt;
   await saveMatter(matter);
-  await addEvent(matter.accountId, matter.id, "approved", "Approved — matter completed");
+  await addEvent(matter.accountId, matter.id, "completed", "Matter marked complete");
   revalidatePath(`/matters/${id}`);
+  revalidatePath("/app");
 }
 
 /** Result of an approve-and-send attempt, surfaced back to the client UI. */

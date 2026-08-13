@@ -5,11 +5,12 @@ import { listMembers } from "@/lib/team";
 import { requireAccount, getCurrentMembership } from "@/lib/metering";
 import { MatterRow } from "../../ui";
 
-type ViewKey = "needs-you" | "awaiting" | "assigned" | "unassigned" | "all";
+type ViewKey = "needs-you" | "awaiting" | "in-progress" | "assigned" | "unassigned" | "all";
 
 const VIEWS: { key: ViewKey; label: string; empty: string }[] = [
   { key: "needs-you", label: "Needs you", empty: "Nothing needs you right now — a good place to be." },
   { key: "awaiting", label: "Awaiting client", empty: "No matters are waiting on a client." },
+  { key: "in-progress", label: "In progress", empty: "No matters are in progress — approve a brief to begin one." },
   { key: "assigned", label: "Assigned to me", empty: "Nothing is assigned to you yet." },
   { key: "unassigned", label: "Unassigned", empty: "Every matter has an owner." },
   { key: "all", label: "All", empty: "No matters yet — new intake will appear here." },
@@ -36,11 +37,13 @@ export default async function MattersPage({
       ? { status: NEEDS_YOU }
       : view === "awaiting"
         ? { status: "awaiting_client" as MatterStatus }
-        : view === "assigned"
-          ? { assignee: membership?.userId }
-          : view === "unassigned"
-            ? { assignee: "unassigned" as const }
-            : {};
+        : view === "in-progress"
+          ? { status: "in_progress" as MatterStatus }
+          : view === "assigned"
+            ? { assignee: membership?.userId }
+            : view === "unassigned"
+              ? { assignee: "unassigned" as const }
+              : {};
   const matters = await listMatters(account.id, { ...opts, limit: 100 });
 
   const labelFor = (uid: string | null) => {

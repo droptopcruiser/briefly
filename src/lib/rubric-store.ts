@@ -19,6 +19,7 @@ interface RubricRow {
     description: string;
     fields: Rubric["fields"];
     documents: Rubric["documents"];
+    prepareBriefWhenReady?: boolean;
   };
   created_at?: string;
   updated_at?: string;
@@ -32,6 +33,7 @@ function rowToRubric(r: RubricRow): Rubric {
     description: r.definition.description,
     fields: r.definition.fields,
     documents: r.definition.documents,
+    prepareBriefWhenReady: r.definition.prepareBriefWhenReady,
   };
 }
 
@@ -45,6 +47,7 @@ function rubricToRow(accountId: string, r: Rubric): RubricRow {
       description: r.description,
       fields: r.fields,
       documents: r.documents,
+      prepareBriefWhenReady: r.prepareBriefWhenReady,
     },
     updated_at: new Date().toISOString(),
   };

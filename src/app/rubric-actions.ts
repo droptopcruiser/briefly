@@ -72,6 +72,7 @@ export async function saveRubric(input: Rubric): Promise<void> {
     description: input.description.trim(),
     fields,
     documents,
+    prepareBriefWhenReady: input.prepareBriefWhenReady !== false,
   };
 
   await storeSaveRubric(accountId, rubric);

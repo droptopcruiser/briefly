@@ -99,6 +99,7 @@ const STATUS_LABELS: Record<MatterStatus, string> = {
   ready_for_review: "Ready for review",
   awaiting_client: "Awaiting client",
   ready_for_you: "Ready for you",
+  in_progress: "In progress",
   completed: "Completed",
 };
 
@@ -107,7 +108,8 @@ const STATUS_TONES: Record<MatterStatus, string> = {
   ready_for_review: "border-awaiting text-awaiting",
   awaiting_client: "border-border text-muted",
   ready_for_you: "border-accent text-accent",
-  completed: "border-transparent bg-accent-soft text-accent",
+  in_progress: "border-transparent bg-accent-soft text-accent",
+  completed: "border-transparent bg-inset text-muted",
 };
 
 export function StatusBadge({ status }: { status: MatterStatus }) {
