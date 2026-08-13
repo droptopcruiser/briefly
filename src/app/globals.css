@@ -134,7 +134,12 @@ h1, h2, h3 {
   }
 }
 
-/* ── Editorial motion (all disabled under reduced-motion) ─────────────────── */
+/* ── Editorial motion ─────────────────────────────────────────────────────
+   One deliberate easing curve, no bounce. Principle: animate the work becoming
+   ready, never decoration. Everything resolves instantly under reduced-motion. */
+:root {
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
 @keyframes briefly-float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-12px); }
@@ -144,9 +149,29 @@ h1, h2, h3 {
   to { opacity: 1; transform: none; }
 }
 .anim-float { animation: briefly-float 8s ease-in-out infinite; }
-.anim-rise { animation: briefly-rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.anim-rise { animation: briefly-rise 0.8s var(--ease) both; }
+
+/* Scroll-reveal: primary section elements only (opacity + 12px rise). */
+.reveal {
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 520ms var(--ease), transform 520ms var(--ease);
+}
+.reveal.in { opacity: 1; transform: none; }
+
+/* Crossfade for swapped content (rubric selector, workflow stage). */
+.swap { transition: opacity 320ms var(--ease), transform 320ms var(--ease); }
+@keyframes briefly-swapin {
+  from { opacity: 0; transform: translateX(10px); }
+  to { opacity: 1; transform: none; }
+}
+.anim-swapin { animation: briefly-swapin 320ms var(--ease) both; }
+
 @media (prefers-reduced-motion: reduce) {
   .anim-float,
   .anim-rise { animation: none !important; }
   .trace-dot { display: none; }
+  .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
+  .swap { transition: none !important; }
+  .anim-swapin { animation: none !important; }
 }
