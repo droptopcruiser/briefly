@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { getMatter, saveMatter } from "@/lib/store";
 import { getCurrentAccount, DEFAULT_ACCOUNT_ID } from "@/lib/metering";
@@ -12,14 +11,20 @@ import {
   createBriefForMatter,
   completeJudgmentForBrief,
   approveBrief,
+  type WorkBrief,
 } from "@/lib/work-brief";
 
 /**
  * Actions for the Initial Work Brief — the bridge from a ready intake to
- * review-ready professional work. The human gate is absolute: approving a brief
- * is an INTERNAL step (it progresses the matter to "in progress"); it never
- * sends an external message. Any client communication keeps its own review-and-
- * send flow.
+ * review-ready professional work.
+ *
+ * Performance model: these actions RETURN the artifact (or {ok}) so the client
+ * renders it immediately — they do NOT call revalidatePath in the hot path, which
+ * would force a full matter-page re-render (8+ DB queries) that the browser waits
+ * on before showing anything. The client updates optimistically from the returned
+ * data and calls router.refresh() to reconcile the rest of the page in the
+ * background. The human gate is unchanged: approving is an INTERNAL step (matter
+ * → in progress); nothing is ever sent.
  */
 
 async function loadMatterAndRubric(id: string) {
@@ -33,29 +38,83 @@ async function loadMatterAndRubric(id: string) {
 }
 
 /**
- * Approve the current Initial Work Brief. Records the approved artifact version,
- * approver, and timestamp, and progresses the matter to "in progress". Sends
- * nothing.
+ * Phase 1 — prepare the deterministic, source-backed brief and RETURN it. No
+ * model call, no revalidation: the facts come straight back so the client renders
+ * them in ~1s. Idempotent: returns the existing live brief if there is one.
  */
-export async function approveWorkBrief(formData: FormData): Promise<void> {
+export async function prepareBrief(matterId: string): Promise<WorkBrief | null> {
+  const t0 = Date.now();
+  await requireUser();
+  const { matter, rubric } = await loadMatterAndRubric(matterId);
+  if (!matter) return null;
+
+  let brief = await getActiveBrief(matter.id);
+  if (!brief) {
+    brief = await createBriefForMatter(matter, rubric); // facts-only (fast)
+    if (brief) {
+      await addEvent(matter.accountId, matter.id, "brief_created", "Initial Work Brief prepared for review");
+    }
+  }
+  console.log(`[brief-timing] prepareBrief (phase 1, facts) ms=${Date.now() - t0}`);
+  return brief;
+}
+
+/**
+ * Phase 2 — fill the model-written judgment sections and RETURN the updated
+ * brief. Triggered by the client the moment the facts render, so the judgment
+ * streams in behind the useful content. Idempotent (no-op once filled).
+ */
+export async function completeJudgment(matterId: string): Promise<WorkBrief | null> {
+  const t0 = Date.now();
+  await requireUser();
+  const { matter, rubric } = await loadMatterAndRubric(matterId);
+  if (!matter) return null;
+  const brief = await completeJudgmentForBrief(matter, rubric);
+  console.log(`[brief-timing] completeJudgment (phase 2, model) ms=${Date.now() - t0}`);
+  return brief;
+}
+
+/**
+ * Refresh — supersede the current brief and RETURN a fresh facts-only version
+ * (judgment fills in via completeJudgment, same as prepare). Preserves prior
+ * versions. If the matter had progressed, it returns to ready_for_you.
+ */
+export async function refreshBrief(matterId: string): Promise<WorkBrief | null> {
+  const t0 = Date.now();
+  await requireUser();
+  const { matter, rubric } = await loadMatterAndRubric(matterId);
+  if (!matter) return null;
+
+  const brief = await createBriefForMatter(matter, rubric, { supersede: true });
+  if (brief) {
+    if (matter.status === "in_progress" || matter.status === "completed") {
+      matter.status = "ready_for_you";
+      matter.updatedAt = new Date().toISOString();
+      await saveMatter(matter);
+    }
+    await addEvent(matter.accountId, matter.id, "brief_refreshed", `Initial Work Brief refreshed (v${brief.version})`);
+  }
+  console.log(`[brief-timing] refreshBrief ms=${Date.now() - t0}`);
+  return brief;
+}
+
+/**
+ * Approve — a fast, model-free mutation: validate → persist approved state +
+ * audit event → progress the matter → record the review baseline. No model, no
+ * regeneration, no revalidation. The client already flipped to "approved"
+ * optimistically; it reconciles the rest of the page with router.refresh().
+ */
+export async function approveBrief_(matterId: string): Promise<{ ok: boolean }> {
   const t0 = Date.now();
   const user = await requireUser();
-  const id = String(formData.get("id") ?? "");
-  if (!id) return;
-
-  const { matter } = await loadMatterAndRubric(id);
-  if (!matter) return;
+  const { matter } = await loadMatterAndRubric(matterId);
+  if (!matter) return { ok: false };
 
   const brief = await getActiveBrief(matter.id);
-  if (!brief || brief.state === "approved") return;
+  if (!brief) return { ok: false };
+  if (brief.state === "approved") return { ok: true };
 
-  // A fast, model-free mutation: validate → persist approved state + audit →
-  // progress the matter. NO model call and no regeneration — the UI only offers
-  // Approve once the judgment is already complete (the footer shows "Finishing…"
-  // while pending), so the approved version is always whole. The client updates
-  // optimistically; this reconciles in the background.
   await approveBrief(brief, user.id);
-
   matter.status = "in_progress";
   matter.updatedAt = new Date().toISOString();
   await saveMatter(matter);
@@ -65,88 +124,21 @@ export async function approveWorkBrief(formData: FormData): Promise<void> {
     "brief_approved",
     `Initial Work Brief v${brief.version} approved — matter in progress`,
   );
-  // Approving is a genuine review — set the baseline so later client activity
-  // surfaces as "since the last review".
   await recordReview(matter, user.id);
-  console.log(`[approve-timing] approveWorkBrief ms=${Date.now() - t0}`);
-  revalidatePath(`/matters/${id}`);
-  revalidatePath("/app");
+  console.log(`[approve-timing] approveBrief ms=${Date.now() - t0}`);
+  return { ok: true };
 }
 
-/**
- * Refresh the brief: supersede the current version (preserving its reviewed/
- * approved history) and generate a new one from the latest matter state. Used
- * when the professional explicitly asks for a fresh draft — e.g. after a client
- * reply flagged the brief as stale. If the matter had been progressed, it returns
- * to "ready_for_you" so the refreshed brief is reviewed before work continues.
- */
-export async function refreshWorkBrief(formData: FormData): Promise<void> {
-  await requireUser();
-  const id = String(formData.get("id") ?? "");
-  if (!id) return;
-
-  const { matter, rubric } = await loadMatterAndRubric(id);
-  if (!matter) return;
-
-  const brief = await createBriefForMatter(matter, rubric, { supersede: true });
-  if (!brief) return;
-
-  if (matter.status === "in_progress" || matter.status === "completed") {
-    matter.status = "ready_for_you";
-    matter.updatedAt = new Date().toISOString();
-    await saveMatter(matter);
-  }
-  await addEvent(
-    matter.accountId,
-    matter.id,
-    "brief_refreshed",
-    `Initial Work Brief refreshed (v${brief.version})`,
-  );
-  revalidatePath(`/matters/${id}`);
-  revalidatePath("/app");
-}
-
-/**
- * Generate the first brief on demand — a retry for when auto-generation on the
- * ready transition didn't leave one (e.g. a transient model error). No-op if a
- * live brief already exists, so it stays idempotent.
- */
-export async function generateWorkBrief(formData: FormData): Promise<void> {
-  const t0 = Date.now();
-  await requireUser();
-  const id = String(formData.get("id") ?? "");
-  if (!id) return;
-
-  const { matter, rubric } = await loadMatterAndRubric(id);
-  if (!matter) return;
-
-  const existing = await getActiveBrief(matter.id);
-  if (existing) return;
-
-  const brief = await createBriefForMatter(matter, rubric);
-  if (brief) {
-    await addEvent(matter.accountId, matter.id, "brief_created", "Initial Work Brief prepared for review");
-  }
-  console.log(`[brief-timing] generateWorkBrief (facts-only, phase 1) ms=${Date.now() - t0}`);
-  revalidatePath(`/matters/${id}`);
-}
-
-/**
- * Second phase of on-demand preparation: fill the model-written judgment sections
- * of the current brief. The card auto-triggers this the moment it renders a
- * facts-only brief, so the useful facts show immediately and the judgment fills
- * in behind them. Idempotent — a no-op once the judgment is present.
- */
-export async function completeBriefJudgment(formData: FormData): Promise<void> {
-  const t0 = Date.now();
-  await requireUser();
-  const id = String(formData.get("id") ?? "");
-  if (!id) return;
-
-  const { matter, rubric } = await loadMatterAndRubric(id);
-  if (!matter) return;
-
-  await completeJudgmentForBrief(matter, rubric);
-  console.log(`[brief-timing] completeBriefJudgment (judgment, phase 2) ms=${Date.now() - t0}`);
-  revalidatePath(`/matters/${id}`);
+/** Mark an in-progress matter complete — fast state mutation, returns {ok}. */
+export async function completeMatter(matterId: string): Promise<{ ok: boolean }> {
+  const user = await requireUser();
+  const { matter } = await loadMatterAndRubric(matterId);
+  if (!matter) return { ok: false };
+  matter.status = "completed";
+  matter.approvedAt = new Date().toISOString();
+  matter.updatedAt = matter.approvedAt;
+  await saveMatter(matter);
+  await addEvent(matter.accountId, matter.id, "completed", "Matter marked complete");
+  await recordReview(matter, user.id);
+  return { ok: true };
 }

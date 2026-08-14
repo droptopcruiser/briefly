@@ -1,20 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useState } from "react";
 import type { WorkBriefContent, WorkBriefState } from "@/lib/work-brief";
-import { SubmitButton, Spinner } from "@/app/pending-button";
+import { Spinner } from "@/app/pending-button";
 
 /**
- * The Initial Work Brief review surface. Briefly prepares; the professional
- * reviews, then explicitly approves. Factual sections carry their source quotes
- * so every claim is traceable. Approving is an internal step (matter → in
- * progress); the suggested client message is a draft the professional sends
- * themselves — nothing here leaves automatically.
+ * The Initial Work Brief review surface — PRESENTATIONAL. All state and the
+ * server calls live in BriefPanel; this component just renders the brief and
+ * calls back on Approve / Refresh. Factual sections carry their source quotes so
+ * every claim is traceable. Approving is an internal step (matter → in progress);
+ * the suggested client message is a draft the professional sends themselves.
  *
- * Refresh is deliberate and versioned: a manual "Refresh draft" before any new
- * information, or — once a reply/document makes the brief stale — an explanatory
- * "Prepare updated brief" that supersedes the current version (never a silent
- * rewrite).
+ * Two-phase render: the deterministic facts show immediately; while
+ * `content.judgmentPending`, a skeleton holds the judgment sections until the
+ * model fills them in.
  */
 
 function Bullets({ items }: { items: string[] }) {
@@ -70,54 +69,29 @@ function JudgmentSkeleton() {
 }
 
 export function WorkBriefCard({
-  id,
   version,
   state,
   content,
   stale,
   mocked,
-  approveAction,
-  refreshAction,
-  completeAction,
+  approving,
+  refreshing,
+  onApprove,
+  onRefresh,
 }: {
-  id: string;
   version: number;
   state: WorkBriefState;
   content: WorkBriefContent;
   stale: boolean;
   mocked: boolean;
-  approveAction: (formData: FormData) => void | Promise<void>;
-  refreshAction: (formData: FormData) => void | Promise<void>;
-  completeAction: (formData: FormData) => void | Promise<void>;
+  approving: boolean;
+  refreshing: boolean;
+  onApprove: () => void;
+  onRefresh: () => void;
 }) {
+  const approved = state === "approved";
   const judgmentPending = !!content.judgmentPending;
   const [copied, setCopied] = useState(false);
-
-  // Two-phase render: the facts show instantly; the moment a facts-only brief
-  // lands, kick off the judgment completion so sections 6-10 fill in behind them.
-  const [, startCompleting] = useTransition();
-  const fired = useRef(false);
-  useEffect(() => {
-    if (judgmentPending && !fired.current) {
-      fired.current = true;
-      const fd = new FormData();
-      fd.set("id", id);
-      startCompleting(() => completeAction(fd));
-    }
-  }, [judgmentPending, id, completeAction]);
-
-  // Approve is a fast mutation with an OPTIMISTIC update: flip to approved
-  // immediately on click, then reconcile with the server in the background — the
-  // professional never waits on the round-trip.
-  const [, startApproving] = useTransition();
-  const [optimisticApproved, setOptimisticApproved] = useState(false);
-  const approved = state === "approved" || optimisticApproved;
-  function handleApprove() {
-    setOptimisticApproved(true);
-    const fd = new FormData();
-    fd.set("id", id);
-    startApproving(() => approveAction(fd));
-  }
 
   async function copyMessage() {
     if (!content.suggestedClientMessage) return;
@@ -129,6 +103,23 @@ export function WorkBriefCard({
       /* clipboard blocked — no-op */
     }
   }
+
+  const RefreshButton = ({ label }: { label: string }) => (
+    <button
+      type="button"
+      onClick={onRefresh}
+      disabled={refreshing}
+      className="inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-inset disabled:opacity-70"
+    >
+      {refreshing ? (
+        <>
+          <Spinner /> Refreshing…
+        </>
+      ) : (
+        label
+      )}
+    </button>
+  );
 
   return (
     <div className="overflow-hidden rounded-xl border border-accent bg-surface">
@@ -159,10 +150,7 @@ export function WorkBriefCard({
             <span className="font-medium">Updated since review.</span> New client information has
             arrived since Brief v{version} was created.
           </div>
-          <form action={refreshAction}>
-            <input type="hidden" name="id" value={id} />
-            <SubmitButton idleLabel="Prepare updated brief" pendingLabel="Preparing…" variant="secondary" />
-          </form>
+          <RefreshButton label="Prepare updated brief" />
         </div>
       ) : null}
 
@@ -285,21 +273,14 @@ export function WorkBriefCard({
         ) : null}
       </div>
 
-      {/* Human gate. When stale, the refresh CTA lives in the banner above
-          ("Prepare updated brief"); the footer keeps only the plain manual
-          "Refresh draft" for a deliberate refresh before any new information. */}
+      {/* Human gate. When stale, the refresh CTA lives in the banner above. */}
       <div className="flex flex-wrap items-center gap-3 border-t border-border px-5 py-4">
         {approved ? (
           <>
             <span className="rounded-md border border-accent px-4 py-2 text-sm font-medium text-accent">
               ✓ Brief approved
             </span>
-            {!stale ? (
-              <form action={refreshAction}>
-                <input type="hidden" name="id" value={id} />
-                <SubmitButton idleLabel="Refresh draft" pendingLabel="Refreshing…" variant="secondary" />
-              </form>
-            ) : null}
+            {!stale ? <RefreshButton label="Refresh draft" /> : null}
           </>
         ) : judgmentPending ? (
           <span className="inline-flex items-center gap-2 text-sm text-muted">
@@ -310,17 +291,13 @@ export function WorkBriefCard({
           <>
             <button
               type="button"
-              onClick={handleApprove}
-              className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg"
+              onClick={onApprove}
+              disabled={approving}
+              className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg disabled:opacity-70"
             >
               Approve brief
             </button>
-            {!stale ? (
-              <form action={refreshAction}>
-                <input type="hidden" name="id" value={id} />
-                <SubmitButton idleLabel="Refresh draft" pendingLabel="Refreshing…" variant="secondary" />
-              </form>
-            ) : null}
+            {!stale ? <RefreshButton label="Refresh draft" /> : null}
             <span className="text-xs text-muted">
               Human gate — approving begins the work. Nothing is sent.
             </span>

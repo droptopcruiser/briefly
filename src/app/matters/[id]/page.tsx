@@ -2,13 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getMatter } from "@/lib/store";
 import { approveMatter, approveAndSendMatter } from "@/app/actions";
-import { approveWorkBrief, refreshWorkBrief, generateWorkBrief, completeBriefJudgment } from "@/app/brief-actions";
 import { ReadinessBadge, ReadinessMeter, StatusBadge } from "@/app/ui";
 import { ApproveButton } from "@/app/approve-button";
 import { DraftActions } from "@/app/draft-actions";
-import { WorkBriefCard } from "@/app/work-brief-card";
+import { BriefPanel } from "@/app/brief-panel";
 import { SinceReviewCard } from "@/app/since-review-card";
-import { SubmitButton } from "@/app/pending-button";
 import { AssignControl } from "@/app/assign-control";
 import { requireAccount } from "@/lib/metering";
 import { listMembers } from "@/lib/team";
@@ -280,55 +278,19 @@ export default async function MatterPage({
             approved={alreadySent}
             action={approveAndSendMatter}
           />
-        ) : brief ? (
-          <div className="space-y-4">
-            <WorkBriefCard
-              id={matter.id}
-              version={brief.version}
-              state={brief.state}
-              content={brief.content}
-              stale={briefStale}
-              mocked={brief.mocked}
-              approveAction={approveWorkBrief}
-              refreshAction={refreshWorkBrief}
-              completeAction={completeBriefJudgment}
-            />
-            {matter.status === "in_progress" ? (
-              <form action={approveMatter} className="flex flex-wrap items-center gap-3">
-                <input type="hidden" name="id" value={matter.id} />
-                <button
-                  type="submit"
-                  className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-inset"
-                >
-                  Mark matter complete
-                </button>
-                <span className="text-xs text-muted">Close this matter once the work is done.</span>
-              </form>
-            ) : matter.status === "completed" ? (
-              <p className="text-sm text-accent">✓ Matter completed.</p>
-            ) : null}
-          </div>
+        ) : briefsEnabled ? (
+          <BriefPanel
+            matterId={matter.id}
+            initialBrief={brief}
+            initialStatus={matter.status}
+            initialStale={briefStale}
+            briefsEnabled={briefsEnabled}
+          />
         ) : matter.status === "completed" ? (
           // Legacy matter finalised before briefs existed — no brief to show.
           <p className="rounded-lg border border-accent bg-surface px-4 py-3 text-sm text-accent">
             ✓ Matter completed.
           </p>
-        ) : briefsEnabled ? (
-          <div className="space-y-3 rounded-lg border border-accent bg-surface px-4 py-4 text-sm">
-            <p className="font-medium text-accent">This matter is ready — nothing missing.</p>
-            <p className="text-muted">
-              Prepare the Initial Work Brief so you can review the matter and decide the next step
-              without reconstructing the email thread.
-            </p>
-            <form action={generateWorkBrief}>
-              <input type="hidden" name="id" value={matter.id} />
-              <SubmitButton idleLabel="Prepare Initial Work Brief" pendingLabel="Preparing…" />
-            </form>
-            <p className="text-xs text-muted">
-              The source-backed facts appear immediately; the summary and suggested next steps
-              finish a moment later.
-            </p>
-          </div>
         ) : (
           <>
             <p className="rounded-lg border border-accent bg-surface px-4 py-3 text-sm text-accent">
