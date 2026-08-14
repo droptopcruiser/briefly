@@ -30,9 +30,13 @@ import {
 async function loadMatterAndRubric(id: string) {
   const account = await getCurrentAccount();
   const accountId = account?.id ?? DEFAULT_ACCOUNT_ID;
-  const matter = await getMatter(id, accountId);
+  // matter and rubrics both key off the account id → fetch them in parallel
+  // instead of waterfalling.
+  const [matter, rubrics] = await Promise.all([
+    getMatter(id, accountId),
+    getEffectiveRubrics(accountId),
+  ]);
   if (!matter?.result) return { account, matter: null, rubric: undefined };
-  const rubrics = await getEffectiveRubrics(matter.accountId);
   const rubric = rubrics.find((r) => r.id === matter.result!.rubricId);
   return { account, matter, rubric };
 }
@@ -45,10 +49,14 @@ async function loadMatterAndRubric(id: string) {
 export async function prepareBrief(matterId: string): Promise<WorkBrief | null> {
   const t0 = Date.now();
   await requireUser();
-  const { matter, rubric } = await loadMatterAndRubric(matterId);
+  // The existing-brief check doesn't depend on the matter load — run both together.
+  const [{ matter, rubric }, existing] = await Promise.all([
+    loadMatterAndRubric(matterId),
+    getActiveBrief(matterId),
+  ]);
   if (!matter) return null;
 
-  let brief = await getActiveBrief(matter.id);
+  let brief = existing;
   if (!brief) {
     brief = await createBriefForMatter(matter, rubric); // facts-only (fast)
     if (brief) {
