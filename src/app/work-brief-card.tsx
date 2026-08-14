@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import type { WorkBriefContent, WorkBriefState } from "@/lib/work-brief";
-import { SubmitButton } from "@/app/pending-button";
+import { SubmitButton, Spinner } from "@/app/pending-button";
 
 /**
  * The Initial Work Brief review surface. Briefly prepares; the professional
@@ -39,6 +39,36 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+/** Shown while the model-written judgment sections are still being prepared. */
+function JudgmentSkeleton() {
+  return (
+    <div className="space-y-4 rounded-lg border border-dashed border-border bg-inset px-4 py-4">
+      <div className="flex items-center gap-2 text-sm text-muted">
+        <Spinner />
+        <span className="font-medium">Preparing considerations and next steps…</span>
+      </div>
+      <ul className="space-y-1.5 text-sm">
+        <li className="flex items-center gap-2 text-accent">
+          <span>✓</span> Reviewed extracted facts and documents
+        </li>
+        <li className="flex items-center gap-2 text-muted">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-muted" />
+          Structuring the matter summary and issues
+        </li>
+        <li className="flex items-center gap-2 text-muted">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-muted" />
+          Preparing questions and a suggested next step
+        </li>
+      </ul>
+      <div className="space-y-2" aria-hidden="true">
+        <div className="h-2.5 w-2/3 animate-pulse rounded bg-border" />
+        <div className="h-2.5 w-11/12 animate-pulse rounded bg-border" />
+        <div className="h-2.5 w-4/5 animate-pulse rounded bg-border" />
+      </div>
+    </div>
+  );
+}
+
 export function WorkBriefCard({
   id,
   version,
@@ -48,6 +78,7 @@ export function WorkBriefCard({
   mocked,
   approveAction,
   refreshAction,
+  completeAction,
 }: {
   id: string;
   version: number;
@@ -57,9 +88,24 @@ export function WorkBriefCard({
   mocked: boolean;
   approveAction: (formData: FormData) => void | Promise<void>;
   refreshAction: (formData: FormData) => void | Promise<void>;
+  completeAction: (formData: FormData) => void | Promise<void>;
 }) {
   const approved = state === "approved";
+  const judgmentPending = !!content.judgmentPending;
   const [copied, setCopied] = useState(false);
+
+  // Two-phase render: the facts show instantly; the moment a facts-only brief
+  // lands, kick off the judgment completion so sections 6-10 fill in behind them.
+  const [, startCompleting] = useTransition();
+  const fired = useRef(false);
+  useEffect(() => {
+    if (judgmentPending && !fired.current) {
+      fired.current = true;
+      const fd = new FormData();
+      fd.set("id", id);
+      startCompleting(() => completeAction(fd));
+    }
+  }, [judgmentPending, id, completeAction]);
 
   async function copyMessage() {
     if (!content.suggestedClientMessage) return;
@@ -170,6 +216,9 @@ export function WorkBriefCard({
           </Section>
         ) : null}
 
+        {/* Judgment sections (6-10): a skeleton until the model fills them in. */}
+        {judgmentPending ? <JudgmentSkeleton /> : null}
+
         {/* 6 — Outstanding considerations */}
         {content.considerations.length > 0 ? (
           <Section title="Outstanding considerations">
@@ -240,6 +289,11 @@ export function WorkBriefCard({
               </form>
             ) : null}
           </>
+        ) : judgmentPending ? (
+          <span className="inline-flex items-center gap-2 text-sm text-muted">
+            <Spinner />
+            Finishing the brief before you approve…
+          </span>
         ) : (
           <>
             <form action={approveAction}>

@@ -10,6 +10,7 @@ import { recordReview } from "@/lib/reviews";
 import {
   getActiveBrief,
   createBriefForMatter,
+  completeJudgmentForBrief,
   approveBrief,
 } from "@/lib/work-brief";
 
@@ -41,11 +42,18 @@ export async function approveWorkBrief(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const { matter } = await loadMatterAndRubric(id);
+  const { matter, rubric } = await loadMatterAndRubric(id);
   if (!matter) return;
 
-  const brief = await getActiveBrief(matter.id);
+  let brief = await getActiveBrief(matter.id);
   if (!brief || brief.state === "approved") return;
+
+  // Never approve a half-finished brief — if the judgment is still pending,
+  // complete it first so the approved version is whole.
+  if (brief.content.judgmentPending) {
+    const completed = await completeJudgmentForBrief(matter, rubric);
+    if (completed) brief = completed;
+  }
 
   await approveBrief(brief, user.id);
 
@@ -118,5 +126,23 @@ export async function generateWorkBrief(formData: FormData): Promise<void> {
   if (brief) {
     await addEvent(matter.accountId, matter.id, "brief_created", "Initial Work Brief prepared for review");
   }
+  revalidatePath(`/matters/${id}`);
+}
+
+/**
+ * Second phase of on-demand preparation: fill the model-written judgment sections
+ * of the current brief. The card auto-triggers this the moment it renders a
+ * facts-only brief, so the useful facts show immediately and the judgment fills
+ * in behind them. Idempotent — a no-op once the judgment is present.
+ */
+export async function completeBriefJudgment(formData: FormData): Promise<void> {
+  await requireUser();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const { matter, rubric } = await loadMatterAndRubric(id);
+  if (!matter) return;
+
+  await completeJudgmentForBrief(matter, rubric);
   revalidatePath(`/matters/${id}`);
 }

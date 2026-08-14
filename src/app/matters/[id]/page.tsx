@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getMatter } from "@/lib/store";
 import { approveMatter, approveAndSendMatter } from "@/app/actions";
-import { approveWorkBrief, refreshWorkBrief, generateWorkBrief } from "@/app/brief-actions";
+import { approveWorkBrief, refreshWorkBrief, generateWorkBrief, completeBriefJudgment } from "@/app/brief-actions";
 import { ReadinessBadge, ReadinessMeter, StatusBadge } from "@/app/ui";
 import { ApproveButton } from "@/app/approve-button";
 import { DraftActions } from "@/app/draft-actions";
@@ -291,6 +291,7 @@ export default async function MatterPage({
               mocked={brief.mocked}
               approveAction={approveWorkBrief}
               refreshAction={refreshWorkBrief}
+              completeAction={completeBriefJudgment}
             />
             {matter.status === "in_progress" ? (
               <form action={approveMatter} className="flex flex-wrap items-center gap-3">
@@ -321,10 +322,11 @@ export default async function MatterPage({
             </p>
             <form action={generateWorkBrief}>
               <input type="hidden" name="id" value={matter.id} />
-              <SubmitButton idleLabel="Prepare Initial Work Brief" pendingLabel="Preparing the brief…" />
+              <SubmitButton idleLabel="Prepare Initial Work Brief" pendingLabel="Preparing…" />
             </form>
             <p className="text-xs text-muted">
-              Briefly reads the matter and drafts a structured brief — this takes a few seconds.
+              The source-backed facts appear immediately; the summary and suggested next steps
+              finish a moment later.
             </p>
           </div>
         ) : (
