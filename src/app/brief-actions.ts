@@ -38,23 +38,22 @@ async function loadMatterAndRubric(id: string) {
  * nothing.
  */
 export async function approveWorkBrief(formData: FormData): Promise<void> {
+  const t0 = Date.now();
   const user = await requireUser();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const { matter, rubric } = await loadMatterAndRubric(id);
+  const { matter } = await loadMatterAndRubric(id);
   if (!matter) return;
 
-  let brief = await getActiveBrief(matter.id);
+  const brief = await getActiveBrief(matter.id);
   if (!brief || brief.state === "approved") return;
 
-  // Never approve a half-finished brief — if the judgment is still pending,
-  // complete it first so the approved version is whole.
-  if (brief.content.judgmentPending) {
-    const completed = await completeJudgmentForBrief(matter, rubric);
-    if (completed) brief = completed;
-  }
-
+  // A fast, model-free mutation: validate → persist approved state + audit →
+  // progress the matter. NO model call and no regeneration — the UI only offers
+  // Approve once the judgment is already complete (the footer shows "Finishing…"
+  // while pending), so the approved version is always whole. The client updates
+  // optimistically; this reconciles in the background.
   await approveBrief(brief, user.id);
 
   matter.status = "in_progress";
@@ -66,9 +65,10 @@ export async function approveWorkBrief(formData: FormData): Promise<void> {
     "brief_approved",
     `Initial Work Brief v${brief.version} approved — matter in progress`,
   );
-  // Approving the brief is a genuine review of the matter — set the baseline so
-  // later client activity surfaces as "since the last review".
+  // Approving is a genuine review — set the baseline so later client activity
+  // surfaces as "since the last review".
   await recordReview(matter, user.id);
+  console.log(`[approve-timing] approveWorkBrief ms=${Date.now() - t0}`);
   revalidatePath(`/matters/${id}`);
   revalidatePath("/app");
 }
@@ -112,6 +112,7 @@ export async function refreshWorkBrief(formData: FormData): Promise<void> {
  * live brief already exists, so it stays idempotent.
  */
 export async function generateWorkBrief(formData: FormData): Promise<void> {
+  const t0 = Date.now();
   await requireUser();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
@@ -126,6 +127,7 @@ export async function generateWorkBrief(formData: FormData): Promise<void> {
   if (brief) {
     await addEvent(matter.accountId, matter.id, "brief_created", "Initial Work Brief prepared for review");
   }
+  console.log(`[brief-timing] generateWorkBrief (facts-only, phase 1) ms=${Date.now() - t0}`);
   revalidatePath(`/matters/${id}`);
 }
 
@@ -136,6 +138,7 @@ export async function generateWorkBrief(formData: FormData): Promise<void> {
  * in behind them. Idempotent — a no-op once the judgment is present.
  */
 export async function completeBriefJudgment(formData: FormData): Promise<void> {
+  const t0 = Date.now();
   await requireUser();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
@@ -144,5 +147,6 @@ export async function completeBriefJudgment(formData: FormData): Promise<void> {
   if (!matter) return;
 
   await completeJudgmentForBrief(matter, rubric);
+  console.log(`[brief-timing] completeBriefJudgment (judgment, phase 2) ms=${Date.now() - t0}`);
   revalidatePath(`/matters/${id}`);
 }

@@ -90,7 +90,6 @@ export function WorkBriefCard({
   refreshAction: (formData: FormData) => void | Promise<void>;
   completeAction: (formData: FormData) => void | Promise<void>;
 }) {
-  const approved = state === "approved";
   const judgmentPending = !!content.judgmentPending;
   const [copied, setCopied] = useState(false);
 
@@ -106,6 +105,19 @@ export function WorkBriefCard({
       startCompleting(() => completeAction(fd));
     }
   }, [judgmentPending, id, completeAction]);
+
+  // Approve is a fast mutation with an OPTIMISTIC update: flip to approved
+  // immediately on click, then reconcile with the server in the background — the
+  // professional never waits on the round-trip.
+  const [, startApproving] = useTransition();
+  const [optimisticApproved, setOptimisticApproved] = useState(false);
+  const approved = state === "approved" || optimisticApproved;
+  function handleApprove() {
+    setOptimisticApproved(true);
+    const fd = new FormData();
+    fd.set("id", id);
+    startApproving(() => approveAction(fd));
+  }
 
   async function copyMessage() {
     if (!content.suggestedClientMessage) return;
@@ -296,10 +308,13 @@ export function WorkBriefCard({
           </span>
         ) : (
           <>
-            <form action={approveAction}>
-              <input type="hidden" name="id" value={id} />
-              <SubmitButton idleLabel="Approve brief" pendingLabel="Approving…" />
-            </form>
+            <button
+              type="button"
+              onClick={handleApprove}
+              className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg"
+            >
+              Approve brief
+            </button>
             {!stale ? (
               <form action={refreshAction}>
                 <input type="hidden" name="id" value={id} />
