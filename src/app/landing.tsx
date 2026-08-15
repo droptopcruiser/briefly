@@ -76,20 +76,6 @@ function Check({ className = "text-accent" }: { className?: string }) {
   );
 }
 
-function StatusPill({ status, tone }: { status: string; tone: string }) {
-  return (
-    <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] ${tone}`}>{status}</span>
-  );
-}
-
-function Meter({ pct, bar = "bg-accent" }: { pct: number; bar?: string }) {
-  return (
-    <div className="h-1 w-full overflow-hidden rounded-full bg-inset">
-      <div className={`h-full rounded-full ${bar}`} style={{ width: `${pct}%` }} />
-    </div>
-  );
-}
-
 // The finished-matter data behind every proof surface (hero brief, workflow,
 // the explore overlay). One engine, different intake per business.
 type Intake = {
@@ -147,131 +133,112 @@ const INTAKES: Record<string, Intake> = {
   },
 };
 
-// ── 1. Hero: arrive to a prepared desk ───────────────────────────────────────
-// A wall of raw overnight email clears as a short, calm brief of prepared
-// matters rises in its place. One large motion moment, once, then it holds.
-const RAW_EMAILS = [
-  { from: "Priya Sharma", snip: "applying for a spousal visa…", top: 2, left: 4, rot: -5 },
-  { from: "M. Okafor", snip: "divorce — where do we start?", top: 0, left: 40, rot: 3 },
-  { from: "Amara N.", snip: "asylum claim, quite urgent", top: 6, left: 72, rot: -3 },
-  { from: "T. Weber", snip: "setting up a new company", top: 24, left: 20, rot: 4 },
-  { from: "J. Alvarez", snip: "year-end accounts, VAT…", top: 22, left: 55, rot: -2 },
-  { from: "R. Cho", snip: "partner visa (docs attached)", top: 20, left: 82, rot: 5 },
-  { from: "S. Bianchi", snip: "my dog Rocco, limping…", top: 44, left: 6, rot: 2 },
-  { from: "L. Fraser", snip: "property settlement query", top: 46, left: 38, rot: -4 },
-  { from: "H. Kaur", snip: "student visa extension", top: 42, left: 68, rot: 3 },
-  { from: "D. Mensah", snip: "bookkeeping for Q3", top: 64, left: 22, rot: -3 },
-  { from: "E. Rossi", snip: "child custody question", top: 66, left: 54, rot: 4 },
-  { from: "N. Adeyemi", snip: "employment dispute…", top: 62, left: 84, rot: -5 },
-];
-
-const BRIEF = [
-  { name: "Priya Sharma", type: "Spousal visa", status: "Ready", tone: "border-accent text-accent", pct: 100, bar: "bg-accent" },
-  { name: "Daniel Okafor", type: "Divorce petition", status: "Missing details", tone: "border-awaiting text-awaiting", pct: 68, bar: "bg-awaiting" },
-  { name: "Amara Nwosu", type: "Asylum claim", status: "Follow-up drafted", tone: "border-border text-muted", pct: 52, bar: "bg-awaiting" },
-  { name: "Tomás Weber", type: "Company formation", status: "Ready", tone: "border-accent text-accent", pct: 100, bar: "bg-accent" },
-  { name: "Rebecca Cho", type: "Partner visa", status: "Ready", tone: "border-accent text-accent", pct: 100, bar: "bg-accent" },
-];
+// ── 1. Hero: one email resolves into a prepared matter ───────────────────────
+// The signature moment: a single recognisable client email — with a key fact and
+// a document — resolves into a prepared matter and a drafted next step. Loops
+// gently so it's never missed; holds on the resolved state under reduced motion.
 
 export function PreparedDesk() {
   const reduced = useReducedMotion();
-  const [on, setOn] = useState(reduced);
+  const [on, setOn] = useState(false);
+
   useEffect(() => {
     if (reduced) {
       setOn(true);
       return;
     }
-    const r = window.setTimeout(() => setOn(true), 750);
-    return () => window.clearTimeout(r);
+    let t: number;
+    const cycle = (state: boolean) => {
+      setOn(state);
+      t = window.setTimeout(() => cycle(!state), state ? 3800 : 2600);
+    };
+    t = window.setTimeout(() => cycle(true), 1000);
+    return () => window.clearTimeout(t);
   }, [reduced]);
 
-  const tr = (delay: number, dur: number, props: string) =>
-    reduced
-      ? undefined
-      : props.split(",").map((p) => `${p.trim()} ${dur}ms ${EASE} ${delay}ms`).join(", ");
+  const ease = (delay: number, dur = 650) => (reduced ? undefined : `all ${dur}ms ${EASE} ${delay}ms`);
 
   return (
-    <div className="relative h-[380px] select-none overflow-hidden sm:h-[440px]">
-      {/* Overnight inbox — raw, dim, a little chaotic; it clears */}
-      <div className="absolute inset-0" aria-hidden>
-        {RAW_EMAILS.map((e, i) => (
-          <div
-            key={i}
-            className={`absolute w-40 rounded-xl border border-border bg-surface/80 px-3 py-2 shadow-sm ${
-              i > 7 ? "hidden sm:block" : ""
-            }`}
-            style={{
-              top: `${e.top}%`,
-              left: `${e.left}%`,
-              transform: on
-                ? "translateY(26px) scale(0.94)"
-                : `rotate(${e.rot}deg)`,
-              opacity: on ? 0 : 0.72,
-              filter: on ? "blur(3px)" : "none",
-              transition: tr(150 + i * 45, 700, "opacity, transform, filter"),
-            }}
-          >
-            <div className="truncate text-[11px] font-medium text-muted">{e.from}</div>
-            <div className="truncate text-[11px] text-muted/80">{e.snip}</div>
+    <div className="anim-float relative h-[420px] select-none sm:h-[460px]">
+      {/* The incoming client email */}
+      <div
+        className="absolute inset-x-0 top-1/2 -translate-y-1/2"
+        style={{
+          opacity: on ? 0 : 1,
+          transform: on ? "translateY(-18px) scale(0.97)" : "none",
+          filter: on ? "blur(3px)" : "none",
+          transition: ease(0),
+          pointerEvents: on ? "none" : undefined,
+        }}
+        aria-hidden={on}
+      >
+        <div className="glass glass-sheen rounded-3xl p-5">
+          <div className="flex items-center gap-3 border-b border-border pb-3">
+            <span className="grid h-9 w-9 place-items-center rounded-full bg-accent-soft text-xs font-semibold text-accent">
+              AD
+            </span>
+            <div className="min-w-0">
+              <div className="text-sm font-medium">Amara Diallo</div>
+              <div className="truncate text-xs text-muted">amara.diallo@gmail.com</div>
+            </div>
+            <span className="ml-auto text-[11px] text-muted">New enquiry</span>
           </div>
-        ))}
+          <div className="pt-3">
+            <div className="text-sm font-medium">Spousal visa — application</div>
+            <p className="mt-2 text-sm leading-relaxed text-muted">
+              Hi, I&apos;d like to apply for a spousal visa to join my husband James. We{" "}
+              <mark className="rounded bg-accent-soft px-1 text-foreground">married on 17 June 2023</mark>{" "}
+              and have lived together since. I&apos;ve attached our certificate.
+            </p>
+            <div className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-border bg-raise px-2 py-1 text-[11px]">
+              <MiniDoc /> marriage_certificate.pdf
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Count: 43 unread → 7 ready */}
-      <div className="absolute left-1 top-1 z-10 text-xs">
-        <span
-          className="text-muted"
-          style={{ opacity: on ? 0 : 1, transition: tr(0, 400, "opacity") }}
-        >
-          43 unread
-        </span>
-      </div>
-
-      {/* The morning brief rises into the space the inbox vacated */}
-      <div className="absolute inset-x-0 top-1/2 z-20 -translate-y-1/2">
-        <div
-          style={{
-            opacity: on ? 1 : 0,
-            transform: on ? "none" : "translateY(18px)",
-            transition: tr(650, 700, "opacity, transform"),
-          }}
-        >
-          <div className="glass glass-sheen rounded-[26px] p-3 sm:p-4">
-          <div className="flex items-center justify-between px-2 pb-3 pt-1">
+      {/* …resolved into a prepared matter with a drafted next step */}
+      <div
+        className="absolute inset-x-0 top-1/2 -translate-y-1/2"
+        style={{
+          opacity: on ? 1 : 0,
+          transform: on ? "none" : "translateY(22px)",
+          transition: ease(180),
+          pointerEvents: on ? undefined : "none",
+        }}
+        aria-hidden={!on}
+      >
+        <div className="glass glass-sheen rounded-3xl p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-3 px-1 pb-3">
             <div>
-              <div className="text-sm font-semibold text-foreground">This morning</div>
-              <div className="text-xs text-muted">Prepared while you were away</div>
+              <div className="text-sm font-semibold">Amara Diallo · Spousal visa</div>
+              <div className="text-xs text-muted">Prepared from her email</div>
             </div>
-            <div className="flex items-center gap-2 rounded-full bg-accent-soft px-3 py-1 text-sm font-medium text-accent">
-              <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-              7 ready for you
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-3 py-1 text-sm font-medium text-accent">
+              <Check /> 100%
+            </span>
+          </div>
+          <div className="space-y-3 rounded-2xl border border-border bg-surface p-4">
+            <div>
+              <div className="text-[11px] uppercase tracking-wide text-muted">Marriage date</div>
+              <div className="text-sm font-medium">17 Jun 2023</div>
+              <div className="text-xs italic text-muted">“married on 17 June 2023”</div>
+            </div>
+            <div className="flex items-center gap-2 border-t border-border pt-3 text-sm">
+              <Check /> marriage_certificate.pdf
+              <span className="text-xs text-muted">— certificate recognised</span>
             </div>
           </div>
-          <div className="overflow-hidden rounded-2xl border border-border bg-surface">
-            <ul className="divide-y divide-border">
-              {BRIEF.map((m, i) => (
-                <li
-                  key={m.name}
-                  className="px-3.5 py-2.5"
-                  style={{
-                    opacity: on ? 1 : 0,
-                    transform: on ? "none" : "translateY(8px)",
-                    transition: tr(820 + i * 80, 500, "opacity, transform"),
-                  }}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="min-w-0 flex-1 truncate text-[13px] font-medium">
-                      {m.name} <span className="font-normal text-muted">· {m.type}</span>
-                    </div>
-                    <StatusPill status={m.status} tone={m.tone} />
-                  </div>
-                  <div className="mt-1.5">
-                    <Meter pct={m.pct} bar={m.bar} />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <div className="mt-3 rounded-2xl border border-accent/40 bg-accent-soft p-3.5">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-accent">
+              <MiniDoc /> Drafted · Consultation confirmation
+            </div>
+            <div className="mt-2 flex items-center gap-2 border-t border-accent/20 pt-2 text-xs font-medium text-accent">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 3l7 4v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V7l7-4Z" />
+              </svg>
+              Waiting for your approval
+            </div>
           </div>
         </div>
       </div>
@@ -710,28 +677,27 @@ export function RubricWorkspace() {
         </div>
       </div>
 
-      {/* The run */}
-      <div className="glass glass-sheen mt-6 overflow-hidden rounded-3xl">
-        {/* The firm's own rule — how Briefly "learns" this business, in one line */}
-        <div key={`rule-${active}`} className="anim-swapin border-b border-border bg-surface px-6 py-3.5">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
-              Your rule
-            </span>
-            <span className="text-muted">If</span>
-            <span className="font-medium">{b.rule.trigger}</span>
-            <span className="text-muted">→ require</span>
-            {b.rule.requires.map((rq) => (
-              <span key={rq} className="rounded-md bg-inset px-2 py-0.5 text-xs font-medium">
-                {rq}
-              </span>
-            ))}
-            <span className="text-muted">→ when ready,</span>
-            <span className="inline-flex items-center gap-1 font-medium text-accent">
-              <MiniDoc /> draft {b.rule.draft}
-            </span>
-          </div>
+      {/* The rule the firm set — stated as a clean sentence, so "how does it
+          learn?" is answered before the run below shows it in action. */}
+      <div key={`rule-${active}`} className="anim-swapin mx-auto mt-6 max-w-2xl text-center">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">
+          The rule you set
         </div>
+        <p className="mt-2 text-base leading-relaxed">
+          When <span className="font-medium">{b.rule.trigger}</span> arrives, require{" "}
+          {b.rule.requires.map((rq, i) => (
+            <span key={rq}>
+              <span className="font-medium">{rq}</span>
+              {i < b.rule.requires.length - 1 ? ", " : ""}
+            </span>
+          ))}
+          . Once it&apos;s complete, draft the{" "}
+          <span className="font-medium text-accent">{b.rule.draft}</span>.
+        </p>
+      </div>
+
+      {/* The run — the rule above, in action */}
+      <div className="glass glass-sheen mt-6 overflow-hidden rounded-3xl">
         <div className="grid gap-px bg-border md:grid-cols-2">
           {/* Left — the inbound enquiry */}
           <div className="bg-surface p-6 sm:p-7">
@@ -1008,7 +974,7 @@ export function ProcessCanvas() {
 // ── Thread stays together ────────────────────────────────────────────────────
 export function ThreadingProof() {
   const reduced = useReducedMotion();
-  const { ref, inView } = useInView<HTMLDivElement>(0.4);
+  const { ref, inView } = useInView<HTMLDivElement>(0.35);
   const [folded, setFolded] = useState(false);
 
   useEffect(() => {
@@ -1017,59 +983,94 @@ export function ThreadingProof() {
       setFolded(true);
       return;
     }
-    const t = window.setTimeout(() => setFolded(true), 500);
+    const t = window.setTimeout(() => setFolded(true), 450);
     return () => window.clearTimeout(t);
   }, [inView, reduced]);
 
+  // Three loose pieces of the same conversation — scattered until they fold into
+  // one clean matter timeline.
+  const items = [
+    { t: "Original enquiry", d: "“…hoping to apply for a spousal visa to join my partner.”", meta: "readiness 41%", attach: null as string | null, rot: -2.5, dx: 14 },
+    { t: "Client reply", d: "“Here's our marriage certificate as requested.”", meta: "readiness 41% → 100%", attach: "marriage_certificate.pdf", rot: 2.2, dx: -18 },
+    { t: "Your follow-up", d: "“Thank you — we now have everything we need.”", meta: "sent", attach: null, rot: -1.4, dx: 10 },
+  ];
+
   return (
-    <div ref={ref} className="mx-auto grid max-w-4xl items-center gap-8 lg:grid-cols-2">
+    <div ref={ref} className="mx-auto grid max-w-5xl items-center gap-10 lg:grid-cols-2">
       <div>
-        <h2 className="text-3xl font-semibold tracking-tight text-balance">
-          One client intake. One matter.
+        <h2 className="font-serif text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+          One client intake. <span className="italic text-accent">One matter.</span>
         </h2>
-        <p className="mt-3 text-muted">
-          Replies, documents, and follow-ups fold into the same thread — the matter just gets more
-          complete. Only a genuinely new intake uses capacity.
+        <p className="mt-4 text-muted">
+          The first email, the reply with an attachment, the follow-up — Briefly folds every loose
+          piece into a single matter that just gets more complete. Only a genuinely new client uses
+          a matter.
         </p>
-        <div className="mt-5 inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm">
+        <div className="mt-6 inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm">
           <span className="tabular-nums font-medium">18 / 60</span>
           <span className="text-muted">matters used this month</span>
-          <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] text-accent">unchanged</span>
+          <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] text-accent">
+            unchanged
+          </span>
         </div>
       </div>
 
-      <div className="rounded-3xl border border-border bg-surface p-5 shadow-sm">
-        <div className="text-sm font-semibold">Priya Sharma · Spousal visa</div>
-        <ol className="mt-4 space-y-0 border-l border-border pl-5">
-          {[
-            { t: "Enquiry received", d: "readiness 41%" },
-            { t: "Follow-up sent", d: "awaiting client" },
-          ].map((e) => (
-            <li key={e.t} className="relative pb-4">
-              <span className="absolute -left-[1.42rem] top-1.5 h-2 w-2 rounded-full bg-border" />
-              <div className="text-sm">{e.t}</div>
-              <div className="text-xs text-muted">{e.d}</div>
-            </li>
-          ))}
-          <li
-            className="relative overflow-hidden"
-            style={{
-              transition: `opacity 550ms ${EASE}, max-height 550ms ${EASE}, transform 550ms ${EASE}`,
-              maxHeight: folded ? 80 : 0,
-              opacity: folded ? 1 : 0,
-              transform: folded ? "none" : "translateY(-6px)",
-            }}
+      {/* The fold: scattered pieces → one clean timeline */}
+      <div className="rounded-3xl border border-border bg-surface p-5 shadow-sm sm:p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="text-sm font-semibold">Priya Sharma · Spousal visa</div>
+          <span
+            className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-medium text-accent"
+            style={{ opacity: folded ? 1 : 0, transition: `opacity 500ms ${EASE} 500ms` }}
           >
-            <span className="absolute -left-[1.42rem] top-1.5 h-2 w-2 rounded-full bg-accent" />
-            <div className="flex items-center gap-2 text-sm">
-              Client replied
-              <span className="inline-flex items-center gap-1 rounded-md bg-inset px-1.5 py-0.5 text-[11px] text-foreground">
-                marriage_certificate.pdf
-              </span>
-            </div>
-            <div className="text-xs text-accent">readiness 41% → 100% · same matter</div>
-          </li>
-        </ol>
+            1 matter
+          </span>
+        </div>
+        <div className="relative">
+          {/* timeline spine — draws in once folded */}
+          <div
+            className="absolute bottom-3 left-[7px] top-3 w-px bg-border"
+            style={{ opacity: folded ? 1 : 0, transition: `opacity 500ms ${EASE} 350ms` }}
+          />
+          <ol className="space-y-3">
+            {items.map((it, i) => (
+              <li
+                key={it.t}
+                className="relative pl-6"
+                style={{
+                  transform: folded ? "none" : `rotate(${it.rot}deg) translateX(${it.dx}px)`,
+                  transition: `transform 700ms ${EASE} ${i * 110}ms`,
+                }}
+              >
+                {/* node */}
+                <span
+                  className="absolute left-1 top-3 h-2.5 w-2.5 rounded-full border-2 border-surface bg-accent"
+                  style={{ opacity: folded ? 1 : 0, transition: `opacity 400ms ${EASE} ${450 + i * 110}ms` }}
+                />
+                <div
+                  className={`rounded-xl border bg-raise px-3.5 py-2.5 ${
+                    folded ? "border-border shadow-none" : "border-border shadow-sm"
+                  }`}
+                >
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+                    {it.t}
+                  </div>
+                  <div className="mt-0.5 text-sm">{it.d}</div>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                    {it.attach ? (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-inset px-1.5 py-0.5 text-[11px] text-foreground">
+                        <MiniDoc /> {it.attach}
+                      </span>
+                    ) : null}
+                    <span className={`text-[11px] ${it.meta.includes("→") ? "text-accent" : "text-muted"}`}>
+                      {it.meta}
+                    </span>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
       </div>
     </div>
   );

@@ -114,6 +114,58 @@ export default async function Landing() {
           <TwoPathTriage />
         </Section>
 
+        {/* ── How it connects: the truthful plumbing ────────────────────── */}
+        <Section id="connect">
+          <div className="grid items-center gap-10 lg:grid-cols-2">
+            <Reveal className="space-y-4">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+                <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+                How it connects
+              </div>
+              <h2 className="font-serif text-3xl font-semibold leading-[1.08] tracking-tight text-balance sm:text-4xl">
+                No inbox access. Just an address.
+              </h2>
+              <p className="max-w-xl text-muted">
+                Briefly gives your firm a private intake address. Forward client enquiries to it — or
+                point your website enquiry form or shared inbox at it — and each one becomes a
+                prepared matter. Briefly only ever sees what&apos;s sent to that address, never the
+                rest of your inbox.
+              </p>
+              <p className="text-sm text-muted">
+                Replies thread straight back to the same matter, so the whole conversation stays in
+                one place.
+              </p>
+            </Reveal>
+
+            <Reveal>
+              <div className="glass glass-sheen rounded-3xl p-6 sm:p-8">
+                <ol className="space-y-3">
+                  {[
+                    { k: "1", t: "A client emails you", d: "Or your website form / shared inbox forwards it on." },
+                    { k: "2", t: "yourfirm@inbound.brieflyhub.app", d: "Your private Briefly intake address.", mono: true },
+                    { k: "3", t: "A prepared matter", d: "Classified, extracted, and checked — waiting for your review." },
+                  ].map((s, i) => (
+                    <li key={s.k}>
+                      <div className="flex items-start gap-3">
+                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-accent-soft text-xs font-semibold text-accent">
+                          {s.k}
+                        </span>
+                        <div className="min-w-0">
+                          <div className={`text-sm font-medium ${s.mono ? "break-all font-mono text-accent" : ""}`}>
+                            {s.t}
+                          </div>
+                          <div className="text-xs text-muted">{s.d}</div>
+                        </div>
+                      </div>
+                      {i < 2 ? <div className="ml-3.5 h-4 w-px bg-border" /> : null}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </Reveal>
+          </div>
+        </Section>
+
         {/* ── The differentiation: a summary is not a workflow ──────────── */}
         <Section>
           <Reveal className="mx-auto max-w-3xl space-y-4 text-center">
@@ -145,8 +197,8 @@ export default async function Landing() {
           </p>
           <Reveal className="mx-auto max-w-2xl space-y-4 text-center">
             <p className="text-sm text-muted">
-              Legal, property, and accounting are where we go deepest — but Briefly runs on{" "}
-              <em>your</em> rulebook, so any business built on client intake fits.
+              Purpose-built for legal, property, and accounting — and, because it follows your own
+              rules, at home in any practice that works from client intake.
             </p>
             <div className="flex flex-wrap justify-center gap-2">
               {["Migration", "Insurance", "Recruitment", "Consulting", "Wealth advisory", "Veterinary"].map(
@@ -177,15 +229,15 @@ export default async function Landing() {
           <Reveal className="grid gap-4 sm:grid-cols-3">
             {[
               {
-                t: "Chases when it goes quiet",
-                d: "If a client doesn't reply, Briefly drafts a warm follow-up — a little different each time, never robotic — so matters don't stall.",
+                t: "Follow-ups, ready to send",
+                d: "When a client goes quiet, Briefly notices, drafts the follow-up, and flags it for you — you review and send. Nothing goes out on its own.",
                 icon: (
                   <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" />
                 ),
               },
               {
-                t: "Works with your team",
-                d: "Assign matters and hand off across the firm. Managers see everything; each teammate gets their own focused queue.",
+                t: "Shared across your firm",
+                d: "Assign matters and hand them over as work moves. Managers see the whole firm; each person gets their own focused list.",
                 icon: (
                   <>
                     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
