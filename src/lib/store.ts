@@ -99,6 +99,23 @@ export async function getMatter(id: string, accountId: string): Promise<Matter |
 }
 
 /**
+ * Fetch a matter by id WITHOUT an account scope, so it can be loaded in parallel
+ * with the (independent) auth/account resolution. The caller MUST verify
+ * `matter.accountId === account.id` before using it — tenant isolation is then
+ * preserved (a mismatch is treated as not-found), we just overlap the query with
+ * the auth waterfall instead of waiting for it.
+ */
+export async function getMatterById(id: string): Promise<Matter | null> {
+  const db = getSupabase();
+  if (!db) {
+    return memory.get(id) ?? null;
+  }
+  const { data, error } = await db.from("matters").select("*").eq("id", id).maybeSingle();
+  if (error) throw new Error(`getMatterById: ${error.message}`);
+  return data ? rowToMatter(data as MatterRow) : null;
+}
+
+/**
  * List an account's matters, most recent first. `assignee` filters by assignment:
  * a user id, "unassigned", or undefined for all.
  */

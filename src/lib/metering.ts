@@ -213,7 +213,9 @@ export class QuotaExceededError extends Error {
 export async function getAccountById(id: string): Promise<Account | null> {
   const db = getSupabase();
   if (!db) return null;
+  const t = Date.now();
   const { data } = await db.from("accounts").select(ACCOUNT_COLS).eq("id", id).maybeSingle();
+  console.log(`[auth-timing] accounts query ms=${Date.now() - t}`);
   return data ? rowToAccount(data as AccountRow) : null;
 }
 
@@ -234,11 +236,13 @@ export const getCurrentMembership = cache(async (): Promise<Membership | null> =
   if (!db) return null;
   const user = await getAuthUser();
   if (!user) return null;
+  const t = Date.now();
   const { data } = await db
     .from("account_members")
     .select("account_id,user_id,role")
     .eq("user_id", user.id)
     .maybeSingle();
+  console.log(`[auth-timing] account_members query ms=${Date.now() - t}`);
   return data
     ? { accountId: data.account_id, userId: data.user_id, role: data.role }
     : null;

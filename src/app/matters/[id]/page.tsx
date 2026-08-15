@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getMatter } from "@/lib/store";
+import { getMatterById } from "@/lib/store";
 import type { Matter } from "@/lib/types";
 import { approveMatter, approveAndSendMatter } from "@/app/actions";
 import { ReadinessBadge, ReadinessMeter, StatusBadge } from "@/app/ui";
@@ -211,10 +211,12 @@ function SectionSkeleton({ label }: { label: string }) {
 export default async function MatterPage({ params }: { params: Promise<{ id: string }> }) {
   const t0 = Date.now();
   const { id } = await params;
-  const account = await requireAccount();
-  const matter = await getMatter(id, account.id);
-  console.log(`[matter-timing] essential (account+matter) ms=${Date.now() - t0}`);
-  if (!matter || !matter.result) notFound();
+  // Resolve the account (auth waterfall) and the matter row IN PARALLEL — the
+  // matter query no longer waits on the auth chain. Tenant isolation is verified
+  // immediately after (accountId must match), so an unowned id is not-found.
+  const [account, matter] = await Promise.all([requireAccount(), getMatterById(id)]);
+  console.log(`[matter-timing] essential (account+matter, parallel) ms=${Date.now() - t0}`);
+  if (!matter || !matter.result || matter.accountId !== account.id) notFound();
 
   const r = matter.result;
 

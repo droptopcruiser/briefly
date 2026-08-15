@@ -15,9 +15,11 @@ import type { User } from "@supabase/supabase-js";
 
 export const getAuthUser = cache(async (): Promise<User | null> => {
   const supabase = await createServerSupabase();
+  const t = Date.now();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  console.log(`[auth-timing] supabase.auth.getUser ms=${Date.now() - t}`);
   return user;
 });
 
