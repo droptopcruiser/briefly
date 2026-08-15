@@ -1260,9 +1260,9 @@ export function TwoPathTriage() {
             send.
           </span>
         </p>
-        <a href="#how" className="shrink-0 text-sm font-medium text-accent hover:opacity-80">
-          See the review state →
-        </a>
+        <div className="shrink-0">
+          <ExploreIntake variant="link" label="See the review state" />
+        </div>
       </div>
     </div>
   );

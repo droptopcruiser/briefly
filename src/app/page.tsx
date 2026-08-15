@@ -11,7 +11,6 @@ import {
   TwoPathTriage,
   SummaryVsWorkflow,
   RubricWorkspace,
-  ProcessCanvas,
   ThreadingProof,
 } from "@/app/landing";
 import { ThemeToggle } from "@/app/theme-toggle";
@@ -132,8 +131,8 @@ export default async function Landing() {
           </Reveal>
         </Section>
 
-        {/* ── The fit: one living rubric workspace ──────────────────────── */}
-        <Section>
+        {/* ── The fit: one living rubric workspace (the interactive "how") ─ */}
+        <Section id="how">
           <Heading
             title="Teach Briefly how your business works."
             sub="Pick your business line and watch a real enquiry become a prepared file — the same engine following a different rulebook, right down to the deliverable it drafts."
@@ -144,17 +143,6 @@ export default async function Landing() {
           <p className="text-center text-base font-medium">
             Same engine. Different rulebook. <span className="text-accent">No code.</span>
           </p>
-        </Section>
-
-        {/* ── The process: one full-width transformation ────────────────── */}
-        <Section id="how">
-          <Heading
-            title="From one email to a reviewed matter."
-            sub="Watch a single enquiry become structured, sourced, and checked — stopping where it should, at your review."
-          />
-          <Reveal>
-            <ProcessCanvas />
-          </Reveal>
         </Section>
 
         {/* ── Thread stays together ─────────────────────────────────────── */}
