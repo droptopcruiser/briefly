@@ -517,35 +517,78 @@ export function ExploreIntake({
 }
 
 // ── 2. The fit: one living rubric workspace ──────────────────────────────────
-/** What "ready" means per business line, and the first deliverable Briefly drafts
- *  when it's reached — the same engine following a different rulebook. */
-const BUSINESSES: Record<string, { blurb: string; present: string[]; drafts: string[] }> = {
+/** A tasteable sample run per business line — a real inbound enquiry, the facts
+ *  Briefly extracts (each with its source), the documents it recognises, and the
+ *  first deliverable it drafts. Same engine, a different rulebook each time. */
+type Fact = { label: string; value: string; src: string };
+type Biz = {
+  blurb: string;
+  email: { from: string; subject: string; body: string };
+  facts: Fact[];
+  docs: string[];
+  deliverable: { title: string; preview: string };
+  alsoDrafts: string[];
+};
+const BUSINESSES: Record<string, Biz> = {
   Legal: {
-    blurb: "A new client matter",
-    present: [
-      "Client & opposing party identified",
-      "Key dates & matter facts captured",
-      "Required supporting documents attached",
+    blurb: "New client matter",
+    email: {
+      from: "Sarah Whitfield",
+      subject: "Starting divorce proceedings",
+      body: "Hi, my husband James and I separated a few months ago after 9 years. We married on 14 September 2015 and have two children. I'd like to begin proceedings — I've attached our marriage certificate and a summary of our finances.",
+    },
+    facts: [
+      { label: "Client & party", value: "Sarah Whitfield · v. James Whitfield", src: "my husband James and I separated" },
+      { label: "Matter", value: "Divorce · 2 children", src: "have two children" },
+      { label: "Key date", value: "Married 14 Sep 2015", src: "married on 14 September 2015" },
     ],
-    drafts: ["Consultation confirmation", "Engagement email", "Internal case brief"],
+    docs: ["Marriage certificate", "Financial summary"],
+    deliverable: {
+      title: "Consultation confirmation",
+      preview:
+        "Dear Sarah, thank you for getting in touch. I've held a consultation slot and outlined the first steps and documents we'll need to begin…",
+    },
+    alsoDrafts: ["Engagement email", "Internal case brief"],
   },
   Property: {
-    blurb: "A buyer, seller, or tenancy enquiry",
-    present: [
-      "Buyer / seller / landlord / tenant known",
-      "Property, price & timing captured",
-      "Required documents on file",
+    blurb: "Buyer enquiry",
+    email: {
+      from: "Daniel Osei",
+      subject: "Viewing — 14 Marine Parade",
+      body: "Hello, I'd like to arrange a viewing of 14 Marine Parade. I'm a cash buyer looking to move before December, budget around $1.2M. I've been pre-approved and can send the letter through.",
+    },
+    facts: [
+      { label: "Party", value: "Daniel Osei · cash buyer", src: "I'm a cash buyer" },
+      { label: "Property", value: "14 Marine Parade", src: "viewing of 14 Marine Parade" },
+      { label: "Price & timing", value: "~$1.2M · before December", src: "budget around $1.2M" },
     ],
-    drafts: ["Appraisal booking", "Viewing confirmation", "Listing response", "Landlord update"],
+    docs: ["Pre-approval letter"],
+    deliverable: {
+      title: "Viewing confirmation",
+      preview:
+        "Hi Daniel, great to hear from you. I can offer viewings this week for 14 Marine Parade — here are two times that work…",
+    },
+    alsoDrafts: ["Appraisal booking", "Listing response"],
   },
   Accounting: {
-    blurb: "A new client onboarding",
-    present: [
-      "Entity & structure identified",
-      "Tax period & service need captured",
-      "Required records provided",
+    blurb: "New client onboarding",
+    email: {
+      from: "Mei Tan",
+      subject: "Bookkeeping + tax for my Pte Ltd",
+      body: "Hi, I run a small Pte Ltd (retail) and need bookkeeping plus help with this year's tax. Financial year ends 31 March and we're GST-registered. I can share Xero access and last year's return.",
+    },
+    facts: [
+      { label: "Entity", value: "Pte Ltd · retail", src: "a small Pte Ltd (retail)" },
+      { label: "Tax period", value: "FY end 31 Mar · GST-registered", src: "Financial year ends 31 March" },
+      { label: "Service need", value: "Bookkeeping + tax", src: "need bookkeeping plus help with … tax" },
     ],
-    drafts: ["Onboarding next steps", "Engagement email", "Internal client brief"],
+    docs: ["Xero access", "Prior year return"],
+    deliverable: {
+      title: "Onboarding next steps",
+      preview:
+        "Hi Mei, welcome aboard. Here's what we'll set up first and the access we'll need to get your books current…",
+    },
+    alsoDrafts: ["Engagement email", "Internal client brief"],
   },
 };
 
@@ -594,86 +637,184 @@ function MiniDoc() {
 export function RubricWorkspace() {
   const names = Object.keys(BUSINESSES);
   const [active, setActive] = useState(names[0]);
+  const [stage, setStage] = useState(0); // 0 arriving · 1 extracting · 2 ready · 3 drafted
+  const [runId, setRunId] = useState(0);
+  const rm = useReducedMotion();
+  const { ref, inView } = useInView<HTMLDivElement>(0.3);
+  const startedRef = useRef(false);
   const b = BUSINESSES[active];
 
+  // Auto-play the first run when the section scrolls into view.
+  useEffect(() => {
+    if (inView && !startedRef.current) {
+      startedRef.current = true;
+      setRunId((n) => n + 1);
+    }
+  }, [inView]);
+
+  // Drive the run whenever it (re)starts. Reduced motion → jump to the end.
+  useEffect(() => {
+    if (runId === 0) return;
+    if (rm) {
+      setStage(3);
+      return;
+    }
+    setStage(0);
+    const t = [
+      setTimeout(() => setStage(1), 500),
+      setTimeout(() => setStage(2), 1750),
+      setTimeout(() => setStage(3), 2900),
+    ];
+    return () => t.forEach(clearTimeout);
+  }, [runId, rm]);
+
+  function pick(name: string) {
+    setActive(name);
+    setRunId((n) => n + 1);
+  }
+
+  const pct = stage === 0 ? 0 : stage === 1 ? 64 : 100;
+  const reveal = (on: boolean, dy = 8, delay = 0) => ({
+    opacity: on ? 1 : 0,
+    transform: on ? "none" : `translateY(${dy}px)`,
+    transition: `opacity 460ms ${EASE} ${delay}ms, transform 460ms ${EASE} ${delay}ms`,
+  });
+
   return (
-    <div className="mx-auto max-w-4xl">
-      <div className="glass glass-sheen overflow-hidden rounded-3xl">
-        <div className="grid md:grid-cols-[224px_1fr]">
-          {/* Business line selector — clickable */}
-          <div className="flex gap-2 border-b border-border p-3 md:flex-col md:border-b-0 md:border-r">
-            {names.map((name) => {
-              const on = active === name;
-              return (
-                <button
-                  key={name}
-                  type="button"
-                  onClick={() => setActive(name)}
-                  aria-pressed={on}
-                  className={`flex flex-1 items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors md:flex-none ${
-                    on ? "bg-accent text-accent-fg" : "text-muted hover:bg-inset hover:text-foreground"
-                  }`}
-                >
-                  <BusinessIcon name={name} />
-                  <span className="flex-1">{name}</span>
-                  <span className={`hidden text-xs md:inline ${on ? "text-accent-fg/70" : "text-muted"}`}>
-                    {on ? "→" : ""}
-                  </span>
-                </button>
-              );
-            })}
+    <div ref={ref} className="mx-auto max-w-5xl">
+      {/* Business line tabs */}
+      <div className="flex justify-center">
+        <div className="inline-flex flex-wrap justify-center gap-1 rounded-full border border-border bg-surface p-1">
+          {names.map((name) => {
+            const on = active === name;
+            return (
+              <button
+                key={name}
+                type="button"
+                onClick={() => pick(name)}
+                aria-pressed={on}
+                className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                  on ? "bg-accent text-accent-fg" : "text-muted hover:text-foreground"
+                }`}
+              >
+                <BusinessIcon name={name} />
+                {name}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* The run */}
+      <div className="glass glass-sheen mt-6 overflow-hidden rounded-3xl">
+        <div className="grid gap-px bg-border md:grid-cols-2">
+          {/* Left — the inbound enquiry */}
+          <div className="bg-surface p-6 sm:p-7">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
+              Inbound client email
+            </div>
+            <div key={`mail-${active}`} className="anim-swapin mt-4 rounded-xl border border-border bg-raise p-4">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <span className="grid h-7 w-7 place-items-center rounded-full bg-accent-soft text-xs font-semibold text-accent">
+                  {b.email.from.split(" ").map((w) => w[0]).join("").slice(0, 2)}
+                </span>
+                {b.email.from}
+              </div>
+              <div className="mt-3 text-sm font-medium">{b.email.subject}</div>
+              <p className="mt-1.5 text-sm leading-relaxed text-muted">{b.email.body}</p>
+            </div>
+            <div className="mt-3 flex items-center gap-2 text-xs text-muted" style={reveal(stage >= 1, 4)}>
+              <span className={`h-1.5 w-1.5 rounded-full ${stage >= 2 ? "bg-accent" : "bg-awaiting"}`} />
+              {stage === 0
+                ? "Arriving…"
+                : stage === 1
+                  ? "Reading & checking your rulebook…"
+                  : "Matched to your " + active + " rulebook"}
+            </div>
           </div>
 
-          {/* Demonstration — crossfades on switch */}
-          <div key={active} className="anim-swapin p-6 sm:p-8">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
-                  {active} · {b.blurb}
-                </div>
-                <h3 className="mt-1 font-serif text-xl font-semibold tracking-tight">
-                  What a <span className="italic text-accent">complete file</span> looks like
-                </h3>
+          {/* Right — the prepared file building */}
+          <div key={`out-${active}`} className="anim-swapin bg-surface p-6 sm:p-7">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
+                Prepared file
               </div>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-2.5 py-1 text-xs font-semibold text-accent">
-                <Check /> 100% ready
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums ${
+                  stage >= 2 ? "bg-accent-soft text-accent" : "bg-inset text-muted"
+                }`}
+              >
+                {stage >= 2 ? <Check /> : null}
+                {stage === 0 ? "—" : `${pct}% ready`}
               </span>
             </div>
+            <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-inset">
+              <div
+                className={`h-full rounded-full ${stage >= 2 ? "bg-accent" : "bg-awaiting"}`}
+                style={{ width: `${pct}%`, transition: `width 900ms ${EASE}, background-color 300ms` }}
+              />
+            </div>
 
-            <ul className="mt-5 space-y-2.5">
-              {b.present.map((item) => (
-                <li key={item} className="flex items-center gap-2.5 text-sm">
-                  <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-accent-soft text-accent">
-                    <Check />
-                  </span>
-                  {item}
+            {/* Extracted, source-backed facts */}
+            <ul className="mt-4 space-y-2.5">
+              {b.facts.map((f, i) => (
+                <li key={f.label} style={reveal(stage >= 1, 8, i * 140)}>
+                  <div className="text-[11px] uppercase tracking-wide text-muted">{f.label}</div>
+                  <div className="text-sm font-medium">{f.value}</div>
+                  <div className="text-xs italic text-muted">“{f.src}”</div>
                 </li>
               ))}
             </ul>
 
-            <div className="my-6 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">
-              <span className="h-px flex-1 bg-border" />
-              Then Briefly drafts
-              <span className="h-px flex-1 bg-border" />
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {b.drafts.map((d) => (
-                <span
-                  key={d}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent-soft px-3 py-1.5 text-sm font-medium text-accent"
-                >
-                  <MiniDoc />
-                  {d}
+            {/* Documents recognised */}
+            <div className="mt-4 flex flex-wrap gap-2" style={reveal(stage >= 2, 8)}>
+              {b.docs.map((d) => (
+                <span key={d} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-raise px-2.5 py-1 text-xs">
+                  <Check /> {d}
                 </span>
               ))}
             </div>
 
-            <p className="mt-6 text-xs text-muted">
-              Same engine, your rulebook. The moment a file is complete, Briefly prepares the first
-              deliverable — then stops at your review.
-            </p>
+            {/* The drafted deliverable + human gate */}
+            <div className="mt-5 rounded-xl border border-accent/40 bg-accent-soft p-4" style={reveal(stage >= 3, 10)}>
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-accent">
+                <MiniDoc /> Drafted · {b.deliverable.title}
+              </div>
+              <p className="mt-1.5 text-sm text-foreground">{b.deliverable.preview}</p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {b.alsoDrafts.map((d) => (
+                  <span key={d} className="rounded-md bg-surface px-2 py-0.5 text-[11px] text-muted">
+                    + {d}
+                  </span>
+                ))}
+              </div>
+              <div className="mt-3 flex items-center gap-2 border-t border-accent/20 pt-3 text-xs font-medium text-accent">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M12 3l7 4v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V7l7-4Z" />
+                </svg>
+                Waiting for your approval
+              </div>
+            </div>
           </div>
+        </div>
+
+        {/* Controls */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-surface px-6 py-3">
+          <p className="text-xs text-muted">
+            Same engine, your rulebook — a real {active.toLowerCase()} enquiry, prepared and stopped
+            at your review.
+          </p>
+          <button
+            type="button"
+            onClick={() => setRunId((n) => n + 1)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-inset"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+              <path d="M3 3v5h5" />
+            </svg>
+            Replay
+          </button>
         </div>
       </div>
     </div>

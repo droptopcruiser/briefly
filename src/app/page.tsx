@@ -136,7 +136,7 @@ export default async function Landing() {
         <Section>
           <Heading
             title="Teach Briefly how your business works."
-            sub="Pick a business line. The same engine follows a different rulebook — what counts as a complete file, and the first deliverable Briefly drafts the moment it's ready."
+            sub="Pick your business line and watch a real enquiry become a prepared file — the same engine following a different rulebook, right down to the deliverable it drafts."
           />
           <Reveal>
             <RubricWorkspace />
