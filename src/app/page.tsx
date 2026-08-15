@@ -15,7 +15,7 @@ import {
 } from "@/app/landing";
 import { ThemeToggle } from "@/app/theme-toggle";
 
-const PRICING = [PLANS.trial, PLANS.solo, PLANS.practice, PLANS.firm];
+const PRICING = [PLANS.solo, PLANS.practice, PLANS.firm];
 
 function Nav() {
   return (
@@ -143,6 +143,24 @@ export default async function Landing() {
           <p className="text-center text-base font-medium">
             Same engine. Different rulebook. <span className="text-accent">No code.</span>
           </p>
+          <Reveal className="mx-auto max-w-2xl space-y-4 text-center">
+            <p className="text-sm text-muted">
+              Legal, property, and accounting are where we go deepest — but Briefly runs on{" "}
+              <em>your</em> rulebook, so any business built on client intake fits.
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {["Migration", "Insurance", "Recruitment", "Consulting", "Wealth advisory", "Veterinary"].map(
+                (x) => (
+                  <span
+                    key={x}
+                    className="rounded-full border border-border px-3 py-1 text-xs text-muted"
+                  >
+                    {x}
+                  </span>
+                ),
+              )}
+            </div>
+          </Reveal>
         </Section>
 
         {/* ── Thread stays together ─────────────────────────────────────── */}
@@ -156,9 +174,9 @@ export default async function Landing() {
             title="Simple, metered pricing"
             sub="Every plan includes a set number of matters each month. A matter is one new client intake — replies and follow-ups are included. Credit packs cover overage; no surprise bills."
           />
-          <Reveal className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Reveal className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-3">
             {PRICING.map((plan) => {
-              const featured = plan.id === "solo";
+              const featured = plan.id === "practice";
               return (
                 <div
                   key={plan.id}
@@ -200,9 +218,9 @@ export default async function Landing() {
             })}
           </Reveal>
           <p className="text-center text-xs text-muted">
-            14-day free trial, no charge until it ends. Overage is sold as credit packs (
-            {CREDIT_PACK.priceLabel} for {CREDIT_PACK.credits}). Prices may change before general
-            availability.
+            Every plan starts with a 7-day free trial — no charge until it ends. Overage is sold as
+            credit packs ({CREDIT_PACK.priceLabel} for {CREDIT_PACK.credits}). Prices may change
+            before general availability.
           </p>
         </Section>
 
