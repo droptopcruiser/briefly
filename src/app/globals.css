@@ -190,6 +190,15 @@ h1, h2, h3 {
 }
 .anim-swapin { animation: briefly-swapin 320ms var(--ease) both; }
 
+/* Connectors that draw themselves on view (the triage fork), and a soft hover
+   lift for the glass cards — the "considered, expensive" feel. */
+.line-draw { transform: scaleY(0); transform-origin: top center; transition: transform 640ms var(--ease); }
+.line-draw.in { transform: scaleY(1); }
+.line-grow { transform: scaleX(0); transform-origin: center; transition: transform 640ms var(--ease) 160ms; }
+.line-grow.in { transform: scaleX(1); }
+.lift { transition: transform 280ms var(--ease), box-shadow 280ms var(--ease); }
+.lift:hover { transform: translateY(-4px); }
+
 @media (prefers-reduced-motion: reduce) {
   .anim-float,
   .anim-rise { animation: none !important; }
@@ -197,4 +206,6 @@ h1, h2, h3 {
   .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
   .swap { transition: none !important; }
   .anim-swapin { animation: none !important; }
+  .line-draw, .line-grow { transform: none !important; transition: none !important; }
+  .lift:hover { transform: none !important; }
 }

@@ -834,3 +834,289 @@ export function ThreadingProof() {
     </div>
   );
 }
+
+// ── Two-path triage ───────────────────────────────────────────────────────────
+
+/** Ease a number 0 → target once `run` flips true (instant under reduced-motion). */
+function useCountUp(target: number, run: boolean, ms = 1100): number {
+  const [v, setV] = useState(0);
+  const rm = useReducedMotion();
+  useEffect(() => {
+    if (!run) return;
+    if (rm) {
+      setV(target);
+      return;
+    }
+    let raf = 0;
+    const t0 = performance.now();
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - t0) / ms);
+      const eased = 1 - Math.pow(1 - p, 3); // easeOutCubic
+      setV(Math.round(eased * target));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [run, target, ms, rm]);
+  return v;
+}
+
+function MailGlyph() {
+  return (
+    <span className="grid h-9 w-9 place-items-center rounded-lg bg-accent-soft text-accent">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <path d="m3 7 9 6 9-6" />
+      </svg>
+    </span>
+  );
+}
+
+function ForkGlyph() {
+  return (
+    <span className="grid h-9 w-9 place-items-center rounded-full border border-border bg-surface text-accent shadow-sm">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="6" cy="6" r="2.4" />
+        <circle cx="18" cy="6" r="2.4" />
+        <circle cx="12" cy="19" r="2.4" />
+        <path d="M6 8.5v2a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3v-2" />
+        <path d="M12 13.5v3" />
+      </svg>
+    </span>
+  );
+}
+
+/** One outcome card — Path A (missing) in honey, Path B (ready) in forest. */
+function PathCard({
+  variant,
+  show,
+  delay,
+}: {
+  variant: "A" | "B";
+  show: boolean;
+  delay: number;
+}) {
+  const a = variant === "A";
+  return (
+    <div
+      className="glass glass-sheen lift relative overflow-hidden rounded-2xl p-6 sm:p-7"
+      style={{
+        opacity: show ? 1 : 0,
+        transform: show ? "none" : "translateY(18px)",
+        transition: `opacity 620ms ${EASE} ${delay}ms, transform 620ms ${EASE} ${delay}ms`,
+      }}
+    >
+      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
+        <span className={`h-1.5 w-1.5 rounded-full ${a ? "bg-awaiting" : "bg-accent"}`} />
+        {a ? "Path A · Incomplete" : "Path B · 100% complete"}
+      </div>
+      <h3 className="mt-4 font-serif text-2xl font-semibold tracking-tight sm:text-3xl">
+        {a ? (
+          <>
+            Facts or documents <span className="italic text-awaiting">are missing.</span>
+          </>
+        ) : (
+          <>
+            The file is ready <span className="italic text-accent">for action.</span>
+          </>
+        )}
+      </h3>
+      <p className="mt-3 text-sm text-muted">
+        {a
+          ? "Briefly drafts a precise request for exactly what's outstanding — nothing more."
+          : "Briefly drafts the first deliverable your complete-when rule calls for."}
+      </p>
+
+      <div
+        className={`mt-5 rounded-xl border px-4 py-3 ${
+          a ? "border-awaiting/40 bg-awaiting-soft" : "border-accent/40 bg-accent-soft"
+        }`}
+      >
+        <div
+          className={`flex items-center gap-1.5 text-xs font-semibold ${
+            a ? "text-awaiting" : "text-accent"
+          }`}
+        >
+          {a ? (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="3" y="5" width="18" height="14" rx="2" />
+              <path d="m3 7 9 6 9-6" />
+            </svg>
+          ) : (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M14 3v5h5" />
+              <path d="M6 3h8l5 5v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" />
+              <path d="M9 13h6M9 16h4" />
+            </svg>
+          )}
+          {a ? "Drafted request" : "Drafted initial work"}
+        </div>
+        <p className="mt-1.5 text-sm font-medium">
+          {a ? "“Please attach the marriage certificate.”" : "“Confirmation, next steps & consultation link.”"}
+        </p>
+        <p className="mt-1 text-xs text-muted">
+          {a ? "Then: Awaiting information" : "Or: engagement email · case brief"}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export function TwoPathTriage() {
+  const { ref, inView } = useInView<HTMLDivElement>(0.2);
+  const rm = useReducedMotion();
+  const show = inView || rm;
+  const readiness = useCountUp(68, show);
+
+  return (
+    <div ref={ref}>
+      {/* Asymmetric header */}
+      <div className="grid gap-6 lg:grid-cols-[1.15fr_1fr] lg:items-end">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+            <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+            The two-path triage
+          </div>
+          <h2 className="mt-4 font-serif text-4xl font-semibold leading-[1.05] tracking-tight text-balance sm:text-5xl">
+            Every intake reaches <span className="italic text-accent">a clear fork.</span>
+          </h2>
+        </div>
+        <p className="text-muted lg:pb-2">
+          Briefly checks the email against your rubric, scores readiness, then drafts the right first
+          move — whether facts are missing or the file is complete.
+        </p>
+      </div>
+
+      {/* Intake card */}
+      <div className="mt-10">
+        <div className="glass glass-sheen relative flex flex-wrap items-center justify-between gap-4 rounded-2xl px-5 py-4">
+          <div className="flex items-center gap-3">
+            <MailGlyph />
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
+                Inbound client email
+              </div>
+              <div className="font-semibold">Extract facts &amp; check rubric</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted">Readiness score</span>
+            <span className="rounded-md bg-accent-soft px-2.5 py-1 text-sm font-semibold tabular-nums text-accent">
+              {readiness}%
+            </span>
+          </div>
+        </div>
+        <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-inset">
+          <div
+            className="h-full rounded-full bg-accent"
+            style={{ width: `${show ? 68 : 0}%`, transition: `width 1100ms ${EASE}` }}
+          />
+        </div>
+      </div>
+
+      {/* Fork connector */}
+      <div className="flex flex-col items-center pt-6">
+        <div className={`line-draw ${show ? "in" : ""} h-8 w-px bg-border`} />
+        <ForkGlyph />
+        <p className="mt-3 text-center text-sm font-medium text-accent">
+          Briefly matches the next action to the state of the matter
+        </p>
+      </div>
+
+      {/* Split rule (desktop) */}
+      <div className="relative mx-auto mt-4 hidden h-6 w-2/3 lg:block" aria-hidden>
+        <div className={`line-grow ${show ? "in" : ""} absolute left-1/4 right-1/4 top-0 border-t border-border`} />
+        <div className={`line-draw ${show ? "in" : ""} absolute left-1/4 top-0 h-6 w-px bg-border`} />
+        <div className={`line-draw ${show ? "in" : ""} absolute right-1/4 top-0 h-6 w-px bg-border`} />
+      </div>
+
+      {/* The two paths */}
+      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+        <PathCard variant="A" show={show} delay={120} />
+        <PathCard variant="B" show={show} delay={240} />
+      </div>
+
+      {/* Professional review */}
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-inset px-5 py-4">
+        <p className="text-sm">
+          <span className="font-medium">Professional review.</span>{" "}
+          <span className="text-muted">
+            Whichever path, Briefly stops at your desk — review, adjust if needed, then approve and
+            send.
+          </span>
+        </p>
+        <a href="#how" className="shrink-0 text-sm font-medium text-accent hover:opacity-80">
+          See the review state →
+        </a>
+      </div>
+    </div>
+  );
+}
+
+// ── A summary is not a workflow ───────────────────────────────────────────────
+
+export function SummaryVsWorkflow() {
+  return (
+    <div className="grid items-center gap-6 lg:grid-cols-[0.85fr_1.15fr]">
+      {/* Generic summary — deliberately flat and inert */}
+      <div className="rounded-2xl border border-border bg-inset p-6 sm:p-7">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
+          A generic summary
+        </div>
+        <p className="mt-4 font-serif text-xl leading-relaxed text-muted">
+          “The client is seeking advice regarding a property settlement and has supplied some
+          financial information.”
+        </p>
+        <div className="mt-5 space-y-1.5 border-t border-border pt-4 text-sm text-muted">
+          <p>What is missing?</p>
+          <p>Who owns the next step?</p>
+          <p>Is it ready?</p>
+        </div>
+      </div>
+
+      {/* Briefly triage — the answer, glass and alive */}
+      <div className="glass glass-sheen lift rounded-2xl p-6 sm:p-7">
+        <div className="flex items-center justify-between gap-3 border-b border-border pb-4">
+          <div className="flex items-center gap-2 font-semibold">
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent-soft text-accent">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M4 5h16M4 12h16M4 19h10" />
+              </svg>
+            </span>
+            Briefly triage
+          </div>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-2.5 py-1 text-xs font-semibold text-accent">
+            <Check /> 68% ready
+          </span>
+        </div>
+
+        <div className="grid gap-5 py-5 sm:grid-cols-3">
+          {[
+            { k: "Source-backed facts", v: "Parties · assets · children" },
+            { k: "Gap identified", v: "Marriage certificate" },
+            { k: "Next step", v: "Follow-up drafted" },
+          ].map((c) => (
+            <div key={c.k}>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
+                {c.k}
+              </div>
+              <div className="mt-1.5 text-sm font-medium">{c.v}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 rounded-xl bg-accent-soft px-4 py-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-accent">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 3l7 4v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V7l7-4Z" />
+            </svg>
+            Waiting for your approval
+          </div>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="text-accent">
+            <path d="M5 12h14M13 6l6 6-6 6" />
+          </svg>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -8,6 +8,8 @@ import {
   Reveal,
   PreparedDesk,
   ExploreIntake,
+  TwoPathTriage,
+  SummaryVsWorkflow,
   RubricWorkspace,
   ProcessCanvas,
   ThreadingProof,
@@ -107,6 +109,28 @@ export default async function Landing() {
             <PreparedDesk />
           </div>
         </section>
+
+        {/* ── The core mechanic: two-path triage ────────────────────────── */}
+        <Section id="triage">
+          <TwoPathTriage />
+        </Section>
+
+        {/* ── The differentiation: a summary is not a workflow ──────────── */}
+        <Section>
+          <Reveal className="mx-auto max-w-3xl space-y-4 text-center">
+            <div className="flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+              <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+              A summary is not a workflow
+            </div>
+            <h2 className="font-serif text-3xl font-semibold leading-[1.08] tracking-tight text-balance sm:text-4xl lg:text-5xl">
+              Other AI tells you what it read.{" "}
+              <span className="italic text-accent">Briefly prepares what happens next.</span>
+            </h2>
+          </Reveal>
+          <Reveal>
+            <SummaryVsWorkflow />
+          </Reveal>
+        </Section>
 
         {/* ── The fit: one living rubric workspace ──────────────────────── */}
         <Section>
