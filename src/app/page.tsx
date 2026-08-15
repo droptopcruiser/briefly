@@ -136,13 +136,13 @@ export default async function Landing() {
         <Section>
           <Heading
             title="Teach Briefly how your business works."
-            sub="One workspace, your logic. Switch the business and the same engine follows a different rulebook — the fields, the documents, and what “ready” means all reconfigure."
+            sub="Pick a business line. The same engine follows a different rulebook — what counts as a complete file, and the first deliverable Briefly drafts the moment it's ready."
           />
           <Reveal>
             <RubricWorkspace />
           </Reveal>
           <p className="text-center text-base font-medium">
-            Same engine. Different intake. <span className="text-accent">No code.</span>
+            Same engine. Different rulebook. <span className="text-accent">No code.</span>
           </p>
         </Section>
 

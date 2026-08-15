@@ -517,89 +517,163 @@ export function ExploreIntake({
 }
 
 // ── 2. The fit: one living rubric workspace ──────────────────────────────────
-const RUBRICS: Record<string, { fields: string[]; docs: string[]; ready: string }> = {
-  "Family Law": {
-    fields: ["Parties", "Marriage date", "Children", "Assets", "Separation date"],
-    docs: ["Marriage certificate", "Financial disclosure"],
-    ready: "All parties, key dates, and financial disclosure are present.",
+/** What "ready" means per business line, and the first deliverable Briefly drafts
+ *  when it's reached — the same engine following a different rulebook. */
+const BUSINESSES: Record<string, { blurb: string; present: string[]; drafts: string[] }> = {
+  Legal: {
+    blurb: "A new client matter",
+    present: [
+      "Client & opposing party identified",
+      "Key dates & matter facts captured",
+      "Required supporting documents attached",
+    ],
+    drafts: ["Consultation confirmation", "Engagement email", "Internal case brief"],
   },
-  Veterinary: {
-    fields: ["Owner", "Pet name", "Species", "Symptoms", "Vaccination history"],
-    docs: ["Vaccination record"],
-    ready: "Species, symptoms, and vaccination history are present.",
+  Property: {
+    blurb: "A buyer, seller, or tenancy enquiry",
+    present: [
+      "Buyer / seller / landlord / tenant known",
+      "Property, price & timing captured",
+      "Required documents on file",
+    ],
+    drafts: ["Appraisal booking", "Viewing confirmation", "Listing response", "Landlord update"],
   },
   Accounting: {
-    fields: ["Business type", "Tax year", "GST status", "Turnover"],
-    docs: ["Bank statements", "Prior return"],
-    ready: "Tax year, entity type, and bank statements are present.",
+    blurb: "A new client onboarding",
+    present: [
+      "Entity & structure identified",
+      "Tax period & service need captured",
+      "Required records provided",
+    ],
+    drafts: ["Onboarding next steps", "Engagement email", "Internal client brief"],
   },
 };
 
+function BusinessIcon({ name }: { name: string }) {
+  const p = {
+    width: 18,
+    height: 18,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.75,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true,
+  };
+  if (name === "Legal")
+    return (
+      <svg {...p}>
+        <path d="M12 3v18M6 21h12M5 7h14l-2-3H7L5 7Z" />
+        <path d="M5 7l-2.5 5a2.5 2.5 0 0 0 5 0L5 7Zm14 0-2.5 5a2.5 2.5 0 0 0 5 0L19 7Z" />
+      </svg>
+    );
+  if (name === "Property")
+    return (
+      <svg {...p}>
+        <path d="M3 10.5 12 4l9 6.5M5 9.5V20h14V9.5M9.5 20v-6h5v6" />
+      </svg>
+    );
+  return (
+    <svg {...p}>
+      <rect x="5" y="3" width="14" height="18" rx="2" />
+      <path d="M9 7h6M9 11h6M9 15h3" />
+    </svg>
+  );
+}
+
+function MiniDoc() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M14 3v5h5" />
+      <path d="M6 3h8l5 5v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" />
+    </svg>
+  );
+}
+
 export function RubricWorkspace() {
-  const industries = Object.keys(RUBRICS);
-  const [active, setActive] = useState(industries[0]);
-  const r = RUBRICS[active];
+  const names = Object.keys(BUSINESSES);
+  const [active, setActive] = useState(names[0]);
+  const b = BUSINESSES[active];
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <div className="flex justify-center">
-        <div className="inline-flex rounded-full border border-border bg-surface p-1">
-          {industries.map((name) => (
-            <button
-              key={name}
-              type="button"
-              onClick={() => setActive(name)}
-              aria-pressed={active === name}
-              className={`rounded-full px-4 py-1.5 text-sm transition-colors ${
-                active === name ? "bg-accent text-accent-fg" : "text-muted hover:text-foreground"
-              }`}
-            >
-              {name}
-            </button>
-          ))}
-        </div>
-      </div>
+    <div className="mx-auto max-w-4xl">
+      <div className="glass glass-sheen overflow-hidden rounded-3xl">
+        <div className="grid md:grid-cols-[224px_1fr]">
+          {/* Business line selector — clickable */}
+          <div className="flex gap-2 border-b border-border p-3 md:flex-col md:border-b-0 md:border-r">
+            {names.map((name) => {
+              const on = active === name;
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => setActive(name)}
+                  aria-pressed={on}
+                  className={`flex flex-1 items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors md:flex-none ${
+                    on ? "bg-accent text-accent-fg" : "text-muted hover:bg-inset hover:text-foreground"
+                  }`}
+                >
+                  <BusinessIcon name={name} />
+                  <span className="flex-1">{name}</span>
+                  <span className={`hidden text-xs md:inline ${on ? "text-accent-fg/70" : "text-muted"}`}>
+                    {on ? "→" : ""}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
 
-      <div className="mt-6 rounded-3xl border border-border bg-surface p-6 shadow-sm sm:p-8">
-        <div key={active} className="anim-swapin grid gap-6 sm:grid-cols-2">
-          <div>
-            <div className="text-[11px] font-medium uppercase tracking-wide text-muted">
-              Fields this workflow captures
+          {/* Demonstration — crossfades on switch */}
+          <div key={active} className="anim-swapin p-6 sm:p-8">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
+                  {active} · {b.blurb}
+                </div>
+                <h3 className="mt-1 font-serif text-xl font-semibold tracking-tight">
+                  What a <span className="italic text-accent">complete file</span> looks like
+                </h3>
+              </div>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-2.5 py-1 text-xs font-semibold text-accent">
+                <Check /> 100% ready
+              </span>
             </div>
-            <ul className="mt-3 space-y-2">
-              {r.fields.map((f) => (
-                <li key={f} className="flex items-center gap-2 text-sm">
-                  <Check />
-                  {f}
+
+            <ul className="mt-5 space-y-2.5">
+              {b.present.map((item) => (
+                <li key={item} className="flex items-center gap-2.5 text-sm">
+                  <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-accent-soft text-accent">
+                    <Check />
+                  </span>
+                  {item}
                 </li>
               ))}
             </ul>
-          </div>
-          <div className="space-y-5">
-            <div>
-              <div className="text-[11px] font-medium uppercase tracking-wide text-muted">
-                Required documents
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {r.docs.map((d) => (
-                  <span key={d} className="rounded-lg border border-border bg-raise px-2.5 py-1 text-xs">
-                    {d}
-                  </span>
-                ))}
-              </div>
-            </div>
-            <div>
-              <div className="text-[11px] font-medium uppercase tracking-wide text-muted">
-                Ready when
-              </div>
-              <p className="mt-2 text-sm text-foreground">{r.ready}</p>
-            </div>
-          </div>
-        </div>
 
-        <div className="mt-6 flex items-center gap-2 rounded-xl border border-dashed border-border px-3 py-2.5">
-          <span className="text-lg leading-none text-muted">+</span>
-          <span className="text-sm text-muted">Add your own requirement…</span>
+            <div className="my-6 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">
+              <span className="h-px flex-1 bg-border" />
+              Then Briefly drafts
+              <span className="h-px flex-1 bg-border" />
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {b.drafts.map((d) => (
+                <span
+                  key={d}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent-soft px-3 py-1.5 text-sm font-medium text-accent"
+                >
+                  <MiniDoc />
+                  {d}
+                </span>
+              ))}
+            </div>
+
+            <p className="mt-6 text-xs text-muted">
+              Same engine, your rulebook. The moment a file is complete, Briefly prepares the first
+              deliverable — then stops at your review.
+            </p>
+          </div>
         </div>
       </div>
     </div>
