@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { WorkBrief } from "@/lib/work-brief";
 import type { MatterStatus } from "@/lib/types";
@@ -110,13 +111,7 @@ export function BriefPanel({
 
   // No brief yet.
   if (!brief) {
-    if (status === "completed") {
-      return (
-        <p className="rounded-lg border border-accent bg-surface px-4 py-3 text-sm text-accent">
-          ✓ Matter completed.
-        </p>
-      );
-    }
+    if (status === "completed") return <CompletedNotice />;
     if (!briefsEnabled) return null; // opt-out handled by the page's fallback
     return (
       <div className="space-y-3 rounded-lg border border-accent bg-surface px-4 py-4 text-sm">
@@ -172,8 +167,34 @@ export function BriefPanel({
           <span className="text-xs text-muted">Close this matter once the work is done.</span>
         </div>
       ) : status === "completed" ? (
-        <p className="text-sm text-accent">✓ Matter completed.</p>
+        <CompletedNotice />
       ) : null}
+    </div>
+  );
+}
+
+/** Confirmation shown after a matter is marked complete, with next steps. */
+function CompletedNotice() {
+  return (
+    <div className="space-y-3 rounded-lg border border-accent bg-surface px-4 py-4">
+      <p className="text-sm font-medium text-accent">✓ Matter completed.</p>
+      <p className="text-sm text-muted">
+        This matter is done and now lives in your Completed list — searchable whenever you need it.
+      </p>
+      <div className="flex flex-wrap gap-3">
+        <Link
+          href="/app/matters"
+          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:opacity-90"
+        >
+          Back to active matters
+        </Link>
+        <Link
+          href="/app/matters?view=completed"
+          className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-inset"
+        >
+          View completed matters
+        </Link>
+      </div>
     </div>
   );
 }

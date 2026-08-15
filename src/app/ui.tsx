@@ -3,33 +3,43 @@ import type { Matter, MatterStatus } from "@/lib/types";
 import type { Usage } from "@/lib/metering";
 import type { MonthStats } from "@/lib/stats";
 
-/** Activity overview: what Briefly handled this month + estimated time saved. */
+/** Activity overview: what Briefly handled this month + estimated time saved.
+ *  The count tiles are queues — each links to its filtered matters view. */
 export function StatsPanel({ stats }: { stats: MonthStats }) {
-  const tiles: { num: string; cap: string; accent?: boolean }[] = [
+  const tiles: { num: string; cap: string; accent?: boolean; href?: string }[] = [
     { num: `${stats.hoursSaved}h`, cap: "saved this month", accent: true },
-    { num: String(stats.matters), cap: "matters this month" },
-    { num: String(stats.readyForYou), cap: "ready for you" },
-    { num: String(stats.awaitingClient), cap: "awaiting client" },
+    { num: String(stats.matters), cap: "matters this month", href: "/app/matters?view=all" },
+    { num: String(stats.readyForYou), cap: "ready for you", href: "/app/matters" },
+    { num: String(stats.awaitingClient), cap: "awaiting client", href: "/app/matters?view=awaiting" },
   ];
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      {tiles.map((t) => (
-        <div
-          key={t.cap}
-          className={`rounded-lg border bg-surface px-4 py-3 ${
-            t.accent ? "border-accent" : "border-border"
-          }`}
-        >
-          <div
-            className={`text-2xl font-semibold tabular-nums tracking-tight ${
-              t.accent ? "text-accent" : ""
-            }`}
-          >
-            {t.num}
+      {tiles.map((t) => {
+        const inner = (
+          <>
+            <div
+              className={`text-2xl font-semibold tabular-nums tracking-tight ${
+                t.accent ? "text-accent" : ""
+              }`}
+            >
+              {t.num}
+            </div>
+            <div className="text-xs text-muted">{t.cap}</div>
+          </>
+        );
+        const cls = `block rounded-lg border bg-surface px-4 py-3 ${
+          t.accent ? "border-accent" : "border-border"
+        }`;
+        return t.href ? (
+          <Link key={t.cap} href={t.href} className={`${cls} transition-colors hover:bg-inset`}>
+            {inner}
+          </Link>
+        ) : (
+          <div key={t.cap} className={cls}>
+            {inner}
           </div>
-          <div className="text-xs text-muted">{t.cap}</div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
