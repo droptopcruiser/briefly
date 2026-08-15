@@ -27,12 +27,14 @@ import {
  */
 export function BriefPanel({
   matterId,
+  clientEmail,
   initialBrief,
   initialStatus,
   initialStale,
   briefsEnabled,
 }: {
   matterId: string;
+  clientEmail: string | null;
   initialBrief: WorkBrief | null;
   initialStatus: MatterStatus;
   initialStale: boolean;
@@ -145,6 +147,8 @@ export function BriefPanel({
   return (
     <div className="space-y-4">
       <WorkBriefCard
+        matterId={matterId}
+        clientEmail={clientEmail}
         version={brief.version}
         state={brief.state}
         content={brief.content}

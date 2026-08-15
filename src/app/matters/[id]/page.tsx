@@ -147,6 +147,7 @@ async function PreparedWorkSection({ matter, account }: { matter: Matter; accoun
     return (
       <BriefPanel
         matterId={matter.id}
+        clientEmail={matter.clientEmail}
         initialBrief={brief}
         initialStatus={matter.status}
         initialStale={briefStale}

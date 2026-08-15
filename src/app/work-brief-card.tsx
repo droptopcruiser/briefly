@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import type { WorkBriefContent, WorkBriefState } from "@/lib/work-brief";
 import { Spinner } from "@/app/pending-button";
+import { BriefMessageSend } from "@/app/brief-message-send";
 
 /**
  * The Initial Work Brief review surface — PRESENTATIONAL. All state and the
@@ -69,6 +69,8 @@ function JudgmentSkeleton() {
 }
 
 export function WorkBriefCard({
+  matterId,
+  clientEmail,
   version,
   state,
   content,
@@ -79,6 +81,8 @@ export function WorkBriefCard({
   onApprove,
   onRefresh,
 }: {
+  matterId: string;
+  clientEmail: string | null;
   version: number;
   state: WorkBriefState;
   content: WorkBriefContent;
@@ -91,18 +95,6 @@ export function WorkBriefCard({
 }) {
   const approved = state === "approved";
   const judgmentPending = !!content.judgmentPending;
-  const [copied, setCopied] = useState(false);
-
-  async function copyMessage() {
-    if (!content.suggestedClientMessage) return;
-    try {
-      await navigator.clipboard.writeText(content.suggestedClientMessage);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      /* clipboard blocked — no-op */
-    }
-  }
 
   const RefreshButton = ({ label }: { label: string }) => (
     <button
@@ -249,26 +241,14 @@ export function WorkBriefCard({
           </Section>
         ) : null}
 
-        {/* 9 — Suggested client communication (draft only, never auto-sent) */}
+        {/* 9 — Suggested client communication: editable + sendable (human-gated) */}
         {content.suggestedClientMessage ? (
           <Section title="Suggested client message (draft)">
-            <div className="rounded-lg border border-border">
-              <pre className="whitespace-pre-wrap px-4 py-3 text-sm font-sans">
-                {content.suggestedClientMessage}
-              </pre>
-              <div className="flex items-center gap-3 border-t border-border px-4 py-2">
-                <button
-                  type="button"
-                  onClick={copyMessage}
-                  className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-inset"
-                >
-                  {copied ? "Copied ✓" : "Copy"}
-                </button>
-                <span className="text-xs text-muted">
-                  A draft for you to review and send yourself — Briefly won&apos;t send it.
-                </span>
-              </div>
-            </div>
+            <BriefMessageSend
+              matterId={matterId}
+              to={clientEmail}
+              initialBody={content.suggestedClientMessage}
+            />
           </Section>
         ) : null}
       </div>

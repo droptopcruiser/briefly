@@ -1,11 +1,14 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { getMatter, saveMatter } from "@/lib/store";
-import { getCurrentAccount, DEFAULT_ACCOUNT_ID } from "@/lib/metering";
+import { getCurrentAccount, DEFAULT_ACCOUNT_ID, INBOUND_DOMAIN } from "@/lib/metering";
 import { getEffectiveRubrics } from "@/lib/rubric-store";
 import { addEvent } from "@/lib/events";
 import { recordReview } from "@/lib/reviews";
+import { isEmailConfigured, sendEmail, senderFrom, composeEmailBody } from "@/lib/email";
+import type { SendResult } from "@/app/actions";
 import {
   getActiveBrief,
   createBriefForMatter,
@@ -134,6 +137,50 @@ export async function approveBrief_(matterId: string): Promise<{ ok: boolean }> 
   );
   await recordReview(matter, user.id);
   console.log(`[approve-timing] approveBrief ms=${Date.now() - t0}`);
+  return { ok: true };
+}
+
+/**
+ * Send the brief's suggested client message (or the professional's edit of it) to
+ * the client. The human gate is the "Approve & send" click — Briefly never sends
+ * it automatically. Unlike a missing-info follow-up this does NOT move the matter
+ * to awaiting_client (it's an informational note on a ready matter); Reply-To
+ * still threads any client reply back into this same matter. Shaped for
+ * useActionState.
+ */
+export async function sendBriefMessage(_prev: SendResult, formData: FormData): Promise<SendResult> {
+  await requireUser();
+  const id = String(formData.get("id") ?? "");
+  const subject = String(formData.get("subject") ?? "").trim();
+  const body = String(formData.get("body") ?? "").trim();
+  if (!id || !body) return { ok: false, error: "Nothing to send." };
+
+  const { account, matter } = await loadMatterAndRubric(id);
+  if (!matter) return { ok: false, error: "Matter not found." };
+  const to = matter.clientEmail;
+  if (!to) {
+    return { ok: false, error: "No client email on this matter — send it from your own mail client." };
+  }
+  if (!isEmailConfigured()) {
+    return { ok: false, error: "Email sending isn't configured yet (POSTMARK_SERVER_TOKEN / MAIL_FROM)." };
+  }
+
+  const from = senderFrom(account?.name);
+  const replyTo =
+    account?.replyToMode === "firm"
+      ? account.replyToEmail?.trim() || undefined
+      : account?.inboundToken
+        ? `${account.inboundToken}+${matter.id}@${INBOUND_DOMAIN}`
+        : undefined;
+  const finalBody = composeEmailBody(body, { signature: account?.emailSignature, firmName: account?.name });
+
+  try {
+    await sendEmail({ to, subject: subject || "Regarding your enquiry", body: finalBody, from, replyTo });
+  } catch (err) {
+    return { ok: false, error: `Send failed: ${err instanceof Error ? err.message : "unknown error"}` };
+  }
+  await addEvent(matter.accountId, matter.id, "sent", `Message sent to ${to}`);
+  revalidatePath(`/matters/${id}`);
   return { ok: true };
 }
 

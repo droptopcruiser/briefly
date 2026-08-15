@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import type { SendResult } from "@/app/actions";
 
@@ -55,28 +56,41 @@ export function DraftActions({
     </button>
   );
 
-  // Already sent — show the final version read-only.
+  // Already sent — a quiet waiting state (not a completion). The matter has moved
+  // to Awaiting client; the exact request that went out stays visible, and Briefly
+  // will fold the client's reply back into this same matter automatically.
   if (approved) {
     return (
       <div className="space-y-3">
-        <div className="rounded-lg border border-border bg-surface">
-          <div className="border-b border-border px-4 py-2 text-sm">
+        <div className="rounded-lg border border-accent bg-surface px-4 py-3 text-sm">
+          <p className="font-medium text-accent">✓ Follow-up sent — awaiting the client&apos;s reply.</p>
+          <p className="mt-1 text-muted">
+            When they reply, Briefly folds it into this matter, re-scores it, and brings it back to
+            you.
+          </p>
+        </div>
+
+        <details className="rounded-lg border border-border bg-surface">
+          <summary className="cursor-pointer px-4 py-2 text-sm text-muted hover:text-foreground">
+            View sent request
+          </summary>
+          <div className="border-t border-border px-4 py-2 text-sm">
             <span className="text-muted">To:</span> {to ?? "—"}
             <br />
             <span className="text-muted">Subject:</span> {subject}
           </div>
-          <pre className="whitespace-pre-wrap px-4 py-3 text-sm font-sans">{body}</pre>
-        </div>
+          <pre className="whitespace-pre-wrap border-t border-border px-4 py-3 text-sm font-sans">
+            {body}
+          </pre>
+        </details>
+
         <div className="flex flex-wrap items-center gap-3">
-          <span className="rounded-md border border-accent px-4 py-2 text-sm font-medium text-accent">
-            ✓ Sent to client
-          </span>
-          <a
-            href={mailto}
+          <Link
+            href="/app/matters?view=awaiting"
             className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-inset"
           >
-            Reopen in mail client
-          </a>
+            Back to awaiting client
+          </Link>
           {copyBtn}
         </div>
       </div>
