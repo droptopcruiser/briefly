@@ -14,9 +14,9 @@ export interface Plan {
 
 export const PLANS = {
   trial: { id: "trial", name: "Trial", monthlyMatters: 25, priceLabel: "7 days free" },
-  solo: { id: "solo", name: "Solo", monthlyMatters: 75, priceLabel: "$129/mo" },
-  practice: { id: "practice", name: "Practice", monthlyMatters: 300, priceLabel: "$349/mo" },
-  firm: { id: "firm", name: "Firm", monthlyMatters: 1200, priceLabel: "From $899/mo" },
+  solo: { id: "solo", name: "Solo", monthlyMatters: 60, priceLabel: "$129/mo" },
+  practice: { id: "practice", name: "Practice", monthlyMatters: 250, priceLabel: "$349/mo" },
+  firm: { id: "firm", name: "Firm", monthlyMatters: 1000, priceLabel: "From $899/mo" },
 } satisfies Record<string, Plan>;
 
 /** Credit pack sold for overage beyond the monthly cap. */

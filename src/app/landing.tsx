@@ -523,6 +523,8 @@ export function ExploreIntake({
 type Fact = { label: string; value: string; src: string };
 type Biz = {
   blurb: string;
+  /** The firm's own WHEN → REQUIRE → DRAFT rule, shown so "how does it learn?" is answered up front. */
+  rule: { trigger: string; requires: string[]; draft: string };
   email: { from: string; subject: string; body: string };
   facts: Fact[];
   docs: string[];
@@ -532,6 +534,7 @@ type Biz = {
 const BUSINESSES: Record<string, Biz> = {
   Legal: {
     blurb: "New client matter",
+    rule: { trigger: "a new family-law matter", requires: ["parties", "key dates", "supporting documents"], draft: "consultation confirmation" },
     email: {
       from: "Sarah Whitfield",
       subject: "Starting divorce proceedings",
@@ -551,27 +554,29 @@ const BUSINESSES: Record<string, Biz> = {
     alsoDrafts: ["Engagement email", "Internal case brief"],
   },
   Property: {
-    blurb: "Buyer enquiry",
+    blurb: "Appraisal request",
+    rule: { trigger: "a property appraisal", requires: ["address", "owner details", "reason for sale"], draft: "appraisal booking" },
     email: {
-      from: "Daniel Osei",
-      subject: "Viewing — 14 Marine Parade",
-      body: "Hello, I'd like to arrange a viewing of 14 Marine Parade. I'm a cash buyer looking to move before December, budget around $1.2M. I've been pre-approved and can send the letter through.",
+      from: "Grace Lim",
+      subject: "Appraisal for 22 Hillcrest Road",
+      body: "Hi, I'm looking to sell my home at 22 Hillcrest Road and would like an appraisal. I'm the owner and hoping to list before the school year. Happy to arrange a time that suits.",
     },
     facts: [
-      { label: "Party", value: "Daniel Osei · cash buyer", src: "I'm a cash buyer" },
-      { label: "Property", value: "14 Marine Parade", src: "viewing of 14 Marine Parade" },
-      { label: "Price & timing", value: "~$1.2M · before December", src: "budget around $1.2M" },
+      { label: "Owner", value: "Grace Lim", src: "I'm the owner" },
+      { label: "Property", value: "22 Hillcrest Road", src: "my home at 22 Hillcrest Road" },
+      { label: "Reason & timing", value: "Selling · before school year", src: "hoping to list before the school year" },
     ],
-    docs: ["Pre-approval letter"],
+    docs: ["Proof of ownership"],
     deliverable: {
-      title: "Viewing confirmation",
+      title: "Appraisal booking",
       preview:
-        "Hi Daniel, great to hear from you. I can offer viewings this week for 14 Marine Parade — here are two times that work…",
+        "Hi Grace, thanks for reaching out. I'd be glad to appraise 22 Hillcrest Road — here are a couple of times this week that could work…",
     },
-    alsoDrafts: ["Appraisal booking", "Listing response"],
+    alsoDrafts: ["Listing response", "Landlord update"],
   },
   Accounting: {
     blurb: "New client onboarding",
+    rule: { trigger: "a new client onboarding", requires: ["entity", "tax period", "required records"], draft: "onboarding next steps" },
     email: {
       from: "Mei Tan",
       subject: "Bookkeeping + tax for my Pte Ltd",
@@ -707,6 +712,26 @@ export function RubricWorkspace() {
 
       {/* The run */}
       <div className="glass glass-sheen mt-6 overflow-hidden rounded-3xl">
+        {/* The firm's own rule — how Briefly "learns" this business, in one line */}
+        <div key={`rule-${active}`} className="anim-swapin border-b border-border bg-surface px-6 py-3.5">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
+              Your rule
+            </span>
+            <span className="text-muted">If</span>
+            <span className="font-medium">{b.rule.trigger}</span>
+            <span className="text-muted">→ require</span>
+            {b.rule.requires.map((rq) => (
+              <span key={rq} className="rounded-md bg-inset px-2 py-0.5 text-xs font-medium">
+                {rq}
+              </span>
+            ))}
+            <span className="text-muted">→ when ready,</span>
+            <span className="inline-flex items-center gap-1 font-medium text-accent">
+              <MiniDoc /> draft {b.rule.draft}
+            </span>
+          </div>
+        </div>
         <div className="grid gap-px bg-border md:grid-cols-2">
           {/* Left — the inbound enquiry */}
           <div className="bg-surface p-6 sm:p-7">

@@ -122,7 +122,7 @@ export default async function Landing() {
               A summary is not a workflow
             </div>
             <h2 className="font-serif text-3xl font-semibold leading-[1.08] tracking-tight text-balance sm:text-4xl lg:text-5xl">
-              Other AI tells you what it read.{" "}
+              A summary tells you what it read.{" "}
               <span className="italic text-accent">Briefly prepares what happens next.</span>
             </h2>
           </Reveal>
@@ -166,6 +166,51 @@ export default async function Landing() {
         {/* ── Thread stays together ─────────────────────────────────────── */}
         <Section>
           <ThreadingProof />
+        </Section>
+
+        {/* ── It keeps the work moving: reminders · team · gate ─────────── */}
+        <Section>
+          <Heading
+            title="It keeps the work moving."
+            sub="Preparing the first draft is only the start. Briefly follows through — and holds the line at your approval."
+          />
+          <Reveal className="grid gap-4 sm:grid-cols-3">
+            {[
+              {
+                t: "Chases when it goes quiet",
+                d: "If a client doesn't reply, Briefly drafts a warm follow-up — a little different each time, never robotic — so matters don't stall.",
+                icon: (
+                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" />
+                ),
+              },
+              {
+                t: "Works with your team",
+                d: "Assign matters and hand off across the firm. Managers see everything; each teammate gets their own focused queue.",
+                icon: (
+                  <>
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13A4 4 0 0 1 16 11" />
+                  </>
+                ),
+              },
+              {
+                t: "Always your call",
+                d: "Nothing sends and no decision is made until you approve. Briefly prepares the work; the professional decides.",
+                icon: <path d="M12 3l7 4v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V7l7-4Z" />,
+              },
+            ].map((c) => (
+              <div key={c.t} className="rounded-2xl border border-border bg-surface p-6">
+                <div className="grid h-10 w-10 place-items-center rounded-xl bg-accent-soft text-accent">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    {c.icon}
+                  </svg>
+                </div>
+                <h3 className="mt-4 font-serif text-lg font-semibold tracking-tight">{c.t}</h3>
+                <p className="mt-1.5 text-sm text-muted">{c.d}</p>
+              </div>
+            ))}
+          </Reveal>
         </Section>
 
         {/* ── The decision: pricing ─────────────────────────────────────── */}
