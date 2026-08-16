@@ -81,7 +81,9 @@ export async function completeOnboardingAction(
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not save." };
   }
-  revalidatePath("/app/welcome");
+  // NOTE: no revalidatePath here — revalidating /app/welcome would re-render the
+  // server page and fight the client wizard's step state. The wizard advances
+  // itself; the account is picked up on the next natural navigation.
   return { ok: true };
 }
 
@@ -177,7 +179,8 @@ export async function saveOnboardingRubric(
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not save the rulebook." };
   }
-  revalidatePath("/app/rubrics");
-  revalidatePath("/app");
+  // No revalidatePath — see completeOnboardingAction. Revalidating /app here would
+  // re-render /app/welcome, whose "has a rubric → redirect to /app" guard would
+  // unmount the wizard before its final "prepare a matter" step could show.
   return { ok: true };
 }

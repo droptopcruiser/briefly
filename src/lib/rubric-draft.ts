@@ -108,6 +108,7 @@ STRICT RULES:
 - For every field and document, quote the exact phrase from the description it was drawn from in "source". If you had to INFER it (it's a sensible guess, not stated), set "inferred": true and "source": "".
 - Mark "required": true only for things the description says are needed before the matter can proceed. Otherwise false.
 - Be conservative: at most 6 fields and 4 documents. Prefer fewer, clearly-right items over many uncertain ones.
+- IMPORTANT: a sentence about chasing/asking the client for MISSING information (e.g. "if the address is missing we ask for it", "we request", "we follow up for") describes the follow-up behaviour — it is NOT a document or a field. NEVER invent a "confirmation" document or field from such a sentence. Only include documents that are real files/evidence the client provides (e.g. passport, proof of ownership, bank statement).
 - "type" is one of: string | date | number | boolean | enum. Use "enum" only when the description lists a fixed set of options (put them in "options").
 - name: a short matter-type name (e.g. "Property Appraisal"). vertical: a one-word area (e.g. "Property"). description: one sentence describing when this matter type applies (used for classification).
 - nextActionIntent: a short label for what the firm wants prepared once the matter is ready (e.g. "appraisal booking confirmation", "consultation confirmation"). This is an intended next step, not something you execute.`;

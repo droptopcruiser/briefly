@@ -184,17 +184,27 @@ async function draft(
   clientName: string,
   gaps: Gap[],
 ): Promise<{ out: DraftOut; costCents: number }> {
-  const missing = gaps.map((g) => `- ${g.label} (${g.kind})`).join("\n");
-  const system = `You draft a short, professional follow-up email for a "${rubric.name}" matter.
-The email requests EXACTLY the missing items listed — nothing more.
-Do NOT give advice, legal/financial opinions, or timelines. Do NOT invent facts.
-Address the client by name if provided. Keep it concise and courteous. Plain text only.
-End after the request with a brief courteous closing sentence. Do NOT add a sign-off,
-closing salutation, or signature line (no "Best regards", no name) — the firm's own
-signature is appended automatically.`;
+  const missing = gaps
+    .map((g) => {
+      const field = rubric.fields.find((f) => f.key === g.key);
+      const opts = field?.options?.length ? ` — options: ${field.options.join(", ")}` : "";
+      return `- ${g.label}${opts}`;
+    })
+    .join("\n");
 
-  const user = `Client name: ${clientName || "(not provided)"}
-Missing items to request:
+  const system = `You write a short, warm follow-up email as a real person at a small ${rubric.vertical || "professional"} firm, for a "${rubric.name}" enquiry. You're simply asking the client for the few things still needed — nothing more.
+
+VOICE — this matters:
+- Sound like a helpful human, never a corporate form letter.
+- NEVER use: "we require the following information", "at your earliest convenience", "thank you for your cooperation", "please be advised", "your matter", or a bullet list for a single item.
+- If ONE thing is missing, just ask for it in a natural sentence. If a field has options, weave them in so it's easy to answer (e.g. "could you let me know whether it's a house, apartment, townhouse, or land?").
+- If a few things are missing, ask for them in a short, friendly way (a brief line, or a tidy short list only if there are several).
+- Greet the client by first name if provided. One line of warm context, then the ask, then a brief friendly closing line.
+- No advice, opinions, or timelines. Don't invent facts. Plain text only.
+- Do NOT add a sign-off, closing salutation, or signature (no "Kind regards", no name) — the firm's own signature is appended automatically.`;
+
+  const user = `Client's first name: ${clientName ? clientName.split(" ")[0] : "(not provided)"}
+Still needed from the client:
 ${missing}`;
 
   const schema = {
@@ -228,7 +238,13 @@ export async function chaseDraft(
   gaps: Gap[],
   priorChases: number,
 ): Promise<DraftOut> {
-  const missing = gaps.map((g) => `- ${g.label} (${g.kind})`).join("\n");
+  const missing = gaps
+    .map((g) => {
+      const field = rubric.fields.find((f) => f.key === g.key);
+      const opts = field?.options?.length ? ` — options: ${field.options.join(", ")}` : "";
+      return `- ${g.label}${opts}`;
+    })
+    .join("\n");
 
   if (!isConfigured()) {
     const first = priorChases === 0;
@@ -244,16 +260,16 @@ export async function chaseDraft(
 
   const tone =
     priorChases === 0
-      ? "This is a follow-up to a previous email that hasn't been answered yet. Politely follow up and ask again for the outstanding items."
-      : "This is a REPEAT follow-up — you've already asked for these items and are still waiting. Acknowledge that gently (e.g. 'just checking in', 'we're still waiting on'). Keep it brief, warm, and not pushy.";
+      ? "This is a gentle nudge on a previous email that hasn't been answered yet. Warmly check back in and ask again for what's still needed."
+      : "This is a REPEAT nudge — you've asked before and are still waiting. Acknowledge that kindly ('just checking in', 'still happy to help once you have a moment'). Keep it brief, warm, and never pushy.";
 
-  const system = `You draft a short follow-up email chasing outstanding items for a "${rubric.name}" matter.
+  const system = `You write a short, warm follow-up as a real person at a small ${rubric.vertical || "professional"} firm, chasing the few things still needed for a "${rubric.name}" enquiry.
 ${tone}
-Request EXACTLY the still-missing items listed — nothing more. No advice, opinions, or timelines. Address the client by name if provided. Plain text only.
-End after the request with a brief courteous closing sentence. Do NOT add a sign-off, closing salutation, or signature (the firm's signature is appended automatically).`;
 
-  const user = `Client name: ${clientName || "(not provided)"}
-Still-missing items to chase:
+VOICE: sound human, not a form letter. NEVER use "we require the following information", "at your earliest convenience", "thank you for your cooperation", or "your matter". If one thing is missing, ask for it in a natural sentence (weave in any options so it's easy to answer). Greet by first name if provided. No advice, opinions, or timelines. Plain text. Do NOT add a sign-off/salutation/signature (the firm's signature is appended automatically).`;
+
+  const user = `Client's first name: ${clientName ? clientName.split(" ")[0] : "(not provided)"}
+Still needed from the client:
 ${missing}`;
 
   const schema = {
