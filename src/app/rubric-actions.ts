@@ -73,6 +73,7 @@ export async function saveRubric(input: Rubric): Promise<void> {
     fields,
     documents,
     prepareBriefWhenReady: input.prepareBriefWhenReady !== false,
+    nextActionIntent: input.nextActionIntent?.trim() || undefined,
   };
 
   await storeSaveRubric(accountId, rubric);

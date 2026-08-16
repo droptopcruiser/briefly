@@ -1,9 +1,17 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
-import { getCurrentAccount, provisionAccount, completeOnboarding } from "@/lib/metering";
+import {
+  getCurrentAccount,
+  provisionAccount,
+  completeOnboarding,
+  requireAccount,
+} from "@/lib/metering";
+import { saveRubric as storeSaveRubric } from "@/lib/rubric-store";
+import { draftRubricFromDescription, type DraftRubric } from "@/lib/rubric-draft";
+import type { Rubric, FieldType } from "@/lib/types";
 
 export type OnboardResult = { ok: boolean; error?: string };
 
@@ -50,8 +58,9 @@ export async function redeemInvite(
 }
 
 /**
- * Step 2 — set the firm name, which finishes onboarding (also generates the slug
- * + inbound intake token). On success the user lands on the dashboard.
+ * Step 2 — set the firm name (also generates the slug + inbound intake token).
+ * Unlike before, this does NOT redirect to /app — the guided wizard continues to
+ * the rulebook step client-side. Returns ok so the wizard can advance.
  */
 export async function completeOnboardingAction(
   _prev: OnboardResult,
@@ -72,5 +81,103 @@ export async function completeOnboardingAction(
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not save." };
   }
-  redirect("/app");
+  revalidatePath("/app/welcome");
+  return { ok: true };
+}
+
+// ── Step 3: the rulebook translator ──────────────────────────────────────────
+
+function slug(s: string): string {
+  return (
+    s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "field"
+  );
+}
+function keyer() {
+  const used = new Set<string>();
+  return (base: string) => {
+    let k = base;
+    let i = 2;
+    while (used.has(k)) k = `${base}_${i++}`;
+    used.add(k);
+    return k;
+  };
+}
+
+/** Translate a plain-language workflow description into a proposed, sourced rubric. */
+export async function draftRubric(description: string, practiceHint?: string): Promise<DraftRubric> {
+  await requireAccount();
+  const text = description.trim();
+  if (text.length < 12) {
+    // Too little to translate — return an example so the UI still has something.
+    return draftRubricFromDescription("", practiceHint);
+  }
+  return draftRubricFromDescription(text, practiceHint);
+}
+
+/** The reviewed rubric the professional approves — label-based; keys generated here. */
+export interface OnboardRubricInput {
+  name: string;
+  vertical: string;
+  description: string;
+  nextActionIntent?: string;
+  fields: { label: string; description: string; type: FieldType; required: boolean; options?: string[] }[];
+  documents: { label: string; description: string; required: boolean }[];
+}
+
+/**
+ * Step 3 approval — save the reviewed rulebook as the account's first matter type.
+ * Reuses the same key-generation as the rubric editor. No redirect: the wizard
+ * advances to the final step.
+ */
+export async function saveOnboardingRubric(
+  input: OnboardRubricInput,
+): Promise<OnboardResult> {
+  const account = await requireAccount();
+
+  const fieldKey = keyer();
+  const fields = input.fields
+    .filter((f) => f.label.trim())
+    .map((f) => ({
+      key: fieldKey(slug(f.label)),
+      label: f.label.trim(),
+      description: f.description.trim(),
+      required: Boolean(f.required),
+      type: f.type,
+      options:
+        f.type === "enum" ? (f.options ?? []).map((o) => o.trim()).filter(Boolean) : undefined,
+    }));
+
+  const docKey = keyer();
+  const documents = input.documents
+    .filter((d) => d.label.trim())
+    .map((d) => ({
+      key: docKey(slug(d.label)),
+      label: d.label.trim(),
+      description: d.description.trim(),
+      required: Boolean(d.required),
+    }));
+
+  if (fields.length === 0 && documents.length === 0) {
+    return { ok: false, error: "Add at least one fact or document before activating." };
+  }
+
+  const rubric: Rubric = {
+    id: randomUUID(),
+    name: input.name.trim() || "New matter type",
+    vertical: input.vertical.trim() || "General",
+    description: input.description.trim(),
+    fields,
+    documents,
+    prepareBriefWhenReady: true,
+    nextActionIntent: input.nextActionIntent?.trim() || undefined,
+  };
+
+  try {
+    await storeSaveRubric(account.id, rubric);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not save the rulebook." };
+  }
+  revalidatePath("/app/rubrics");
+  revalidatePath("/app");
+  return { ok: true };
 }

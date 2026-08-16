@@ -30,6 +30,7 @@ export function RubricEditor({ initial }: { initial: Rubric }) {
   const [vertical, setVertical] = useState(initial.vertical);
   const [description, setDescription] = useState(initial.description);
   const [prepareBrief, setPrepareBrief] = useState(initial.prepareBriefWhenReady !== false);
+  const [nextActionIntent, setNextActionIntent] = useState(initial.nextActionIntent ?? "");
   const [fields, setFields] = useState<FieldRow[]>(
     initial.fields.map((f) => ({
       key: f.key,
@@ -97,6 +98,7 @@ export function RubricEditor({ initial }: { initial: Rubric }) {
         required: d.required,
       })),
       prepareBriefWhenReady: prepareBrief,
+      nextActionIntent: nextActionIntent.trim() || undefined,
     };
     startTransition(() => saveRubric(rubric));
   }
@@ -271,6 +273,21 @@ export function RubricEditor({ initial }: { initial: Rubric }) {
       {/* When ready */}
       <section className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">When ready</h2>
+        <label className="block space-y-1.5">
+          <span className="text-xs uppercase tracking-wide text-muted">
+            When this matter is ready → what should Briefly prepare?
+          </span>
+          <input
+            className={inputCls}
+            value={nextActionIntent}
+            onChange={(e) => setNextActionIntent(e.target.value)}
+            placeholder="e.g. Appraisal booking confirmation · Consultation confirmation · Engagement email"
+          />
+          <span className="block text-xs text-muted">
+            The intended next step once the matter is complete. Your team reviews the prepared action
+            before anything is sent.
+          </span>
+        </label>
         <label className="flex items-start gap-3 rounded-lg border border-border bg-surface p-4">
           <input
             type="checkbox"

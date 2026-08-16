@@ -47,6 +47,15 @@ export interface Rubric {
    * prepare when ready" model — profession-neutral, no code required.
    */
   prepareBriefWhenReady?: boolean;
+  /**
+   * When this matter type is ready, what should Briefly prepare next? A short,
+   * firm-authored intent label, e.g. "appraisal booking confirmation" or
+   * "consultation confirmation". This is the NEXT-ACTION INTENT — the purpose the
+   * readiness condition unlocks — captured now; the executable drafting of that
+   * specific output grows later (today the two-path follow-up / Initial Work Brief
+   * still handles preparation). Not "an action Briefly executes on its own".
+   */
+  nextActionIntent?: string;
 }
 
 /** One extracted fact. Grounding rule: fill only what is explicitly present. */

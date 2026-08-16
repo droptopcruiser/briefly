@@ -13,6 +13,7 @@ import {
   intakeAddress,
 } from "@/lib/metering";
 import { getCurrentProfile } from "@/lib/profile";
+import { getAccountRubrics } from "@/lib/rubric-store";
 import { listMembers } from "@/lib/team";
 import { getMonthStats } from "@/lib/stats";
 
@@ -56,6 +57,7 @@ export default async function Dashboard() {
   const blocked = usage.blocked;
 
   const needsYou = await listMatters(account.id, { status: NEEDS_YOU, limit: 50 });
+  const hasOwnRubric = (await getAccountRubrics(account.id)).length > 0;
   const firstName = profile?.name?.split(/\s+/)[0] ?? null;
 
   const labelFor = (uid: string | null) => {
@@ -78,6 +80,22 @@ export default async function Dashboard() {
               : `${needsYou.length} matters are ready for you.`}
         </p>
       </header>
+
+      {!hasOwnRubric ? (
+        <Link
+          href="/app/welcome"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent bg-surface px-5 py-4 transition-colors hover:bg-inset"
+        >
+          <div>
+            <div className="text-sm font-medium text-accent">Finish setting up Briefly</div>
+            <div className="text-sm text-muted">
+              Teach Briefly your first matter type — describe how you handle one enquiry and it builds
+              your rulebook.
+            </div>
+          </div>
+          <span className="shrink-0 text-sm font-medium text-accent">Teach Briefly →</span>
+        </Link>
+      ) : null}
 
       {stats ? (
         <section className="space-y-2">
