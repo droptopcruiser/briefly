@@ -172,40 +172,91 @@ function timeAgo(iso: string): string {
   return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
 }
 
+const CHIP_TONES: Record<"accent" | "awaiting" | "muted", string> = {
+  accent: "bg-accent-soft text-accent",
+  awaiting: "border border-awaiting text-awaiting",
+  muted: "bg-inset text-muted",
+};
+
+/** A workflow-status pill — what the matter needs, in the firm's own terms. */
+export function StatusChip({
+  label,
+  tone = "muted",
+}: {
+  label: string;
+  tone?: "accent" | "awaiting" | "muted";
+}) {
+  return (
+    <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${CHIP_TONES[tone]}`}>
+      {label}
+    </span>
+  );
+}
+
 /**
- * A single matter in a list: client · type, last activity + assignee, readiness
- * and status on the right, a hairline readiness line beneath. One source so the
- * dashboard and the matters list read identically. Links to the full matter view.
+ * A single matter in a list. Two modes:
+ *  - Decision-forward (pass `statusLabel` + `snippet`): the client name in the
+ *    editorial serif, the one-line consequence, and a workflow-status chip — the
+ *    list reads as decisions, not a status table.
+ *  - Legacy (no `statusLabel`): readiness + status badges, for callers that haven't
+ *    been given the rubric-derived status yet.
+ * One source so the dashboard and the matters list read identically.
  */
 export function MatterRow({
   matter,
   assignee,
   href,
+  statusLabel,
+  snippet,
+  tone,
 }: {
   matter: Matter;
   assignee?: string | null;
   href: string;
+  statusLabel?: string;
+  snippet?: string | null;
+  tone?: "accent" | "awaiting" | "muted";
 }) {
   const readiness = matter.result?.readiness;
+  const decisionMode = !!statusLabel;
   return (
-    <Link href={href} className="block px-4 py-3.5 transition-colors hover:bg-inset">
+    <Link href={href} className="group block px-4 py-3.5 transition-colors hover:bg-inset">
       <div className="flex items-center gap-4">
         <div className="min-w-0 flex-1">
-          <div className="truncate font-medium">
-            {matter.clientName ?? "Unnamed client"}
+          <div className="truncate">
+            <span className="font-serif text-[15px] font-medium tracking-tight">
+              {matter.clientName ?? "Unnamed client"}
+            </span>
             {matter.result ? (
-              <span className="font-normal text-muted"> · {matter.result.rubricName}</span>
+              <span className="text-sm text-muted"> · {matter.result.rubricName}</span>
             ) : null}
           </div>
+          {decisionMode && snippet ? (
+            <div className="mt-0.5 truncate text-sm text-foreground/75">{snippet}</div>
+          ) : null}
           <div className="mt-0.5 truncate text-xs text-muted">
             {assignee ? `${assignee} · ` : ""}
             {timeAgo(matter.updatedAt ?? matter.createdAt)}
           </div>
         </div>
-        {typeof readiness === "number" ? <ReadinessBadge value={readiness} /> : null}
-        <StatusBadge status={matter.status} />
+        {decisionMode ? (
+          <StatusChip label={statusLabel!} tone={tone} />
+        ) : (
+          <>
+            {typeof readiness === "number" ? <ReadinessBadge value={readiness} /> : null}
+            <StatusBadge status={matter.status} />
+          </>
+        )}
+        <span
+          aria-hidden="true"
+          className="shrink-0 text-muted opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100"
+        >
+          →
+        </span>
       </div>
-      {typeof readiness === "number" ? <ReadinessMeter value={readiness} className="mt-2.5" /> : null}
+      {!decisionMode && typeof readiness === "number" ? (
+        <ReadinessMeter value={readiness} className="mt-2.5" />
+      ) : null}
     </Link>
   );
 }

@@ -12,7 +12,7 @@ import { ConsultationPanel } from "@/app/consultation-panel";
 import { MatterTabs, GoToTab } from "@/app/matter-tabs";
 import { InsightCallout } from "@/app/insight-callout";
 import { BriefMessageSend } from "@/app/brief-message-send";
-import type { Rubric } from "@/lib/types";
+import { workflowStatus, firstSentence } from "@/lib/matter-status";
 import { SinceReviewCard } from "@/app/since-review-card";
 import { AssignControl } from "@/app/assign-control";
 import { requireAccount, type Account } from "@/lib/metering";
@@ -129,47 +129,6 @@ async function ReturningClientSection({ matter }: { matter: Matter }) {
       ) : null}
     </section>
   );
-}
-
-/** First sentence of a summary, capped — the "what's happening now" line. */
-function firstSentence(text: string): string {
-  const t = (text ?? "").trim();
-  const m = t.match(/^(.*?[.!?])(\s|$)/);
-  const s = (m ? m[1] : t).trim();
-  return s.length > 200 ? s.slice(0, 197) + "…" : s;
-}
-
-/**
- * A workflow status derived from the rulebook's intended next action, not a flat
- * "100% ready" — what the professional should DO, in their own terms.
- */
-function workflowStatus(
-  matter: Matter,
-  rubric: Rubric | undefined,
-  planReady: boolean,
-): string {
-  const intent = rubric?.nextActionIntent?.trim();
-  // "Ready" should describe the next professional MOMENT. The consultation plan
-  // being prepared-and-marked-ready is what makes a matter "ready for the meeting"
-  // — not merely that a date exists or that Briefly finished generating something.
-  switch (matter.status) {
-    case "ready_for_review": {
-      const n = matter.result?.gaps.length ?? 0;
-      return n <= 1 ? "Waiting on one client detail" : `Waiting on ${n} client details`;
-    }
-    case "awaiting_client":
-      return matter.lastNudgedAt ? "Follow-up ready to send" : "Waiting on the client";
-    case "ready_for_you":
-      if (planReady) return "Ready for the consultation";
-      return "Ready for your review";
-    case "in_progress":
-      if (planReady) return "Ready for the consultation";
-      return intent ? `In progress — ${intent}` : "In progress";
-    case "completed":
-      return "Completed";
-    default:
-      return "In progress";
-  }
 }
 
 /**

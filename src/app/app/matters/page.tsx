@@ -2,8 +2,12 @@ import Link from "next/link";
 import type { MatterStatus } from "@/lib/types";
 import { listMatters } from "@/lib/store";
 import { listMembers } from "@/lib/team";
+import { getEffectiveRubrics } from "@/lib/rubric-store";
+import { getActiveBrief } from "@/lib/work-brief";
+import { workflowStatus, statusTone, firstSentence } from "@/lib/matter-status";
 import { requireAccount, getCurrentMembership } from "@/lib/metering";
 import { MatterRow } from "../../ui";
+import { LeadMatterCard } from "../../lead-matter-card";
 
 type ViewKey =
   | "needs-you"
@@ -54,7 +58,11 @@ export default async function MattersPage({
             : view === "unassigned"
               ? { assignee: "unassigned" as const }
               : {};
-  const matters = await listMatters(account.id, { ...opts, limit: 100 });
+  const [matters, rubrics] = await Promise.all([
+    listMatters(account.id, { ...opts, limit: 100 }),
+    getEffectiveRubrics(account.id),
+  ]);
+  const rubricFor = (rid: string | undefined) => rubrics.find((x) => x.id === rid);
 
   const labelFor = (uid: string | null) => {
     if (!uid) return null;
@@ -62,10 +70,17 @@ export default async function MattersPage({
     return m ? m.name || m.email || "Teammate" : "Teammate";
   };
 
+  // The lead — the one matter given full weight — plus its brief, for the insight.
+  const [lead, ...rest] = matters;
+  const leadBrief = lead ? await getActiveBrief(lead.id) : null;
+
+  // Inbox-Zero relief: clearing "Needs you" is the reward, stated calmly.
+  const isNeedsYou = view === "needs-you";
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Matters</h1>
+        <h1 className="font-serif text-3xl font-medium tracking-tight">Matters</h1>
         <p className="mt-1 text-muted">Every intake, grouped by what it needs.</p>
       </div>
 
@@ -90,18 +105,57 @@ export default async function MattersPage({
       </div>
 
       {matters.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border px-4 py-10 text-center text-sm text-muted">
-          {current.empty}
-        </p>
+        isNeedsYou ? (
+          <div className="rounded-xl border border-border bg-surface px-6 py-16 text-center">
+            <p className="font-serif text-2xl font-medium tracking-tight">You&apos;re all caught up.</p>
+            <p className="mt-2 text-sm text-muted">
+              Nothing awaits your review right now. New intake will appear here the moment it arrives.
+            </p>
+          </div>
+        ) : (
+          <p className="rounded-lg border border-dashed border-border px-4 py-10 text-center text-sm text-muted">
+            {current.empty}
+          </p>
+        )
       ) : (
-        <div className="overflow-hidden rounded-lg border border-border bg-surface">
-          <ul className="divide-y divide-border">
-            {matters.map((m) => (
-              <li key={m.id}>
-                <MatterRow matter={m} assignee={labelFor(m.assignedTo)} href={`/matters/${m.id}`} />
-              </li>
-            ))}
-          </ul>
+        <div className="space-y-4">
+          {/* The lead matter — full weight. */}
+          <div className="stagger-in" style={{ ["--i" as string]: 0 }}>
+            <LeadMatterCard
+              matter={lead}
+              brief={leadBrief}
+              rubric={rubricFor(lead.result?.rubricId)}
+              assignee={labelFor(lead.assignedTo)}
+              href={`/matters/${lead.id}`}
+            />
+          </div>
+
+          {/* The rest — quiet, decision-forward rows. */}
+          {rest.length > 0 ? (
+            <div className="overflow-hidden rounded-lg border border-border bg-surface">
+              <ul className="divide-y divide-border">
+                {rest.map((m, idx) => {
+                  const rubric = rubricFor(m.result?.rubricId);
+                  return (
+                    <li
+                      key={m.id}
+                      className="stagger-in"
+                      style={{ ["--i" as string]: idx + 1 }}
+                    >
+                      <MatterRow
+                        matter={m}
+                        assignee={labelFor(m.assignedTo)}
+                        href={`/matters/${m.id}`}
+                        statusLabel={workflowStatus(m, rubric)}
+                        snippet={m.result ? firstSentence(m.result.summary) : null}
+                        tone={statusTone(m)}
+                      />
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
         </div>
       )}
     </div>

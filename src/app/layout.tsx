@@ -1,5 +1,16 @@
 import type { Metadata } from "next";
+import { Fraunces } from "next/font/google";
 import "./globals.css";
+
+// The editorial signature: a warm, high-contrast text serif for "prepared work" —
+// matter names, the insight, the brief, the client message — so Briefly reads like
+// a prepared desk, not another sans-serif dashboard. Wired into --font-serif.
+const editorial = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-editorial",
+  display: "swap",
+  axes: ["opsz"],
+});
 import { getAuthUser } from "@/lib/auth";
 import { getNotifications } from "@/lib/notifications";
 import { getCurrentProfile } from "@/lib/profile";
@@ -41,7 +52,7 @@ export default async function RootLayout({
     : [null, null, null, null];
 
   return (
-    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
+    <html lang="en" className={`h-full antialiased ${editorial.variable}`} suppressHydrationWarning>
       <body className="min-h-full">
         {/* No-flash theme: apply an explicit choice before first paint; absence
             means "system", which the prefers-color-scheme media query handles. */}
