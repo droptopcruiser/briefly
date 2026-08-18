@@ -11,6 +11,7 @@ import { BriefPanel } from "@/app/brief-panel";
 import { ConsultationPanel } from "@/app/consultation-panel";
 import { MatterTabs, GoToTab } from "@/app/matter-tabs";
 import { InsightCallout } from "@/app/insight-callout";
+import { BriefMessageSend } from "@/app/brief-message-send";
 import type { Rubric } from "@/lib/types";
 import { SinceReviewCard } from "@/app/since-review-card";
 import { AssignControl } from "@/app/assign-control";
@@ -145,10 +146,12 @@ function firstSentence(text: string): string {
 function workflowStatus(
   matter: Matter,
   rubric: Rubric | undefined,
-  hasUpcoming: boolean,
-  hasPacket: boolean,
+  planReady: boolean,
 ): string {
   const intent = rubric?.nextActionIntent?.trim();
+  // "Ready" should describe the next professional MOMENT. The consultation plan
+  // being prepared-and-marked-ready is what makes a matter "ready for the meeting"
+  // — not merely that a date exists or that Briefly finished generating something.
   switch (matter.status) {
     case "ready_for_review": {
       const n = matter.result?.gaps.length ?? 0;
@@ -157,10 +160,10 @@ function workflowStatus(
     case "awaiting_client":
       return matter.lastNudgedAt ? "Follow-up ready to send" : "Waiting on the client";
     case "ready_for_you":
-      if (hasUpcoming) return "Ready for the consultation";
-      return intent ? `Ready — ${intent}` : "Ready for your review";
+      if (planReady) return "Ready for the consultation";
+      return "Ready for your review";
     case "in_progress":
-      if (hasUpcoming && hasPacket) return "Ready for the meeting";
+      if (planReady) return "Ready for the consultation";
       return intent ? `In progress — ${intent}` : "In progress";
     case "completed":
       return "Completed";
@@ -185,12 +188,15 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
   const rubric = rubrics.find((x) => x.id === r.rubricId);
   const upcoming =
     !!matter.consultationAt && new Date(matter.consultationAt).getTime() > Date.now();
-  const status = workflowStatus(matter, rubric, upcoming, !!packet);
+  // The plan is "ready" only once it's prepared AND the professional marked it ready
+  // for the meeting — that's what makes the matter "ready for the consultation".
+  const planReady = !!packet && packet.state === "approved";
+  const status = workflowStatus(matter, rubric, planReady);
 
-  // Guard against pre-structured (string) insights from older briefs.
+  // Guard against older insight shapes (string, or the earlier because/basedOn form).
   const rawInsight = brief?.content.insight;
   const insight =
-    rawInsight && typeof rawInsight === "object" && rawInsight.because ? rawInsight : null;
+    rawInsight && typeof rawInsight === "object" && rawInsight.consequence ? rawInsight : null;
   const now = firstSentence(r.summary);
   const next =
     brief?.content.suggestedNextStep?.trim() ||
@@ -201,11 +207,12 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
         ? "This matter is complete."
         : "Review what Briefly has prepared.");
 
-  const messagePreview =
-    r.draftEmail?.body?.trim() || brief?.content.suggestedClientMessage?.trim() || null;
-  const messageLabel = r.draftEmail ? "Prepared follow-up" : "Prepared client message";
+  // The prepared client message is the VEHICLE for the decision. Path A is the
+  // follow-up (a full editor in Next step); Path B is the brief's message, sendable
+  // right here so the professional can act without hunting for it.
+  const draftPreview = r.draftEmail?.body?.trim() || null;
+  const briefMessage = !r.draftEmail ? brief?.content.suggestedClientMessage?.trim() || null : null;
 
-  // What Briefly prepared, and the next expected transition.
   const prepared: string[] = [];
   if (r.draftEmail) prepared.push("a client follow-up");
   if (brief) prepared.push("an Initial Work Brief");
@@ -214,18 +221,6 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
     prepared.length > 0
       ? `Briefly prepared ${prepared.length === 1 ? prepared[0] : prepared.slice(0, -1).join(", ") + " and " + prepared.slice(-1)}.`
       : null;
-  const transition =
-    matter.status === "ready_for_review"
-      ? "You send the follow-up → the client replies → Briefly re-scores."
-      : matter.status === "awaiting_client"
-        ? "The client replies → Briefly re-scores and prepares the next step."
-        : matter.status === "ready_for_you"
-          ? "You approve → the work begins."
-          : matter.status === "in_progress"
-            ? upcoming
-              ? "You run the meeting → add notes to move the matter forward."
-              : "You prepare the consultation, or complete the matter."
-            : null;
 
   const completed = matter.status === "completed";
 
@@ -256,42 +251,49 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
         </div>
       )}
 
-      {messagePreview && !completed ? (
-        <div className="rounded-lg border border-border bg-inset px-4 py-3">
-          <div className="text-xs font-semibold uppercase tracking-wide text-muted">{messageLabel}</div>
-          <p className="mt-1 line-clamp-3 whitespace-pre-line text-sm text-foreground/90">
-            {messagePreview}
-          </p>
+      {/* The vehicle for the decision — the prepared message, sendable right here. */}
+      {!completed && briefMessage ? (
+        <div className="space-y-2 rounded-lg border border-border bg-inset p-4">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted">
+            Prepared client message — send to act on this decision
+          </div>
+          <BriefMessageSend matterId={matter.id} to={matter.clientEmail} initialBody={briefMessage} />
         </div>
       ) : null}
 
+      {/* Path A — the follow-up's full editor lives in Next step. */}
+      {!completed && r.draftEmail ? (
+        <>
+          {draftPreview ? (
+            <div className="rounded-lg border border-border bg-inset px-4 py-3">
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted">Prepared follow-up</div>
+              <p className="mt-1 line-clamp-3 whitespace-pre-line text-sm text-foreground/90">{draftPreview}</p>
+            </div>
+          ) : null}
+          <GoToTab tab="next">Review &amp; send the follow-up →</GoToTab>
+        </>
+      ) : null}
+
+      {/* Secondary review paths — everything else is supporting. */}
       {!completed ? (
         <div className="flex flex-wrap items-center gap-3">
-          {r.draftEmail ? (
-            <GoToTab tab="next">Review &amp; send the follow-up →</GoToTab>
-          ) : messagePreview ? (
-            <GoToTab tab="next">Review &amp; send the message →</GoToTab>
-          ) : (
+          {!r.draftEmail && !briefMessage ? (
             <GoToTab tab="next">Review the next step →</GoToTab>
-          )}
+          ) : null}
+          {!r.draftEmail && briefMessage ? (
+            <GoToTab tab="next" variant="secondary">
+              Review full brief
+            </GoToTab>
+          ) : null}
           {!r.draftEmail ? (
             <GoToTab tab="plan" variant="secondary">
-              {packet
-                ? upcoming
-                  ? "Open consultation plan"
-                  : "Open consultation plan"
-                : "Prepare consultation plan"}
+              {packet ? "Open consultation plan" : "Prepare consultation plan"}
             </GoToTab>
           ) : null}
         </div>
       ) : null}
 
-      {preparedLine || transition ? (
-        <p className="text-xs text-muted">
-          {preparedLine ? <span>{preparedLine} </span> : null}
-          {transition ? <span>{transition}</span> : null}
-        </p>
-      ) : null}
+      {preparedLine ? <p className="text-xs text-muted">{preparedLine}</p> : null}
     </section>
   );
 }

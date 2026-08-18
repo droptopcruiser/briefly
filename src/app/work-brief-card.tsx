@@ -149,7 +149,7 @@ export function WorkBriefCard({
 
       <div className="space-y-6 px-5 py-5">
         {/* Briefly noticed — the visible reasoning chain, leads the brief. */}
-        {content.insight && typeof content.insight === "object" && content.insight.because ? (
+        {content.insight && typeof content.insight === "object" && content.insight.consequence ? (
           <InsightCallout insight={content.insight} therefore={content.suggestedNextStep || null} />
         ) : null}
 
@@ -159,7 +159,7 @@ export function WorkBriefCard({
         </Section>
 
         {/* Next step — shown standalone only when the insight chain isn't carrying it. */}
-        {!(content.insight && typeof content.insight === "object" && content.insight.because) &&
+        {!(content.insight && typeof content.insight === "object" && content.insight.consequence) &&
         content.suggestedNextStep ? (
           <div className="rounded-lg border border-accent/50 bg-accent/5 px-4 py-3">
             <div className="text-xs font-semibold uppercase tracking-wide text-accent">Next step</div>

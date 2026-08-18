@@ -56,11 +56,11 @@ export interface BriefDocument {
  * it was built from, and what happens next. Null until the judgment phase fills it.
  */
 export interface BriefInsight {
-  /** "Because <fact A> and <fact B>, <the implication/constraint>." One sentence. */
-  because: string;
-  /** The specific facts + firm rule it connected — short chips. */
-  basedOn: string[];
-  /** Forward motion: what Briefly does once the professional acts. One sentence. */
+  /** 2-3 connected constraints, each a short statement — the visible links in the chain. */
+  factors: string[];
+  /** The matter consequence the factors FORCE together — the non-obvious "so what". */
+  consequence: string;
+  /** Forward motion: what Briefly does once the professional decides. One sentence. */
   afterThis: string;
 }
 
@@ -264,12 +264,12 @@ async function draftJudgment(input: JudgmentInput): Promise<{ out: JudgmentOut; 
 RULES:
 - No autonomous legal/medical/financial advice. Frame as "for professional review" / "issues for consideration".
 - Reason only from the supplied facts; invent nothing.
-- insight — THE MOST IMPORTANT FIELD ("Briefly noticed"). Make the REASONING VISIBLE, not just the conclusion. Three parts:
-  · because: connect TWO OR MORE separate facts into ONE non-obvious implication, phrased "Because <fact A> and <fact B>, <the implication/constraint>." SYNTHESISE, do not restate. Self-test: "Could this have been written from a single fact, or for any ${input.vertical.toLowerCase()} matter?" If yes, rewrite. (Strong: "Because the client wants to sell before the school year and is only free weekday mornings, the appraisal must be booked early enough to leave preparation time.")
-  · basedOn: 2-4 SHORT lowercase chips naming what you connected — the specific client facts AND the firm's rule/next action they map to (e.g. "school-year timing", "weekday-morning availability", "appraisal booking rule"). This shows the workings.
-  · afterThis: ONE sentence of forward motion — what Briefly does once the professional acts (e.g. "Briefly will update the matter timeline and prepare the consultation plan around the confirmed timing"). Reference Briefly's own follow-through, never autonomous client action.
-  If genuinely nothing connects, set because to the single most decision-relevant constraint and basedOn to the one or two facts behind it.
-- suggestedNextStep: the "therefore" — ONE non-autonomous next step (a single sentence, verb first) that FOLLOWS FROM the insight's because.
+- insight — THE MOST IMPORTANT FIELD ("Briefly noticed"). Make the reasoning a VISIBLE CHAIN of discrete links, not prose:
+  · factors: the 2-3 SEPARATE facts/constraints you are connecting, each as its own short statement (e.g. "Wants to sell before the school year", "Only available weekday mornings"). At least two — these are the links the professional would otherwise have to connect themselves.
+  · consequence: the matter consequence these factors FORCE together — the non-obvious "so what" that changes the action, going BEYOND restating the factors. (Strong: "The appraisal can't simply be scheduled — it must be booked early enough to preserve preparation time before listing.") One sentence.
+  · afterThis: ONE sentence of forward motion — what Briefly does once the professional decides (e.g. "Briefly will update the matter timeline and build the consultation plan around the confirmed timing"). Reference Briefly's own follow-through, never autonomous client action.
+  Self-test the consequence: "Could this have been written from a single factor, or for any ${input.vertical.toLowerCase()} matter?" If yes, rewrite. If genuinely nothing connects, set factors to the single most decision-relevant fact and consequence to its implication.
+- suggestedNextStep: "Decision now" — the ONE decision/action that follows from the consequence (a single sentence, verb first).
 - suggestedClientMessage: a short, warm, human draft to the client that PROVES the insight — reflect the reason and constraint you noticed (their deadline, their availability), not merely restating the request. Else "" if no message is warranted. A draft the professional sends themselves — never sent automatically.
 - considerations: caveats or info that may still matter even at readiness. 0-3 short bullets.
 - rubricIssues: notable facts/flags for a "${input.rubricName}" matter. 0-3 short bullets.
@@ -288,11 +288,11 @@ ${facts || "(none extracted)"}`;
         type: "object",
         additionalProperties: false,
         properties: {
-          because: { type: "string" },
-          basedOn: { type: "array", items: { type: "string" } },
+          factors: { type: "array", items: { type: "string" } },
+          consequence: { type: "string" },
           afterThis: { type: "string" },
         },
-        required: ["because", "basedOn", "afterThis"],
+        required: ["factors", "consequence", "afterThis"],
       },
       considerations: { type: "array", items: { type: "string" } },
       rubricIssues: { type: "array", items: { type: "string" } },
@@ -324,7 +324,7 @@ function mockJudgment(input: JudgmentInput): JudgmentOut {
   }
   considerations.push("Confirm the extracted facts against the original correspondence before acting.");
   return {
-    insight: { because: "", basedOn: [], afterThis: "" },
+    insight: { factors: [], consequence: "", afterThis: "" },
     considerations,
     rubricIssues: [],
     suggestedNextStep: `Review the prepared facts for this ${input.rubricName.toLowerCase()} and decide whether to begin the work or request confirmation from the client.`,
@@ -401,10 +401,10 @@ export function buildFactualContent(rubric: Rubric, result: PipelineResult): Wor
 function applyJudgment(content: WorkBriefContent, judgment: JudgmentOut): WorkBriefContent {
   return {
     ...content,
-    insight: judgment.insight.because.trim()
+    insight: judgment.insight.consequence.trim()
       ? {
-          because: judgment.insight.because.trim(),
-          basedOn: judgment.insight.basedOn.filter(Boolean),
+          factors: judgment.insight.factors.filter(Boolean),
+          consequence: judgment.insight.consequence.trim(),
           afterThis: judgment.insight.afterThis.trim(),
         }
       : null,
