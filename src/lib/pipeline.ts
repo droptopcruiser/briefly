@@ -116,9 +116,10 @@ async function extract(
 
   const system = `You extract structured facts from a client's unstructured submission for a "${rubric.name}" matter.
 
-STRICT GROUNDING RULES:
-- Extract ONLY facts explicitly stated in the submission. Never infer, guess, or invent.
-- For each field below, if the fact is present set present=true, put the value, and quote the exact snippet it came from in "source". If absent, set present=false, value="", source="".
+GROUNDING RULES:
+- Extract facts the client STATES or CLEARLY INDICATES by a plain reading — read the message the way a careful person would. Examples: "my house at 5 Oak St" clearly indicates the property type is a house; "our apartment" → apartment; "my husband James" indicates the partner's name is James; "we're a Pte Ltd" indicates the business structure. A fact does not need to be spelled out in field-label form to count.
+- But do NOT fabricate or guess facts the message gives no basis for. If a field is neither stated nor clearly indicated, set present=false, value="", source="".
+- For each present fact, quote the exact snippet it was drawn from in "source" (the words that show it — e.g. "my house"). When a field is an enum, map to the closest allowed option.
 - Dates: normalise to YYYY-MM-DD when a full date is given; otherwise keep the stated form (e.g. "March 2023").
 - Build a chronological timeline of events the client describes; each event MUST quote its source snippet.
 - documentsPresent: list the keys of documents the client says they have already provided or attached. If unsure, omit.
