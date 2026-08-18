@@ -8,6 +8,7 @@ import {
   type OnboardRubricInput,
 } from "@/app/onboarding-actions";
 import { createMatterFromSubmission } from "@/app/actions";
+import { SubmitButton } from "@/app/pending-button";
 import { PRACTICE_EXAMPLES, type DraftRubric } from "@/lib/rubric-draft";
 import type { FieldType } from "@/lib/types";
 
@@ -485,9 +486,7 @@ function DoneStep({ intakeAddress, sample }: { intakeAddress: string | null; sam
             className={`${inputCls} resize-y leading-relaxed`}
           />
           <div className="flex flex-wrap items-center gap-3">
-            <button type="submit" className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:opacity-90">
-              Prepare this matter
-            </button>
+            <SubmitButton idleLabel="Prepare this matter" pendingLabel="Preparing the matter…" />
             <a href="/app" className="text-sm text-muted hover:text-foreground">
               Skip to dashboard
             </a>
