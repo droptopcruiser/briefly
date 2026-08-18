@@ -15,9 +15,10 @@ import {
 } from "@/lib/consultation-packet";
 
 /**
- * Actions for the Pre-Consultation Packet. Field-based trigger: setting the
- * consultation date compiles the packet. Data-returning — the client renders the
- * result immediately (no revalidatePath in the hot path), the pattern proven in
+ * Actions for the Pre-Consultation Packet. The packet is prepared on demand — a
+ * consultation date is optional (a professional may prepare before it's formally
+ * booked; "date to be confirmed"). Data-returning — the client renders the result
+ * immediately (no revalidatePath in the hot path), the pattern proven in
  * brief-actions.ts. Nothing is sent; the packet is an internal briefing.
  */
 
@@ -32,33 +33,54 @@ async function loadMatterAndRubric(id: string) {
 }
 
 /**
- * Book the consultation and compile the packet. Sets matter.consultationAt, logs
- * the event, then prepares a facts-only packet (fast) which the client renders
- * while the agenda/questions complete separately.
+ * Prepare the packet. The date is optional — pass null to prepare "date to be
+ * confirmed". `meetingObjective` is the professional's optional steer for this
+ * specific meeting. Compiles a facts-only packet (fast) which the client renders
+ * while the meeting-planning sections complete separately.
  */
-export async function setConsultationDate(matterId: string, isoDateTime: string): Promise<WorkPacket | null> {
+export async function prepareConsultationPacket(
+  matterId: string,
+  isoDateTime: string | null,
+  meetingObjective: string | null,
+): Promise<WorkPacket | null> {
   await requireUser();
-  const when = new Date(isoDateTime);
-  if (Number.isNaN(when.getTime())) return null;
-
   const { matter, rubric } = await loadMatterAndRubric(matterId);
   if (!matter) return null;
 
-  matter.consultationAt = when.toISOString();
-  matter.updatedAt = new Date().toISOString();
-  await saveMatter(matter);
-  await addEvent(matter.accountId, matter.id, "consultation_set", `Consultation set for ${when.toLocaleString()}`);
+  if (isoDateTime) {
+    const when = new Date(isoDateTime);
+    if (!Number.isNaN(when.getTime())) {
+      matter.consultationAt = when.toISOString();
+      matter.updatedAt = new Date().toISOString();
+      await saveMatter(matter);
+      await addEvent(matter.accountId, matter.id, "consultation_set", `Consultation set for ${when.toLocaleString()}`);
+    }
+  }
 
-  const packet = await ensurePacketForConsultation(matter, rubric);
+  const packet = await ensurePacketForConsultation(matter, rubric, meetingObjective);
   if (packet) {
     await addEvent(matter.accountId, matter.id, "packet_created", "Pre-consultation packet prepared");
   }
   return packet;
 }
 
+/** Set or change the consultation date after the packet exists (no regeneration). */
+export async function setConsultationDate(matterId: string, isoDateTime: string): Promise<{ ok: boolean }> {
+  await requireUser();
+  const when = new Date(isoDateTime);
+  if (Number.isNaN(when.getTime())) return { ok: false };
+  const { matter } = await loadMatterAndRubric(matterId);
+  if (!matter) return { ok: false };
+  matter.consultationAt = when.toISOString();
+  matter.updatedAt = new Date().toISOString();
+  await saveMatter(matter);
+  await addEvent(matter.accountId, matter.id, "consultation_set", `Consultation set for ${when.toLocaleString()}`);
+  return { ok: true };
+}
+
 /**
- * Clear the booking. The packet describes the matter, not the date, so it's kept —
- * re-setting a date shows the same (or a refreshed) packet again.
+ * Clear the date only. The packet describes the matter, not the date, so it's kept —
+ * it reverts to "date to be confirmed".
  */
 export async function clearConsultationDate(matterId: string): Promise<{ ok: boolean }> {
   await requireUser();

@@ -23,6 +23,21 @@ import { assignMatter, markMatterReviewed } from "@/app/actions";
 import { composeEmailBody } from "@/lib/email";
 
 /**
+ * Evidence over confidence: show how much of the matter is backed by source
+ * material and how much needs a human eye (carried-forward or unsourced facts),
+ * instead of an unexplained confidence percentage.
+ */
+function evidenceLabel(
+  fields: { present: boolean; value: string | null; source: string | null; carried?: boolean }[],
+): string {
+  const sourced = fields.filter((f) => f.present && f.value && f.source && !f.carried).length;
+  const review = fields.filter((f) => f.present && f.value && (f.carried || !f.source)).length;
+  const parts = [`${sourced} ${sourced === 1 ? "fact" : "facts"} sourced`];
+  if (review > 0) parts.push(`${review} ${review === 1 ? "item needs" : "items need"} your review`);
+  return parts.join(" · ");
+}
+
+/**
  * Matter detail. Only the essentials (account + the matter row) block the first
  * render — the header, extracted facts, timeline, and gaps all come from
  * `matter.result`, so they paint as soon as the row loads. Everything that needs
@@ -285,8 +300,7 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
           <span>
             {r.rubricName} · {r.vertical}
           </span>
-          <span>Confidence {Math.round(r.classificationConfidence * 100)}%</span>
-          <span>Cost {r.mocked ? "— (demo)" : `${r.costCents.toFixed(3)}¢`}</span>
+          <span>{evidenceLabel(r.fields)}</span>
           {r.clientEmail ? <span>{r.clientEmail}</span> : null}
         </div>
         <p className="max-w-2xl">{r.summary}</p>

@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { getSupabase } from "./supabase";
 import { jsonCall, isConfigured } from "./anthropic";
 import { matterSourceHash, type WorkBriefState } from "./work-brief";
+import { getBaselineReview, computeMatterChanges } from "./reviews";
 import type { Matter, Rubric, PipelineResult } from "./types";
 
 /**
@@ -22,17 +23,29 @@ export interface PacketFact {
   source: string | null;
   carried?: boolean;
 }
-export interface DocStatus {
-  label: string;
-  provided: boolean;
-}
+/**
+ * The packet answers a different question from the Initial Work Brief: not "what
+ * arrived / what's missing / what first" but "we're meeting — how do we use this
+ * consultation well". Six meeting-focused sections, plus rulebook attribution.
+ */
 export interface PacketContent {
-  matterSummary: string;
-  keyFacts: PacketFact[];
-  documentStatus: DocStatus[];
-  unresolvedQuestions: string[];
+  /** Rulebook attribution — closes the loop from onboarding to every artifact. */
+  preparedFrom: string;
+  /** The professional's optional steer for THIS meeting (null = use the rubric). */
+  meetingObjective: string | null;
+  /** 1 — why this client is here (a line). */
+  whyHere: string;
+  /** 2 — what we know that's relevant to the conversation (source-backed). */
+  whatWeKnow: PacketFact[];
+  /** 3 — what's changed since intake (new replies/facts/documents). Deterministic. */
+  changedSinceIntake: string[];
+  /** 4 — still uncertain: questions to answer IN the meeting (model). */
+  stillUncertain: string[];
+  /** 5 — the order to run the meeting (model). */
   suggestedAgenda: string[];
-  /** True while the model-written sections are still being prepared. */
+  /** 6 — what this consultation needs to resolve before the next stage (model). */
+  decisionsToLeaveWith: string[];
+  /** True while the model-written sections (3-6 judgment) are still being prepared. */
   judgmentPending?: boolean;
 }
 
@@ -159,48 +172,64 @@ interface AgendaInput {
   rubricName: string;
   vertical: string;
   nextActionIntent: string;
+  meetingObjective: string | null;
   summary: string;
   facts: { label: string; value: string }[];
+  outstanding: string[];
+  changedSinceIntake: string[];
 }
 interface AgendaOut {
-  unresolvedQuestions: string[];
+  stillUncertain: string[];
   suggestedAgenda: string[];
+  decisionsToLeaveWith: string[];
 }
 
 async function draftAgenda(input: AgendaInput): Promise<{ out: AgendaOut; costCents: number }> {
   const facts = input.facts.map((f) => `- ${f.label}: ${f.value}`).join("\n");
-  const system = `You are preparing a professional for a client consultation on a "${input.rubricName}" (${input.vertical}) matter. All facts are supplied; write ONLY two judgment sections, concise and specific to THIS matter.
+  const goal = input.meetingObjective || input.nextActionIntent || "the next step for this matter";
+  const objectiveLine = input.meetingObjective
+    ? `\n- The professional's objective for THIS meeting: "${input.meetingObjective}" — let it shape the agenda and the decisions.`
+    : "";
+  const system = `You are preparing a professional to make good use of a client consultation on a "${input.rubricName}" (${input.vertical}) matter. The facts are already assembled elsewhere — write ONLY the three meeting-planning sections, concise and specific to THIS matter and THIS meeting. Do NOT re-list the facts.
 
 RULES:
-- No autonomous legal/medical/financial advice — frame as "for the professional to consider / confirm with the client".
-- unresolvedQuestions: 2-4 short points that are ambiguous or worth confirming in the meeting. Empty if genuinely none.
-- suggestedAgenda: exactly 3 short, action-oriented agenda points for the meeting, working toward "${input.nextActionIntent || "the next step for this matter"}". Start each with a verb.
-- Reason only from the supplied facts; invent nothing.`;
+- No autonomous legal/medical/financial advice — frame everything as "for the professional to consider / confirm / decide with the client".
+- stillUncertain: 2-4 questions that genuinely need answering IN the meeting — ambiguities, gaps, or things only the client can confirm. Empty if none.
+- suggestedAgenda: exactly 3 short, action-oriented points, in the order to run the meeting, working toward "${goal}". Start each with a verb.
+- decisionsToLeaveWith: 2-4 concrete outcomes this consultation must clarify, decide, or agree before the next stage — the results the meeting should produce, not just topics to discuss.
+- Reason only from the supplied information; invent nothing.${objectiveLine}`;
   const user = `Matter summary: ${input.summary}
-Intended outcome: ${input.nextActionIntent || "(not set)"}
+Intended outcome (from the rulebook): ${input.nextActionIntent || "(not set)"}${input.meetingObjective ? `\nProfessional's objective for this meeting: ${input.meetingObjective}` : ""}
 Known facts:
-${facts || "(none extracted)"}`;
+${facts || "(none extracted)"}
+Still outstanding: ${input.outstanding.length ? input.outstanding.join("; ") : "(nothing outstanding)"}
+Changed since intake: ${input.changedSinceIntake.length ? input.changedSinceIntake.join("; ") : "(no change since intake)"}`;
   const schema = {
     type: "object",
     additionalProperties: false,
     properties: {
-      unresolvedQuestions: { type: "array", items: { type: "string" } },
+      stillUncertain: { type: "array", items: { type: "string" } },
       suggestedAgenda: { type: "array", items: { type: "string" } },
+      decisionsToLeaveWith: { type: "array", items: { type: "string" } },
     },
-    required: ["unresolvedQuestions", "suggestedAgenda"],
+    required: ["stillUncertain", "suggestedAgenda", "decisionsToLeaveWith"],
   };
-  const { data, costCents } = await jsonCall<AgendaOut>({ system, user, schema, maxTokens: 640 });
+  const { data, costCents } = await jsonCall<AgendaOut>({ system, user, schema, maxTokens: 760 });
   return { out: data, costCents };
 }
 
 function mockAgenda(input: AgendaInput): AgendaOut {
-  const goal = input.nextActionIntent || "the next step";
+  const goal = input.meetingObjective || input.nextActionIntent || "the next step";
   return {
-    unresolvedQuestions: ["Confirm the extracted facts with the client at the start of the meeting."],
+    stillUncertain: ["Confirm the key facts on file with the client at the start of the meeting."],
     suggestedAgenda: [
-      "Review the client's situation and confirm the key facts.",
-      "Work through anything still unclear or outstanding.",
+      "Confirm the client's situation and the key facts already on file.",
+      "Work through anything still outstanding or unclear.",
       `Agree the next step toward ${goal}.`,
+    ],
+    decisionsToLeaveWith: [
+      `What is needed to move toward ${goal}.`,
+      "Who does what before the next stage, and by when.",
     ],
   };
 }
@@ -220,47 +249,79 @@ function fallbackRubric(result: PipelineResult): Rubric {
   return { id: result.rubricId, name: result.rubricName, vertical: result.vertical, description: "", fields: [], documents: [] };
 }
 
+/**
+ * Deterministic "what's changed since intake" — reuses the since-review diff engine
+ * against the matter's baseline (recorded when the brief was approved / last reviewed).
+ * Empty when there's no baseline or nothing has moved.
+ */
+async function changedSinceIntakeBullets(matter: Matter, rubric: Rubric): Promise<string[]> {
+  try {
+    const baseline = await getBaselineReview(matter.id);
+    if (!baseline) return [];
+    const c = computeMatterChanges(matter, baseline.snapshot, rubric);
+    if (!c.hasChanges) return [];
+    const out: string[] = [];
+    if (c.newMessages > 0)
+      out.push(`${c.newMessages} new client ${c.newMessages === 1 ? "reply" : "replies"} since intake`);
+    for (const f of c.newFacts) out.push(`New — ${f.label}: ${f.value}`);
+    for (const f of c.changedFacts) out.push(`Changed — ${f.label}: ${f.oldValue} → ${f.newValue}`);
+    for (const d of c.newDocuments) out.push(`Document received — ${d.label}`);
+    for (const r of c.resolved) out.push(`Resolved — ${r.label}`);
+    return out;
+  } catch (err) {
+    console.error("changedSinceIntake failed:", err);
+    return [];
+  }
+}
+
 /** The deterministic, source-backed sections — instant, no model. */
-export function buildFactualPacket(rubric: Rubric, result: PipelineResult): PacketContent {
-  const keyFacts: PacketFact[] = result.fields
+export function buildFactualPacket(
+  rubric: Rubric,
+  result: PipelineResult,
+  changedSinceIntake: string[],
+  meetingObjective: string | null,
+): PacketContent {
+  const whatWeKnow: PacketFact[] = result.fields
     .filter((f) => f.present && f.value)
     .map((f) => ({ label: f.label, value: f.value as string, source: f.source, carried: f.carried }));
 
-  const docLabel = new Map(rubric.documents.map((d) => [d.key, d.label]));
-  const provided: DocStatus[] = result.documentsPresent.map((k) => ({ label: docLabel.get(k) ?? k, provided: true }));
-  const outstanding: DocStatus[] = result.gaps
-    .filter((g) => g.kind === "document")
-    .map((g) => ({ label: g.label, provided: false }));
-
   return {
-    matterSummary: result.summary,
-    keyFacts,
-    documentStatus: [...provided, ...outstanding],
-    unresolvedQuestions: [],
+    preparedFrom: rubric.name,
+    meetingObjective: meetingObjective?.trim() || null,
+    whyHere: result.summary,
+    whatWeKnow,
+    changedSinceIntake,
+    stillUncertain: [],
     suggestedAgenda: [],
+    decisionsToLeaveWith: [],
     judgmentPending: true,
   };
 }
 
-function agendaInput(rubric: Rubric, content: PacketContent, clientFacts: PacketFact[]): AgendaInput {
+function agendaInput(rubric: Rubric, content: PacketContent, result: PipelineResult): AgendaInput {
+  const outstanding = (result.gaps ?? []).map((g) => g.label);
   return {
     rubricName: rubric.name,
     vertical: rubric.vertical,
     nextActionIntent: rubric.nextActionIntent ?? "",
-    summary: content.matterSummary,
-    facts: clientFacts.slice(0, 24).map((f) => ({ label: f.label, value: f.value })),
+    meetingObjective: content.meetingObjective,
+    summary: content.whyHere,
+    facts: content.whatWeKnow.slice(0, 24).map((f) => ({ label: f.label, value: f.value })),
+    outstanding,
+    changedSinceIntake: content.changedSinceIntake,
   };
 }
 
 /**
  * Create the packet, persisted as `in_review`. Fast by default (facts only,
- * judgmentPending); the agenda/questions complete separately so the useful facts
- * render immediately. `supersede` bumps the version, preserving history.
+ * judgmentPending); the meeting-planning sections complete separately so the useful
+ * facts render immediately. `supersede` bumps the version, preserving history.
+ * `meetingObjective` is the professional's optional steer for this specific meeting.
  */
 export async function createPacketForMatter(
   matter: Matter,
   rubric: Rubric | undefined,
-  opts: { supersede?: boolean; withJudgment?: boolean } = {},
+  opts: { supersede?: boolean; withJudgment?: boolean; meetingObjective?: string | null } = {},
 ): Promise<WorkPacket | null> {
   if (!matter.result) return null;
   const rb = rubric ?? fallbackRubric(matter.result);
@@ -271,12 +332,21 @@ export async function createPacketForMatter(
     await savePacket(latest);
   }
 
-  let content = buildFactualPacket(rb, matter.result);
+  // A refresh keeps the objective the professional already set unless a new one is given.
+  const objective = opts.meetingObjective ?? latest?.content.meetingObjective ?? null;
+  const changed = await changedSinceIntakeBullets(matter, rb);
+  let content = buildFactualPacket(rb, matter.result, changed, objective);
   let costCents = 0;
   let mocked = true;
   if (opts.withJudgment) {
-    const { out, costCents: c, mocked: m } = await runAgenda(agendaInput(rb, content, content.keyFacts));
-    content = { ...content, unresolvedQuestions: out.unresolvedQuestions.filter(Boolean), suggestedAgenda: out.suggestedAgenda.filter(Boolean), judgmentPending: false };
+    const { out, costCents: c, mocked: m } = await runAgenda(agendaInput(rb, content, matter.result));
+    content = {
+      ...content,
+      stillUncertain: out.stillUncertain.filter(Boolean),
+      suggestedAgenda: out.suggestedAgenda.filter(Boolean),
+      decisionsToLeaveWith: out.decisionsToLeaveWith.filter(Boolean),
+      judgmentPending: false,
+    };
     costCents = c;
     mocked = m;
   }
@@ -300,7 +370,7 @@ export async function createPacketForMatter(
   return packet;
 }
 
-/** Phase two — fill the model-written sections of the current packet if pending. */
+/** Phase two — fill the model-written meeting-planning sections if pending. */
 export async function completeJudgmentForPacket(
   matter: Matter,
   rubric: Rubric | undefined,
@@ -310,12 +380,13 @@ export async function completeJudgmentForPacket(
   if (!packet.content.judgmentPending) return packet;
 
   const rb = rubric ?? (matter.result ? fallbackRubric(matter.result) : undefined);
-  if (!rb) return packet;
-  const { out, costCents, mocked } = await runAgenda(agendaInput(rb, packet.content, packet.content.keyFacts));
+  if (!rb || !matter.result) return packet;
+  const { out, costCents, mocked } = await runAgenda(agendaInput(rb, packet.content, matter.result));
   packet.content = {
     ...packet.content,
-    unresolvedQuestions: out.unresolvedQuestions.filter(Boolean),
+    stillUncertain: out.stillUncertain.filter(Boolean),
     suggestedAgenda: out.suggestedAgenda.filter(Boolean),
+    decisionsToLeaveWith: out.decisionsToLeaveWith.filter(Boolean),
     judgmentPending: false,
   };
   packet.costCents += costCents;
@@ -325,18 +396,22 @@ export async function completeJudgmentForPacket(
 }
 
 /**
- * Idempotent: compile a packet only when a consultation is booked AND there isn't
- * already a live one. Best-effort. Returns the (existing or new) packet, or null.
+ * Idempotent: compile a packet only when there isn't already a live one. Unlike the
+ * date-gated original, a packet can be prepared before the consultation is formally
+ * booked ("date to be confirmed") — the professional decides when to prepare.
+ * `meetingObjective` is the optional per-meeting steer. Best-effort; returns the
+ * (existing or new) packet, or null.
  */
 export async function ensurePacketForConsultation(
   matter: Matter,
   rubric: Rubric | undefined,
+  meetingObjective?: string | null,
 ): Promise<WorkPacket | null> {
   try {
-    if (!matter.consultationAt || !matter.result) return null;
+    if (!matter.result) return null;
     const active = await getActivePacket(matter.id);
     if (active) return active;
-    return await createPacketForMatter(matter, rubric);
+    return await createPacketForMatter(matter, rubric, { meetingObjective });
   } catch (err) {
     console.error("ensurePacketForConsultation failed:", err);
     return null;
