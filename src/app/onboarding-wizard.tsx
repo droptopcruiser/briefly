@@ -138,7 +138,7 @@ function NameStep({ onDone }: { onDone: () => void }) {
 
 // ── Step: rulebook translator ─────────────────────────────────────────────────
 
-type EditField = { label: string; description: string; type: FieldType; required: boolean; source: string; inferred: boolean };
+type EditField = { label: string; description: string; type: FieldType; required: boolean; options?: string[]; source: string; inferred: boolean };
 type EditDoc = { label: string; description: string; required: boolean; source: string; inferred: boolean };
 type Editable = {
   name: string;
@@ -156,7 +156,7 @@ function toEditable(d: DraftRubric): Editable {
     vertical: d.vertical,
     description: d.description,
     nextActionIntent: d.nextActionIntent,
-    fields: d.fields.map((f) => ({ label: f.label, description: f.description, type: f.type, required: f.required, source: f.source, inferred: f.inferred })),
+    fields: d.fields.map((f) => ({ label: f.label, description: f.description, type: f.type, required: f.required, options: f.options, source: f.source, inferred: f.inferred })),
     documents: d.documents.map((x) => ({ label: x.label, description: x.description, required: x.required, source: x.source, inferred: x.inferred })),
     mocked: d.mocked,
   };
@@ -172,7 +172,9 @@ function RulebookStep({
   onDone: () => void;
 }) {
   const initial = PRACTICE_EXAMPLES.find((p) => p.key === practice) ?? PRACTICE_EXAMPLES[0];
+  const [mode, setMode] = useState<"describe" | "guided">("describe");
   const [description, setDescription] = useState(initial.example);
+  const [guided, setGuided] = useState({ trigger: "", facts: "", docs: "", nextAction: "" });
   const [draft, setDraft] = useState<Editable | null>(null);
   const [drafting, startDraft] = useTransition();
   const [saving, startSave] = useTransition();
@@ -184,11 +186,23 @@ function RulebookStep({
     if (ex) setDescription(ex.example);
   }
 
+  function composeGuided(): string {
+    const parts: string[] = [];
+    parts.push(`When ${guided.trigger.trim() || "a new enquiry"} comes in, we need ${guided.facts.trim() || "the key details"}.`);
+    if (guided.docs.trim()) parts.push(`We also need these documents: ${guided.docs.trim()}.`);
+    parts.push(`Once we have everything, we want to prepare ${guided.nextAction.trim() || "the next step"}. If something's missing, we ask the client for it.`);
+    return parts.join(" ");
+  }
+
+  const canTranslate =
+    mode === "describe" ? description.trim().length >= 12 : guided.trigger.trim() && guided.facts.trim();
+
   function translate() {
     setError(null);
     const hint = PRACTICE_EXAMPLES.find((p) => p.key === practice)?.hint || undefined;
+    const text = mode === "guided" ? composeGuided() : description;
     startDraft(async () => {
-      const d = await draftRubric(description, hint);
+      const d = await draftRubric(text, hint);
       setDraft(toEditable(d));
     });
   }
@@ -201,7 +215,7 @@ function RulebookStep({
       vertical: draft.vertical,
       description: draft.description,
       nextActionIntent: draft.nextActionIntent || undefined,
-      fields: draft.fields.map((f) => ({ label: f.label, description: f.description, type: f.type, required: f.required })),
+      fields: draft.fields.map((f) => ({ label: f.label, description: f.description, type: f.type, required: f.required, options: f.options })),
       documents: draft.documents.map((x) => ({ label: x.label, description: x.description, required: x.required })),
     };
     startSave(async () => {
@@ -220,8 +234,8 @@ function RulebookStep({
             Teach Briefly how you work.
           </h1>
           <p className="text-sm text-muted">
-            Describe, in your own words, how your firm handles one kind of enquiry. Briefly turns it
-            into a structured rulebook you review and own.
+            Tell Briefly how your firm handles one kind of enquiry — it turns that into a structured
+            rulebook you review and own. Not sure where to start? Answer a few questions instead.
           </p>
         </div>
 
@@ -240,23 +254,70 @@ function RulebookStep({
           ))}
         </div>
 
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={7}
-          placeholder="When a new … enquiry comes in, we need … If we have those we want to draft … If … is missing, we ask for it."
-          className={`${inputCls} resize-y leading-relaxed`}
-        />
-        <p className="text-xs text-muted">
-          Tip: what triggers this matter type, the facts you need, the documents that matter, and
-          what you&apos;d want prepared once it&apos;s complete.
-        </p>
+        {/* Mode toggle */}
+        <div className="inline-flex rounded-lg border border-border bg-surface p-0.5 text-sm">
+          {(["describe", "guided"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              className={`rounded-md px-3 py-1.5 ${mode === m ? "bg-accent text-accent-fg" : "text-muted hover:text-foreground"}`}
+            >
+              {m === "describe" ? "Describe it" : "Answer a few questions"}
+            </button>
+          ))}
+        </div>
+
+        {mode === "describe" ? (
+          <>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={7}
+              placeholder="When a new … enquiry comes in, we need … If we have those we want to draft … If … is missing, we ask for it."
+              className={`${inputCls} resize-y leading-relaxed`}
+            />
+            <p className="text-xs text-muted">
+              In your own words — or paste an existing checklist or intake note. Cover what triggers
+              it, the facts you need, the documents that matter, and what you&apos;d want prepared
+              once it&apos;s complete.
+            </p>
+          </>
+        ) : (
+          <div className="space-y-3">
+            <GuidedField
+              label="What kind of enquiry is this?"
+              value={guided.trigger}
+              onChange={(v) => setGuided({ ...guided, trigger: v })}
+              placeholder="e.g. a property appraisal enquiry"
+            />
+            <GuidedField
+              label="What facts do you need to capture?"
+              value={guided.facts}
+              onChange={(v) => setGuided({ ...guided, facts: v })}
+              placeholder="e.g. property address, owner name and contact, property type (house, apartment, townhouse, or land), preferred timing"
+              hint="Listing choices in brackets — like (house, apartment, townhouse, or land) — makes that a picklist automatically."
+            />
+            <GuidedField
+              label="What documents do you need?"
+              value={guided.docs}
+              onChange={(v) => setGuided({ ...guided, docs: v })}
+              placeholder="e.g. proof of ownership"
+            />
+            <GuidedField
+              label="When it's complete, what should Briefly prepare?"
+              value={guided.nextAction}
+              onChange={(v) => setGuided({ ...guided, nextAction: v })}
+              placeholder="e.g. an appraisal booking confirmation"
+            />
+          </div>
+        )}
 
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={translate}
-            disabled={drafting || description.trim().length < 12}
+            disabled={drafting || !canTranslate}
             className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg disabled:opacity-60"
           >
             {drafting ? "Reading your workflow…" : "Draft my rulebook"}
@@ -308,6 +369,7 @@ function RulebookStep({
             required={f.required}
             source={f.source}
             inferred={f.inferred}
+            options={f.type === "enum" ? f.options : undefined}
             onLabel={(v) => setDraft({ ...draft, fields: draft.fields.map((x, j) => (j === i ? { ...x, label: v } : x)) })}
             onRequired={(v) => setDraft({ ...draft, fields: draft.fields.map((x, j) => (j === i ? { ...x, required: v } : x)) })}
             onRemove={() => setDraft({ ...draft, fields: draft.fields.filter((_, j) => j !== i) })}
@@ -389,11 +451,40 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+function GuidedField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  hint,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  hint?: string;
+}) {
+  return (
+    <label className="block space-y-1.5">
+      <span className="text-sm font-medium">{label}</span>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={2}
+        placeholder={placeholder}
+        className={`${inputCls} resize-y`}
+      />
+      {hint ? <span className="block text-xs text-muted">{hint}</span> : null}
+    </label>
+  );
+}
+
 function ReviewRow({
   label,
   required,
   source,
   inferred,
+  options,
   onLabel,
   onRequired,
   onRemove,
@@ -402,6 +493,7 @@ function ReviewRow({
   required: boolean;
   source: string;
   inferred: boolean;
+  options?: string[];
   onLabel: (v: string) => void;
   onRequired: (v: boolean) => void;
   onRemove: () => void;
@@ -430,6 +522,15 @@ function ReviewRow({
           <span className="text-muted italic">from “{source}”</span>
         ) : null}
       </div>
+      {options && options.length > 0 ? (
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {options.map((o) => (
+            <span key={o} className="rounded-md bg-inset px-2 py-0.5 text-[11px] text-muted">
+              {o}
+            </span>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

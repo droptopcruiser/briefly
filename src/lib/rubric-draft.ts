@@ -109,7 +109,7 @@ STRICT RULES:
 - Mark "required": true only for things the description says are needed before the matter can proceed. Otherwise false.
 - Be conservative: at most 6 fields and 4 documents. Prefer fewer, clearly-right items over many uncertain ones.
 - IMPORTANT: a sentence about chasing/asking the client for MISSING information (e.g. "if the address is missing we ask for it", "we request", "we follow up for") describes the follow-up behaviour — it is NOT a document or a field. NEVER invent a "confirmation" document or field from such a sentence. Only include documents that are real files/evidence the client provides (e.g. passport, proof of ownership, bank statement).
-- "type" is one of: string | date | number | boolean | enum. Use "enum" only when the description lists a fixed set of options (put them in "options").
+- "type" is one of: string | date | number | boolean | enum. If the professional lists a fixed set of choices for a field (e.g. "house, apartment, townhouse, or land"), make it "enum" and put those exact choices in "options".
 - name: a short matter-type name (e.g. "Property Appraisal"). vertical: a one-word area (e.g. "Property"). description: one sentence describing when this matter type applies (used for classification).
 - nextActionIntent: a short label for what the firm wants prepared once the matter is ready (e.g. "appraisal booking confirmation", "consultation confirmation"). This is an intended next step, not something you execute.`;
 
@@ -193,7 +193,7 @@ function exampleRubric(practiceHint?: string): DraftOut {
       fields: [
         f("Property address", "The address to be appraised.", "string", true),
         f("Owner details", "Name and contact of the owner.", "string", true),
-        f("Property type", "House, apartment, land, etc.", "string", false),
+        f("Property type", "The property type (house, apartment, townhouse, or land).", "string", true),
         f("Expected timing", "When they hope to list or sell.", "string", false),
         f("Preferred inspection time", "When they'd like the appraisal.", "string", false),
       ],
@@ -216,34 +216,64 @@ function exampleRubric(practiceHint?: string): DraftOut {
 }
 
 /**
+ * Pull a fixed set of choices out of a phrase like "house, apartment, townhouse,
+ * or land" — usually in parentheses in a field's description. Returns the options
+ * so a plain string field can auto-become an enum (a picklist) without editing.
+ */
+export function extractEnumOptions(text: string): string[] | null {
+  const paren = text.match(/\(([^)]+)\)/);
+  const candidate = paren ? paren[1] : text;
+  if (!/,/.test(candidate) && !/\bor\b/i.test(candidate)) return null;
+  const parts = candidate
+    .split(/,|\bor\b/i)
+    .map((s) => s.replace(/\.$/, "").trim())
+    .filter((s) => s && s.length <= 24 && !/\s{2,}/.test(s) && s.split(/\s+/).length <= 3);
+  // A real option set: 2–6 short choices.
+  return parts.length >= 2 && parts.length <= 6 ? parts : null;
+}
+
+/** Caps, enum auto-detection, and trimming — shared by the live and demo paths. */
+function normalize(out: DraftOut, mocked: boolean): DraftRubric {
+  const fields: DraftField[] = out.fields.slice(0, 6).map((f) => {
+    let type = f.type;
+    let options = f.type === "enum" ? (f.options ?? []).filter(Boolean) : undefined;
+    if (type !== "enum") {
+      const detected = extractEnumOptions(`${f.label}. ${f.description}`);
+      if (detected) {
+        type = "enum";
+        options = detected;
+      }
+    }
+    return { ...f, type, options };
+  });
+  return {
+    name: out.name.trim() || "New matter type",
+    vertical: out.vertical.trim() || "General",
+    description: out.description.trim(),
+    fields,
+    documents: out.documents.slice(0, 4),
+    nextActionIntent: out.nextActionIntent.trim(),
+    mocked,
+  };
+}
+
+/**
  * Propose a rulebook from a plain-language description. Live when an ANTHROPIC key
- * is configured; otherwise a clearly-labelled example (mocked=true).
+ * is configured; otherwise a clearly-labelled example (mocked=true). Both paths
+ * run through normalize(), so option lists become picklists automatically.
  */
 export async function draftRubricFromDescription(
   description: string,
   practiceHint?: string,
 ): Promise<DraftRubric> {
   if (!isConfigured()) {
-    return { ...exampleRubric(practiceHint), mocked: true };
+    return normalize(exampleRubric(practiceHint), true);
   }
   try {
     const out = await translate(description.trim(), practiceHint);
-    // Normalise: enum options only where relevant; trim caps as a safety net.
-    const fields = out.fields.slice(0, 6).map((f) => ({
-      ...f,
-      options: f.type === "enum" ? (f.options ?? []).filter(Boolean) : undefined,
-    }));
-    return {
-      name: out.name.trim() || "New matter type",
-      vertical: out.vertical.trim() || "General",
-      description: out.description.trim(),
-      fields,
-      documents: out.documents.slice(0, 4),
-      nextActionIntent: out.nextActionIntent.trim(),
-      mocked: false,
-    };
+    return normalize(out, false);
   } catch (err) {
     console.error("draftRubricFromDescription failed, using example:", err);
-    return { ...exampleRubric(practiceHint), mocked: true };
+    return normalize(exampleRubric(practiceHint), true);
   }
 }
