@@ -14,6 +14,7 @@ import {
 } from "@/lib/metering";
 import { getCurrentProfile } from "@/lib/profile";
 import { getAccountRubrics } from "@/lib/rubric-store";
+import { getReviewRollup, summariseChanges } from "@/lib/reviews";
 import { listMembers } from "@/lib/team";
 import { getMonthStats } from "@/lib/stats";
 
@@ -58,6 +59,7 @@ export default async function Dashboard() {
 
   const needsYou = await listMatters(account.id, { status: NEEDS_YOU, limit: 50 });
   const hasOwnRubric = (await getAccountRubrics(account.id)).length > 0;
+  const rollup = await getReviewRollup(account.id, 6);
   const firstName = profile?.name?.split(/\s+/)[0] ?? null;
 
   const labelFor = (uid: string | null) => {
@@ -134,6 +136,50 @@ export default async function Dashboard() {
           </div>
         )}
       </section>
+
+      {rollup.items.length > 0 ? (
+        <section className="space-y-3">
+          <div className="flex items-baseline justify-between gap-4">
+            <h2 className="text-lg font-semibold tracking-tight">
+              Updated since your last review
+            </h2>
+            <span className="text-sm text-muted tabular-nums">
+              {rollup.total} {rollup.total === 1 ? "matter" : "matters"}
+            </span>
+          </div>
+          <div className="overflow-hidden rounded-lg border border-accent bg-surface">
+            <ul className="divide-y divide-border">
+              {rollup.items.map(({ matter, changes }) => (
+                <li key={matter.id}>
+                  <Link
+                    href={`/matters/${matter.id}`}
+                    className="flex items-center gap-4 px-4 py-3.5 transition-colors hover:bg-inset"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium">
+                        {matter.clientName ?? "Unnamed client"}
+                        {matter.result ? (
+                          <span className="font-normal text-muted"> · {matter.result.rubricName}</span>
+                        ) : null}
+                      </div>
+                      <div className="mt-0.5 truncate text-xs text-accent">
+                        {summariseChanges(changes)}
+                        {changes.readinessDelta ? (
+                          <span className="text-muted">
+                            {" "}
+                            · readiness {changes.readinessDelta.from}% → {changes.readinessDelta.to}%
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                    <span className="shrink-0 text-sm text-muted">Review →</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      ) : null}
 
       {intake ? (
         <section className="rounded-lg border border-border bg-inset px-4 py-3">

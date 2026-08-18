@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { getSupabase } from "./supabase";
+import { listMatters } from "./store";
 import type { Matter, Rubric } from "./types";
 
 /**
@@ -199,6 +200,70 @@ export async function getBaselineReview(matterId: string): Promise<MatterReview 
     .limit(1);
   if (error) throw new Error(`getBaselineReview: ${error.message}`);
   return data?.[0] ? rowToReview(data[0] as ReviewRow) : null;
+}
+
+/** Latest review snapshot per matter for an account (one query; memory fallback). */
+async function latestBaselines(accountId: string): Promise<Map<string, ReviewSnapshot>> {
+  const latest = new Map<string, ReviewSnapshot>();
+  const db = getSupabase();
+  if (!db) {
+    for (const r of [...memory.values()]
+      .filter((r) => r.accountId === accountId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))) {
+      if (!latest.has(r.matterId)) latest.set(r.matterId, r.snapshot);
+    }
+    return latest;
+  }
+  const { data, error } = await db
+    .from("matter_reviews")
+    .select("matter_id,snapshot,created_at")
+    .eq("account_id", accountId)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(`latestBaselines: ${error.message}`);
+  for (const r of (data ?? []) as { matter_id: string; snapshot: ReviewSnapshot }[]) {
+    if (!latest.has(r.matter_id)) latest.set(r.matter_id, r.snapshot);
+  }
+  return latest;
+}
+
+export interface RollupItem {
+  matter: Matter;
+  changes: MatterChanges;
+}
+
+/**
+ * The managerial "what changed since your last review?" overview: active matters
+ * that have moved on since their stored baseline. Two queries (baselines +
+ * matters) plus an in-memory diff — no per-matter round trips.
+ */
+export async function getReviewRollup(
+  accountId: string,
+  limit = 6,
+): Promise<{ items: RollupItem[]; total: number }> {
+  const baselines = await latestBaselines(accountId);
+  if (baselines.size === 0) return { items: [], total: 0 };
+
+  const matters = await listMatters(accountId, { limit: 100 });
+  const items: RollupItem[] = [];
+  for (const m of matters) {
+    if (m.status === "completed") continue;
+    const snap = baselines.get(m.id);
+    if (!snap) continue;
+    const changes = computeMatterChanges(m, snap);
+    if (changes.hasChanges) items.push({ matter: m, changes });
+  }
+  return { items: items.slice(0, limit), total: items.length };
+}
+
+/** Compact one-line summary of a matter's changes (for the dashboard rollup). */
+export function summariseChanges(c: MatterChanges): string {
+  const seg: string[] = [];
+  if (c.newMessages > 0) seg.push(`${c.newMessages} new ${c.newMessages === 1 ? "reply" : "replies"}`);
+  if (c.newFacts.length) seg.push(`${c.newFacts.length} new ${c.newFacts.length === 1 ? "fact" : "facts"}`);
+  if (c.changedFacts.length) seg.push(`${c.changedFacts.length} changed`);
+  if (c.newDocuments.length) seg.push(`${c.newDocuments.length} ${c.newDocuments.length === 1 ? "document" : "documents"}`);
+  if (c.resolved.length) seg.push(`${c.resolved.length} resolved`);
+  return seg.join(" · ") || "updated";
 }
 
 /**
