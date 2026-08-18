@@ -8,12 +8,14 @@ import { ReadinessBadge, ReadinessMeter, StatusBadge } from "@/app/ui";
 import { ApproveButton } from "@/app/approve-button";
 import { DraftActions } from "@/app/draft-actions";
 import { BriefPanel } from "@/app/brief-panel";
+import { ConsultationPanel } from "@/app/consultation-panel";
 import { SinceReviewCard } from "@/app/since-review-card";
 import { AssignControl } from "@/app/assign-control";
 import { requireAccount, type Account } from "@/lib/metering";
 import { listMembers } from "@/lib/team";
 import { listEvents } from "@/lib/events";
 import { getActiveBrief, isBriefStale } from "@/lib/work-brief";
+import { getActivePacket, isPacketStale } from "@/lib/consultation-packet";
 import { getBaselineReview, computeMatterChanges } from "@/lib/reviews";
 import { getEffectiveRubrics } from "@/lib/rubric-store";
 import { getClientContext } from "@/lib/clients";
@@ -132,27 +134,43 @@ async function PreparedWorkSection({ matter, account }: { matter: Matter; accoun
     );
   }
 
-  // Path B — the matter is ready → the Initial Work Brief.
+  // Path B — the matter is ready → the Initial Work Brief (+ consultation packet).
   const t = Date.now();
-  const [brief, rubrics] = await Promise.all([
+  const [brief, rubrics, packet] = await Promise.all([
     getActiveBrief(matter.id),
     getEffectiveRubrics(account.id),
+    getActivePacket(matter.id),
   ]);
-  console.log(`[matter-timing] prepared-work (brief+rubrics) ms=${Date.now() - t}`);
+  console.log(`[matter-timing] prepared-work (brief+rubrics+packet) ms=${Date.now() - t}`);
   const rubric = rubrics.find((x) => x.id === r.rubricId);
   const briefsEnabled = !brief ? !rubric || rubric.prepareBriefWhenReady !== false : true;
   const briefStale = brief ? isBriefStale(brief, matter) : false;
 
+  // Once a matter is ready, the professional can book a consultation and get a
+  // pre-consultation packet — the next lifecycle step after the brief.
+  const showConsultation = matter.status === "ready_for_you" || matter.status === "in_progress";
+  const consultation = showConsultation ? (
+    <ConsultationPanel
+      matterId={matter.id}
+      initialConsultationAt={matter.consultationAt}
+      initialPacket={packet}
+      initialStale={packet ? isPacketStale(packet, matter) : false}
+    />
+  ) : null;
+
   if (briefsEnabled) {
     return (
-      <BriefPanel
-        matterId={matter.id}
-        clientEmail={matter.clientEmail}
-        initialBrief={brief}
-        initialStatus={matter.status}
-        initialStale={briefStale}
-        briefsEnabled={briefsEnabled}
-      />
+      <div className="space-y-6">
+        <BriefPanel
+          matterId={matter.id}
+          clientEmail={matter.clientEmail}
+          initialBrief={brief}
+          initialStatus={matter.status}
+          initialStale={briefStale}
+          briefsEnabled={briefsEnabled}
+        />
+        {consultation}
+      </div>
     );
   }
   if (matter.status === "completed") {
@@ -163,15 +181,18 @@ async function PreparedWorkSection({ matter, account }: { matter: Matter; accoun
     );
   }
   return (
-    <>
-      <p className="rounded-lg border border-accent bg-surface px-4 py-3 text-sm text-accent">
-        100% ready — nothing missing. Ready for you to review.
-      </p>
-      <div className="flex items-center gap-3 pt-1">
-        <ApproveButton id={matter.id} approved={false} action={approveMatter} />
-        <span className="text-xs text-muted">Human gate — Briefly never acts on its own.</span>
+    <div className="space-y-6">
+      <div>
+        <p className="rounded-lg border border-accent bg-surface px-4 py-3 text-sm text-accent">
+          100% ready — nothing missing. Ready for you to review.
+        </p>
+        <div className="flex items-center gap-3 pt-1">
+          <ApproveButton id={matter.id} approved={false} action={approveMatter} />
+          <span className="text-xs text-muted">Human gate — Briefly never acts on its own.</span>
+        </div>
       </div>
-    </>
+      {consultation}
+    </div>
   );
 }
 

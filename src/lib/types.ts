@@ -161,4 +161,7 @@ export interface Matter {
   lastNudgedAt: string | null;
   /** How many chases Briefly has drafted — lets a repeat chase differ from the first. */
   nudgeCount: number;
+  /** When the professional has booked the client consultation (field-based trigger
+   *  for the Pre-Consultation Packet). Null until set. */
+  consultationAt: string | null;
 }

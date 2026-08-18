@@ -28,6 +28,7 @@ interface MatterRow {
   updated_at: string | null;
   last_nudged_at: string | null;
   nudge_count: number | null;
+  consultation_at: string | null;
 }
 
 function rowToMatter(r: MatterRow): Matter {
@@ -45,6 +46,7 @@ function rowToMatter(r: MatterRow): Matter {
     updatedAt: r.updated_at ?? r.created_at,
     lastNudgedAt: r.last_nudged_at ?? null,
     nudgeCount: r.nudge_count ?? 0,
+    consultationAt: r.consultation_at ?? null,
   };
 }
 
@@ -63,6 +65,7 @@ function matterToRow(m: Matter): MatterRow {
     updated_at: m.updatedAt ?? m.createdAt,
     last_nudged_at: m.lastNudgedAt ?? null,
     nudge_count: m.nudgeCount ?? 0,
+    consultation_at: m.consultationAt ?? null,
   };
 }
 

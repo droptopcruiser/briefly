@@ -83,6 +83,7 @@ export async function ingestSubmission(opts: {
     updatedAt: now,
     lastNudgedAt: null,
     nudgeCount: 0,
+    consultationAt: null,
   };
 
   await saveMatter(matter);

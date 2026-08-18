@@ -115,6 +115,8 @@ interface BriefRow {
   created_at: string;
   approved_at: string | null;
   approved_by: string | null;
+  /** Discriminates the shared work_briefs table; this module owns 'initial_brief'. */
+  kind: string;
 }
 
 function rowToBrief(r: BriefRow): WorkBrief {
@@ -150,6 +152,7 @@ function briefToRow(b: WorkBrief): BriefRow {
     created_at: b.createdAt,
     approved_at: b.approvedAt,
     approved_by: b.approvedBy,
+    kind: "initial_brief",
   };
 }
 
@@ -177,6 +180,7 @@ export async function getLatestBrief(matterId: string): Promise<WorkBrief | null
     .from("work_briefs")
     .select("*")
     .eq("matter_id", matterId)
+    .eq("kind", "initial_brief")
     .order("version", { ascending: false })
     .limit(1);
   if (error) throw new Error(`getLatestBrief: ${error.message}`);
