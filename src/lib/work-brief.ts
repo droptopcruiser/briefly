@@ -55,9 +55,17 @@ export interface BriefDocument {
  * the action that follows (the brief's suggestedNextStep), the specific facts/rule
  * it was built from, and what happens next. Null until the judgment phase fills it.
  */
+/** One link in the reasoning chain, traceable back to the client's own words. */
+export interface InsightFactor {
+  /** The constraint statement (e.g. "Wants to sell before the school year"). */
+  text: string;
+  /** The verbatim client phrases this factor was drawn from — for hover traceability. */
+  sources: { label: string; quote: string }[];
+}
+
 export interface BriefInsight {
-  /** 2-3 connected constraints, each a short statement — the visible links in the chain. */
-  factors: string[];
+  /** 2-3 connected constraints, each a link — the visible chain, each traceable. */
+  factors: InsightFactor[];
   /** The matter consequence the factors FORCE together — the non-obvious "so what". */
   consequence: string;
   /** Forward motion: what Briefly does once the professional decides. One sentence. */
@@ -232,8 +240,14 @@ export function isBriefStale(brief: WorkBrief, matter: Matter): boolean {
 
 // --- Generation ------------------------------------------------------------
 
+/** Raw model output for the insight — factors reference facts by label. */
+interface JudgmentInsight {
+  factors: { text: string; sourceLabels: string[] }[];
+  consequence: string;
+  afterThis: string;
+}
 interface JudgmentOut {
-  insight: BriefInsight;
+  insight: JudgmentInsight;
   considerations: string[];
   rubricIssues: string[];
   suggestedNextStep: string;
@@ -265,7 +279,7 @@ RULES:
 - No autonomous legal/medical/financial advice. Frame as "for professional review" / "issues for consideration".
 - Reason only from the supplied facts; invent nothing.
 - insight — THE MOST IMPORTANT FIELD ("Briefly noticed"). Make the reasoning a VISIBLE CHAIN of discrete links, not prose:
-  · factors: the 2-3 SEPARATE facts/constraints you are connecting, each as its own short statement (e.g. "Wants to sell before the school year", "Only available weekday mornings"). At least two — these are the links the professional would otherwise have to connect themselves.
+  · factors: the 2-3 SEPARATE facts/constraints you are connecting. Each factor is an object with 'text' and 'sourceLabels': 'text' is its own short statement (e.g. "Wants to sell before the school year"); 'sourceLabels' is the EXACT label(s) — copied verbatim from the "Known facts" list below — of the fact(s) that factor is drawn from (for traceability). At least two factors. These are the links the professional would otherwise have to connect themselves.
   · consequence: the matter consequence these factors FORCE together — the non-obvious "so what" that changes the action, going BEYOND restating the factors. (Strong: "The appraisal can't simply be scheduled — it must be booked early enough to preserve preparation time before listing.") One sentence.
   · afterThis: ONE sentence of forward motion — what Briefly does once the professional decides (e.g. "Briefly will update the matter timeline and build the consultation plan around the confirmed timing"). Reference Briefly's own follow-through, never autonomous client action.
   Self-test the consequence: "Could this have been written from a single factor, or for any ${input.vertical.toLowerCase()} matter?" If yes, rewrite. If genuinely nothing connects, set factors to the single most decision-relevant fact and consequence to its implication.
@@ -288,7 +302,18 @@ ${facts || "(none extracted)"}`;
         type: "object",
         additionalProperties: false,
         properties: {
-          factors: { type: "array", items: { type: "string" } },
+          factors: {
+            type: "array",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                text: { type: "string" },
+                sourceLabels: { type: "array", items: { type: "string" } },
+              },
+              required: ["text", "sourceLabels"],
+            },
+          },
           consequence: { type: "string" },
           afterThis: { type: "string" },
         },
@@ -324,7 +349,7 @@ function mockJudgment(input: JudgmentInput): JudgmentOut {
   }
   considerations.push("Confirm the extracted facts against the original correspondence before acting.");
   return {
-    insight: { factors: [], consequence: "", afterThis: "" },
+    insight: { factors: [], consequence: "", afterThis: "" } as JudgmentInsight,
     considerations,
     rubricIssues: [],
     suggestedNextStep: `Review the prepared facts for this ${input.rubricName.toLowerCase()} and decide whether to begin the work or request confirmation from the client.`,
@@ -397,13 +422,59 @@ export function buildFactualContent(rubric: Rubric, result: PipelineResult): Wor
   };
 }
 
+const TRACE_STOP = new Set([
+  "client", "matter", "must", "will", "from", "this", "that", "with", "have", "been",
+  "they", "their", "would", "which", "when", "what", "your", "need", "needs", "step",
+  "next", "also", "into", "wants", "want", "there", "then", "them", "some", "than",
+]);
+
+/** Significant tokens (4+ letters, minus filler) — the basis for matching. */
+function traceTokens(s: string): Set<string> {
+  return new Set((s.toLowerCase().match(/[a-z]{4,}/g) ?? []).filter((w) => !TRACE_STOP.has(w)));
+}
+
+/**
+ * Resolve each factor to the verbatim client phrase(s) it was drawn from, so a hover
+ * can prove the connection. The model names the facts by label, but doesn't copy
+ * them reliably — so we match DETERMINISTICALLY by word overlap between the factor
+ * (plus any labels the model echoed) and each fact's own words (label + value +
+ * source). A factor only links to a fact sharing 2+ significant tokens AND holding a
+ * real source quote, so a hover never shows a fabricated phrase; a factor drawn from
+ * a rubric rule rather than a client fact simply shows no source.
+ */
+function resolveFactors(
+  factors: JudgmentInsight["factors"],
+  keyFacts: BriefFact[],
+): InsightFactor[] {
+  const factTokens = keyFacts
+    .filter((f) => f.source)
+    .map((f) => ({ fact: f, toks: traceTokens(`${f.label} ${f.value} ${f.source}`) }));
+
+  return factors
+    .filter((f) => f && f.text?.trim())
+    .map((f) => {
+      const search = traceTokens(`${f.text} ${(f.sourceLabels ?? []).join(" ")}`);
+      const sources = factTokens
+        .map(({ fact, toks }) => {
+          let score = 0;
+          for (const t of toks) if (search.has(t)) score++;
+          return { fact, score };
+        })
+        .filter((x) => x.score >= 2)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 2)
+        .map((x) => ({ label: x.fact.label, quote: x.fact.source as string }));
+      return { text: f.text.trim(), sources };
+    });
+}
+
 /** Merge model-written judgment sections into factual content. */
 function applyJudgment(content: WorkBriefContent, judgment: JudgmentOut): WorkBriefContent {
   return {
     ...content,
     insight: judgment.insight.consequence.trim()
       ? {
-          factors: judgment.insight.factors.filter(Boolean),
+          factors: resolveFactors(judgment.insight.factors, content.keyFacts),
           consequence: judgment.insight.consequence.trim(),
           afterThis: judgment.insight.afterThis.trim(),
         }
