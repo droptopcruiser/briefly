@@ -49,14 +49,25 @@ export interface BriefDocument {
   satisfies: string;
 }
 
+/**
+ * "Briefly noticed" — the signature interpretation, made VISIBLE as a reasoning
+ * chain rather than a paragraph: because (the facts connected → the implication),
+ * the action that follows (the brief's suggestedNextStep), the specific facts/rule
+ * it was built from, and what happens next. Null until the judgment phase fills it.
+ */
+export interface BriefInsight {
+  /** "Because <fact A> and <fact B>, <the implication/constraint>." One sentence. */
+  because: string;
+  /** The specific facts + firm rule it connected — short chips. */
+  basedOn: string[];
+  /** Forward motion: what Briefly does once the professional acts. One sentence. */
+  afterThis: string;
+}
+
 /** The structured body of a brief. Factual sections are grounded; prose is model-written. */
 export interface WorkBriefContent {
-  /**
-   * 0 — "Briefly noticed": the signature interpretation. Connects two or more
-   * separate facts into a single non-obvious implication or constraint that
-   * changes what to do next. Empty until the judgment phase fills it.
-   */
-  insight: string;
+  /** 0 — "Briefly noticed": the visible reasoning chain. Null until judgment fills it. */
+  insight: BriefInsight | null;
   /** 1 — a short orientation to the client's situation and stated objective. */
   summary: string;
   /** 2 + 3 — structured facts relevant to the rubric, each with its source. */
@@ -222,7 +233,7 @@ export function isBriefStale(brief: WorkBrief, matter: Matter): boolean {
 // --- Generation ------------------------------------------------------------
 
 interface JudgmentOut {
-  insight: string;
+  insight: BriefInsight;
   considerations: string[];
   rubricIssues: string[];
   suggestedNextStep: string;
@@ -253,8 +264,12 @@ async function draftJudgment(input: JudgmentInput): Promise<{ out: JudgmentOut; 
 RULES:
 - No autonomous legal/medical/financial advice. Frame as "for professional review" / "issues for consideration".
 - Reason only from the supplied facts; invent nothing.
-- insight — THE MOST IMPORTANT FIELD ("Briefly noticed"): connect TWO OR MORE separate facts into ONE non-obvious implication or constraint that changes what to do next. SYNTHESISE, do not restate — name the specific facts and what they TOGETHER imply. 1-2 sentences. Self-test: "Could this have been written from a single fact, or for any ${input.vertical.toLowerCase()} matter?" If yes, rewrite. (Weak: "The client wants to sell." Strong: "The client wants to sell before the school year and is only free weekday mornings, so the appraisal must be booked early enough to leave time for the next step.") If genuinely nothing connects, state the single most decision-relevant constraint.
-- suggestedNextStep: ONE non-autonomous next step (a single sentence, verb first) that FOLLOWS FROM the insight.
+- insight — THE MOST IMPORTANT FIELD ("Briefly noticed"). Make the REASONING VISIBLE, not just the conclusion. Three parts:
+  · because: connect TWO OR MORE separate facts into ONE non-obvious implication, phrased "Because <fact A> and <fact B>, <the implication/constraint>." SYNTHESISE, do not restate. Self-test: "Could this have been written from a single fact, or for any ${input.vertical.toLowerCase()} matter?" If yes, rewrite. (Strong: "Because the client wants to sell before the school year and is only free weekday mornings, the appraisal must be booked early enough to leave preparation time.")
+  · basedOn: 2-4 SHORT lowercase chips naming what you connected — the specific client facts AND the firm's rule/next action they map to (e.g. "school-year timing", "weekday-morning availability", "appraisal booking rule"). This shows the workings.
+  · afterThis: ONE sentence of forward motion — what Briefly does once the professional acts (e.g. "Briefly will update the matter timeline and prepare the consultation plan around the confirmed timing"). Reference Briefly's own follow-through, never autonomous client action.
+  If genuinely nothing connects, set because to the single most decision-relevant constraint and basedOn to the one or two facts behind it.
+- suggestedNextStep: the "therefore" — ONE non-autonomous next step (a single sentence, verb first) that FOLLOWS FROM the insight's because.
 - suggestedClientMessage: a short, warm, human draft to the client that PROVES the insight — reflect the reason and constraint you noticed (their deadline, their availability), not merely restating the request. Else "" if no message is warranted. A draft the professional sends themselves — never sent automatically.
 - considerations: caveats or info that may still matter even at readiness. 0-3 short bullets.
 - rubricIssues: notable facts/flags for a "${input.rubricName}" matter. 0-3 short bullets.
@@ -269,7 +284,16 @@ ${facts || "(none extracted)"}`;
     type: "object",
     additionalProperties: false,
     properties: {
-      insight: { type: "string" },
+      insight: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          because: { type: "string" },
+          basedOn: { type: "array", items: { type: "string" } },
+          afterThis: { type: "string" },
+        },
+        required: ["because", "basedOn", "afterThis"],
+      },
       considerations: { type: "array", items: { type: "string" } },
       rubricIssues: { type: "array", items: { type: "string" } },
       suggestedNextStep: { type: "string" },
@@ -300,7 +324,7 @@ function mockJudgment(input: JudgmentInput): JudgmentOut {
   }
   considerations.push("Confirm the extracted facts against the original correspondence before acting.");
   return {
-    insight: "",
+    insight: { because: "", basedOn: [], afterThis: "" },
     considerations,
     rubricIssues: [],
     suggestedNextStep: `Review the prepared facts for this ${input.rubricName.toLowerCase()} and decide whether to begin the work or request confirmation from the client.`,
@@ -359,7 +383,7 @@ export function buildFactualContent(rubric: Rubric, result: PipelineResult): Wor
     .map((t) => ({ date: t.date, description: t.description, source: t.source }));
 
   return {
-    insight: "",
+    insight: null,
     summary: result.summary,
     keyFacts,
     documents,
@@ -377,7 +401,13 @@ export function buildFactualContent(rubric: Rubric, result: PipelineResult): Wor
 function applyJudgment(content: WorkBriefContent, judgment: JudgmentOut): WorkBriefContent {
   return {
     ...content,
-    insight: judgment.insight.trim(),
+    insight: judgment.insight.because.trim()
+      ? {
+          because: judgment.insight.because.trim(),
+          basedOn: judgment.insight.basedOn.filter(Boolean),
+          afterThis: judgment.insight.afterThis.trim(),
+        }
+      : null,
     considerations: judgment.considerations.filter(Boolean),
     rubricIssues: judgment.rubricIssues.filter(Boolean),
     suggestedNextStep: judgment.suggestedNextStep.trim(),

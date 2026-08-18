@@ -229,7 +229,7 @@ SPECIFICITY — the most important rule. Every question and decision must be SPE
 
 RULES:
 - No autonomous legal/medical/financial advice — frame everything as "for the professional to consider / confirm / decide with the client".
-- keyQuestion — THE HEADLINE: the single most important thing THIS meeting must resolve, phrased as one concrete question that names the specific constraint driving it (e.g. "What appraisal timing lets the client list before the school year they mentioned?"). Not generic; the consequence the whole meeting hangs on.
+- keyQuestion — THE HEADLINE ("Decision for the meeting"): convert the matter's binding constraint into the single concrete DECISION this meeting must make — not a soft preference question. Name the specific constraint and the consequence it forces. (Weak: "What is the client's preferred timeframe?" Strong: "What date must the property be appraisal-ready and market-ready to meet the client's intended sale timeframe?") One sentence; the decision the whole meeting hangs on.
 - stillUncertain: 2-4 matter-specific questions that genuinely need answering IN the meeting — each naming the fact/constraint it arises from. Empty if none.
 - suggestedAgenda: exactly 3 short, action-oriented points, in the order to run the meeting, working toward "${goal}". Start each with a verb; refer to this matter's specifics.
 - decisionsToLeaveWith: 2-4 concrete outcomes this consultation must clarify, decide, or agree before the next stage — the results the meeting should produce, not just topics to discuss.

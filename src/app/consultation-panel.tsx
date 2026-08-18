@@ -298,10 +298,10 @@ export function ConsultationPanel({
           </p>
         ) : null}
 
-        {/* Lead with the consequence — the one thing the meeting must resolve. */}
+        {/* Lead with the decision — the insight converted into what the meeting must decide. */}
         {c.keyQuestion ? (
           <div className="rounded-lg border-l-4 border-accent bg-accent/5 px-4 py-3">
-            <div className="text-xs font-semibold uppercase tracking-wide text-accent">The meeting needs to resolve</div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-accent">Decision for the meeting</div>
             <p className="mt-1 text-[15px] leading-relaxed font-medium">{c.keyQuestion}</p>
           </div>
         ) : null}

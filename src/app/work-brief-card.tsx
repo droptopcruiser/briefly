@@ -3,6 +3,7 @@
 import type { WorkBriefContent, WorkBriefState } from "@/lib/work-brief";
 import { Spinner } from "@/app/pending-button";
 import { BriefMessageSend } from "@/app/brief-message-send";
+import { InsightCallout } from "@/app/insight-callout";
 
 /**
  * The Initial Work Brief review surface — PRESENTATIONAL. All state and the
@@ -147,12 +148,9 @@ export function WorkBriefCard({
       ) : null}
 
       <div className="space-y-6 px-5 py-5">
-        {/* Briefly noticed — the signature interpretation, leads the brief. */}
-        {content.insight ? (
-          <div className="rounded-lg border-l-4 border-accent bg-accent/5 px-4 py-3">
-            <div className="text-xs font-semibold uppercase tracking-wide text-accent">Briefly noticed</div>
-            <p className="mt-1 text-sm">{content.insight}</p>
-          </div>
+        {/* Briefly noticed — the visible reasoning chain, leads the brief. */}
+        {content.insight && typeof content.insight === "object" && content.insight.because ? (
+          <InsightCallout insight={content.insight} therefore={content.suggestedNextStep || null} />
         ) : null}
 
         {/* Context — references the facts, doesn't reprint them (they live in the record). */}
@@ -160,8 +158,9 @@ export function WorkBriefCard({
           <p className="text-sm">{content.summary}</p>
         </Section>
 
-        {/* Suggested next step — the headline decision, lifted to the top. */}
-        {content.suggestedNextStep ? (
+        {/* Next step — shown standalone only when the insight chain isn't carrying it. */}
+        {!(content.insight && typeof content.insight === "object" && content.insight.because) &&
+        content.suggestedNextStep ? (
           <div className="rounded-lg border border-accent/50 bg-accent/5 px-4 py-3">
             <div className="text-xs font-semibold uppercase tracking-wide text-accent">Next step</div>
             <p className="mt-1 text-sm font-medium">{content.suggestedNextStep}</p>

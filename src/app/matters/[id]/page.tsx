@@ -10,6 +10,7 @@ import { DraftActions } from "@/app/draft-actions";
 import { BriefPanel } from "@/app/brief-panel";
 import { ConsultationPanel } from "@/app/consultation-panel";
 import { MatterTabs, GoToTab } from "@/app/matter-tabs";
+import { InsightCallout } from "@/app/insight-callout";
 import type { Rubric } from "@/lib/types";
 import { SinceReviewCard } from "@/app/since-review-card";
 import { AssignControl } from "@/app/assign-control";
@@ -186,7 +187,10 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
     !!matter.consultationAt && new Date(matter.consultationAt).getTime() > Date.now();
   const status = workflowStatus(matter, rubric, upcoming, !!packet);
 
-  const insight = brief?.content.insight?.trim() || null;
+  // Guard against pre-structured (string) insights from older briefs.
+  const rawInsight = brief?.content.insight;
+  const insight =
+    rawInsight && typeof rawInsight === "object" && rawInsight.because ? rawInsight : null;
   const now = firstSentence(r.summary);
   const next =
     brief?.content.suggestedNextStep?.trim() ||
@@ -238,17 +242,9 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
         ) : null}
       </div>
 
-      {/* Briefly noticed — the signature interpretation, leads the "Now". */}
+      {/* Briefly noticed — the visible reasoning chain, leads the "Now". */}
       {insight ? (
-        <div className="rounded-lg border-l-4 border-accent bg-accent/5 px-4 py-3">
-          <div className="text-xs font-semibold uppercase tracking-wide text-accent">Briefly noticed</div>
-          <p className="mt-1 text-[15px] leading-relaxed">{insight}</p>
-          {!completed ? (
-            <p className="mt-2 text-sm">
-              <span className="font-semibold">Recommended next step:</span> {next}
-            </p>
-          ) : null}
-        </div>
+        <InsightCallout insight={insight} therefore={completed ? null : next} />
       ) : (
         <div className="space-y-1.5">
           <p className="text-base">{now}</p>
