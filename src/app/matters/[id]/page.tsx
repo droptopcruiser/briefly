@@ -9,6 +9,7 @@ import { ApproveButton } from "@/app/approve-button";
 import { DraftActions } from "@/app/draft-actions";
 import { BriefPanel } from "@/app/brief-panel";
 import { ConsultationPanel } from "@/app/consultation-panel";
+import { MatterTabs } from "@/app/matter-tabs";
 import { SinceReviewCard } from "@/app/since-review-card";
 import { AssignControl } from "@/app/assign-control";
 import { requireAccount, type Account } from "@/lib/metering";
@@ -127,8 +128,28 @@ async function ReturningClientSection({ matter }: { matter: Matter }) {
   );
 }
 
-async function PreparedWorkSection({ matter, account }: { matter: Matter; account: Account }) {
+/**
+ * NEXT STEP — the current decision. Path A (missing info) is the drafted follow-up
+ * to review and send; Path B (ready) is the Initial Work Brief, reframed to lead
+ * with the next step and NOT reprint the facts (those live in the record).
+ */
+async function NextStepSection({ matter, account }: { matter: Matter; account: Account }) {
   const r = matter.result!;
+
+  // A chase Briefly drafted for a stuck matter — awaiting_client + a pending nudge.
+  const pendingChase = matter.status === "awaiting_client" && !!matter.lastNudgedAt;
+  const daysWaiting = pendingChase
+    ? Math.max(1, Math.round((Date.now() - new Date(matter.updatedAt ?? matter.createdAt).getTime()) / 86_400_000))
+    : 0;
+  const chaseNotice = pendingChase ? (
+    <div className="rounded-lg border border-awaiting bg-surface px-4 py-3 text-sm">
+      <p className="font-medium">
+        Briefly noticed this has been waiting {daysWaiting} {daysWaiting === 1 ? "day" : "days"} since
+        your last message.
+      </p>
+      <p className="mt-1 text-muted">A follow-up is ready below — review and send it.</p>
+    </div>
+  ) : null;
 
   // Path A — a missing-info follow-up to review and send.
   if (r.draftEmail) {
@@ -138,54 +159,41 @@ async function PreparedWorkSection({ matter, account }: { matter: Matter; accoun
       ? r.draftEmail.body
       : composeEmailBody(r.draftEmail.body, { signature: account.emailSignature, firmName: account.name });
     return (
-      <DraftActions
-        id={matter.id}
-        to={r.draftEmail.to}
-        initialSubject={r.draftEmail.subject}
-        initialBody={body}
-        approved={alreadySent}
-        action={approveAndSendMatter}
-      />
+      <div className="space-y-4">
+        {chaseNotice}
+        <DraftActions
+          id={matter.id}
+          to={r.draftEmail.to}
+          initialSubject={r.draftEmail.subject}
+          initialBody={body}
+          approved={alreadySent}
+          action={approveAndSendMatter}
+        />
+      </div>
     );
   }
 
-  // Path B — the matter is ready → the Initial Work Brief (+ consultation packet).
+  // Path B — the matter is ready → the Initial Work Brief.
   const t = Date.now();
-  const [brief, rubrics, packet] = await Promise.all([
+  const [brief, rubrics] = await Promise.all([
     getActiveBrief(matter.id),
     getEffectiveRubrics(account.id),
-    getActivePacket(matter.id),
   ]);
-  console.log(`[matter-timing] prepared-work (brief+rubrics+packet) ms=${Date.now() - t}`);
+  console.log(`[matter-timing] next-step (brief+rubrics) ms=${Date.now() - t}`);
   const rubric = rubrics.find((x) => x.id === r.rubricId);
   const briefsEnabled = !brief ? !rubric || rubric.prepareBriefWhenReady !== false : true;
   const briefStale = brief ? isBriefStale(brief, matter) : false;
 
-  // Once a matter is ready, the professional can book a consultation and get a
-  // pre-consultation packet — the next lifecycle step after the brief.
-  const showConsultation = matter.status === "ready_for_you" || matter.status === "in_progress";
-  const consultation = showConsultation ? (
-    <ConsultationPanel
-      matterId={matter.id}
-      initialConsultationAt={matter.consultationAt}
-      initialPacket={packet}
-      initialStale={packet ? isPacketStale(packet, matter) : false}
-    />
-  ) : null;
-
   if (briefsEnabled) {
     return (
-      <div className="space-y-6">
-        <BriefPanel
-          matterId={matter.id}
-          clientEmail={matter.clientEmail}
-          initialBrief={brief}
-          initialStatus={matter.status}
-          initialStale={briefStale}
-          briefsEnabled={briefsEnabled}
-        />
-        {consultation}
-      </div>
+      <BriefPanel
+        matterId={matter.id}
+        clientEmail={matter.clientEmail}
+        initialBrief={brief}
+        initialStatus={matter.status}
+        initialStale={briefStale}
+        briefsEnabled={briefsEnabled}
+      />
     );
   }
   if (matter.status === "completed") {
@@ -196,122 +204,53 @@ async function PreparedWorkSection({ matter, account }: { matter: Matter; accoun
     );
   }
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="rounded-lg border border-accent bg-surface px-4 py-3 text-sm text-accent">
-          100% ready — nothing missing. Ready for you to review.
-        </p>
-        <div className="flex items-center gap-3 pt-1">
-          <ApproveButton id={matter.id} approved={false} action={approveMatter} />
-          <span className="text-xs text-muted">Human gate — Briefly never acts on its own.</span>
-        </div>
+    <div>
+      <p className="rounded-lg border border-accent bg-surface px-4 py-3 text-sm text-accent">
+        100% ready — nothing missing. Ready for you to review.
+      </p>
+      <div className="flex items-center gap-3 pt-1">
+        <ApproveButton id={matter.id} approved={false} action={approveMatter} />
+        <span className="text-xs text-muted">Human gate — Briefly never acts on its own.</span>
       </div>
-      {consultation}
     </div>
   );
 }
 
-async function ActivitySection({ matterId }: { matterId: string }) {
-  const t = Date.now();
-  const events = await listEvents(matterId);
-  console.log(`[matter-timing] listEvents ms=${Date.now() - t}`);
-  if (events.length === 0) return null;
+/**
+ * CONSULTATION PLAN — always available. If no plan exists yet it shows the prepare
+ * prompt (date optional); for an incomplete matter it plans around what's known and
+ * surfaces the gaps rather than pretending the matter is done.
+ */
+async function ConsultationPlanSection({ matter }: { matter: Matter }) {
+  const r = matter.result!;
+  const packet = await getActivePacket(matter.id);
   return (
-    <section className="space-y-3">
-      <h2 className="text-lg font-semibold tracking-tight">Activity</h2>
-      <ol className="relative space-y-4 border-l border-border pl-5">
-        {events.map((e) => (
-          <li key={e.id} className="relative">
-            <span className="absolute -left-[1.42rem] top-1.5 h-2 w-2 rounded-full bg-accent" />
-            <div className="text-sm">{e.detail ?? e.type}</div>
-            <div className="text-xs text-muted tabular-nums">
-              {new Date(e.createdAt).toLocaleString()}
-            </div>
-          </li>
-        ))}
-      </ol>
-    </section>
+    <ConsultationPanel
+      matterId={matter.id}
+      initialConsultationAt={matter.consultationAt}
+      initialPacket={packet}
+      initialStale={packet ? isPacketStale(packet, matter) : false}
+      incomplete={r.readiness < 100}
+      missing={r.gaps.map((g) => ({ label: g.label, kind: g.kind }))}
+    />
   );
 }
 
-function SectionSkeleton({ label }: { label: string }) {
-  return (
-    <div className="space-y-3">
-      <div className="h-5 w-40 animate-pulse rounded bg-border" aria-label={label} />
-      <div className="h-24 w-full animate-pulse rounded-lg border border-border bg-surface" />
-    </div>
-  );
+/** Prettify a rubric document key when no label is to hand (e.g. "title_deed"). */
+function humanizeKey(key: string): string {
+  const s = key.replace(/[_-]+/g, " ").trim();
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-// --- Page: only account + matter block the first paint ----------------------
-
-export default async function MatterPage({ params }: { params: Promise<{ id: string }> }) {
-  const t0 = Date.now();
-  const { id } = await params;
-  // Resolve the account (auth waterfall) and the matter row IN PARALLEL — the
-  // matter query no longer waits on the auth chain. Tenant isolation is verified
-  // immediately after (accountId must match), so an unowned id is not-found.
-  const [account, matter] = await Promise.all([requireAccount(), getMatterById(id)]);
-  console.log(`[matter-timing] essential (account+matter, parallel) ms=${Date.now() - t0}`);
-  if (!matter || !matter.result || matter.accountId !== account.id) notFound();
-
-  const r = matter.result;
-
-  // A chase Briefly drafted for a stuck matter — awaiting_client + a pending nudge.
-  const pendingChase = matter.status === "awaiting_client" && !!matter.lastNudgedAt;
-  const daysWaiting = pendingChase
-    ? Math.max(1, Math.round((Date.now() - new Date(matter.updatedAt ?? matter.createdAt).getTime()) / 86_400_000))
-    : 0;
-
+/**
+ * MATTER RECORD — the single source of truth: source-backed facts, documents,
+ * timeline, and gaps. Every other view references these without repeating them.
+ */
+function RecordPanel({ matter }: { matter: Matter }) {
+  const r = matter.result!;
+  const outstandingDocs = r.gaps.filter((g) => g.kind === "document");
   return (
     <div className="space-y-8">
-      <Link href="/app/matters" className="text-sm text-muted hover:text-foreground">
-        ← Matters
-      </Link>
-
-      {/* Since the last review — deferred, shows only when there's a baseline + changes */}
-      <Suspense fallback={null}>
-        <SinceReviewSection matter={matter} accountId={account.id} />
-      </Suspense>
-
-      {/* Header — paints immediately from the matter row */}
-      <header className="space-y-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight">{r.clientName ?? "Unnamed client"}</h1>
-          <ReadinessBadge value={r.readiness} />
-          <StatusBadge status={matter.status} />
-          <div className="ml-auto flex items-center gap-2">
-            <form action={markMatterReviewed}>
-              <input type="hidden" name="id" value={matter.id} />
-              <button
-                type="submit"
-                title="Snapshot the matter as it stands, so Briefly can show what changes next"
-                className="rounded-md border border-border px-3 py-1.5 text-sm text-muted hover:bg-inset hover:text-foreground"
-              >
-                Mark reviewed
-              </button>
-            </form>
-            <Suspense fallback={<div className="h-8 w-28 animate-pulse rounded-md bg-inset" />}>
-              <AssignSection matter={matter} />
-            </Suspense>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
-          <span>
-            {r.rubricName} · {r.vertical}
-          </span>
-          <span>{evidenceLabel(r.fields)}</span>
-          {r.clientEmail ? <span>{r.clientEmail}</span> : null}
-        </div>
-        <p className="max-w-2xl">{r.summary}</p>
-        <ReadinessMeter value={r.readiness} className="max-w-2xl" />
-      </header>
-
-      {/* Returning client — deferred */}
-      <Suspense fallback={null}>
-        <ReturningClientSection matter={matter} />
-      </Suspense>
-
       <div className="grid gap-8 md:grid-cols-2">
         {/* Extracted facts */}
         <section className="space-y-3">
@@ -364,6 +303,29 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
         </section>
       </div>
 
+      {/* Documents */}
+      {r.documentsPresent.length > 0 || outstandingDocs.length > 0 ? (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold tracking-tight">Documents</h2>
+          <ul className="rounded-lg border border-border bg-surface divide-y divide-border">
+            {r.documentsPresent.map((k) => (
+              <li key={k} className="flex items-center gap-2 px-4 py-3 text-sm">
+                <span className="text-accent">✓</span>
+                <span className="font-medium">{humanizeKey(k)}</span>
+                <span className="text-xs text-muted">provided</span>
+              </li>
+            ))}
+            {outstandingDocs.map((g) => (
+              <li key={g.key} className="flex items-center gap-2 px-4 py-3 text-sm">
+                <span className="text-awaiting">○</span>
+                <span>{g.label}</span>
+                <span className="text-xs text-muted">outstanding</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {/* Gaps */}
       <section className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">
@@ -371,8 +333,7 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
         </h2>
         {r.gaps.length === 0 ? (
           <p className="rounded-lg border border-accent bg-surface px-4 py-3 text-sm text-accent">
-            Every required fact and document is present — this matter is ready. The prepared brief is
-            below.
+            Every required fact and document is present — this matter is ready.
           </p>
         ) : (
           <ul className="rounded-lg border border-border bg-surface divide-y divide-border">
@@ -389,29 +350,142 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
         )}
       </section>
 
-      {/* Next step / prepared work — deferred (needs the brief artifact) */}
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">
-          {r.draftEmail ? "Drafted next step" : "Prepared work"}
-        </h2>
-        {pendingChase ? (
-          <div className="rounded-lg border border-awaiting bg-surface px-4 py-3 text-sm">
-            <p className="font-medium">
-              Briefly noticed this has been waiting {daysWaiting}{" "}
-              {daysWaiting === 1 ? "day" : "days"} since your last message.
-            </p>
-            <p className="mt-1 text-muted">A follow-up is ready below — review and send it.</p>
-          </div>
-        ) : null}
-        <Suspense fallback={<SectionSkeleton label="Preparing view" />}>
-          <PreparedWorkSection matter={matter} account={account} />
-        </Suspense>
-      </section>
-
       {/* Activity trail — deferred, lowest priority */}
       <Suspense fallback={null}>
         <ActivitySection matterId={matter.id} />
       </Suspense>
+    </div>
+  );
+}
+
+async function ActivitySection({ matterId }: { matterId: string }) {
+  const t = Date.now();
+  const events = await listEvents(matterId);
+  console.log(`[matter-timing] listEvents ms=${Date.now() - t}`);
+  if (events.length === 0) return null;
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold tracking-tight">Activity</h2>
+      <ol className="relative space-y-4 border-l border-border pl-5">
+        {events.map((e) => (
+          <li key={e.id} className="relative">
+            <span className="absolute -left-[1.42rem] top-1.5 h-2 w-2 rounded-full bg-accent" />
+            <div className="text-sm">{e.detail ?? e.type}</div>
+            <div className="text-xs text-muted tabular-nums">
+              {new Date(e.createdAt).toLocaleString()}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+function SectionSkeleton({ label }: { label: string }) {
+  return (
+    <div className="space-y-3">
+      <div className="h-5 w-40 animate-pulse rounded bg-border" aria-label={label} />
+      <div className="h-24 w-full animate-pulse rounded-lg border border-border bg-surface" />
+    </div>
+  );
+}
+
+// --- Page: only account + matter block the first paint ----------------------
+
+export default async function MatterPage({ params }: { params: Promise<{ id: string }> }) {
+  const t0 = Date.now();
+  const { id } = await params;
+  // Resolve the account (auth waterfall) and the matter row IN PARALLEL — the
+  // matter query no longer waits on the auth chain. Tenant isolation is verified
+  // immediately after (accountId must match), so an unowned id is not-found.
+  const [account, matter] = await Promise.all([requireAccount(), getMatterById(id)]);
+  console.log(`[matter-timing] essential (account+matter, parallel) ms=${Date.now() - t0}`);
+  if (!matter || !matter.result || matter.accountId !== account.id) notFound();
+
+  const r = matter.result;
+
+  // Smart default: open on Next step; but if a plan-worthy consultation is coming
+  // up, open on the Consultation plan (the moment that matters right now). A past
+  // consultation returns to Next step — the matter needs a fresh decision.
+  const upcomingConsult =
+    !!matter.consultationAt && new Date(matter.consultationAt).getTime() > Date.now();
+  const defaultTab = upcomingConsult ? "plan" : "next";
+
+  const tabs = [
+    { id: "record", label: "Matter record", node: <RecordPanel matter={matter} /> },
+    {
+      id: "next",
+      label: "Next step",
+      node: (
+        <Suspense fallback={<SectionSkeleton label="Preparing next step" />}>
+          <NextStepSection matter={matter} account={account} />
+        </Suspense>
+      ),
+    },
+    {
+      id: "plan",
+      label: "Consultation plan",
+      node: (
+        <Suspense fallback={<SectionSkeleton label="Preparing consultation plan" />}>
+          <ConsultationPlanSection matter={matter} />
+        </Suspense>
+      ),
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <Link href="/app/matters" className="text-sm text-muted hover:text-foreground">
+        ← Matters
+      </Link>
+
+      {/* Since the last review — deferred, shows only when there's a baseline + changes */}
+      <Suspense fallback={null}>
+        <SinceReviewSection matter={matter} accountId={account.id} />
+      </Suspense>
+
+      {/* Pinned header — the matter's identity, always visible above the tabs */}
+      <header className="space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight">{r.clientName ?? "Unnamed client"}</h1>
+          <ReadinessBadge value={r.readiness} />
+          <StatusBadge status={matter.status} />
+          <div className="ml-auto flex items-center gap-2">
+            <form action={markMatterReviewed}>
+              <input type="hidden" name="id" value={matter.id} />
+              <button
+                type="submit"
+                title="Snapshot the matter as it stands, so Briefly can show what changes next"
+                className="rounded-md border border-border px-3 py-1.5 text-sm text-muted hover:bg-inset hover:text-foreground"
+              >
+                Mark reviewed
+              </button>
+            </form>
+            <Suspense fallback={<div className="h-8 w-28 animate-pulse rounded-md bg-inset" />}>
+              <AssignSection matter={matter} />
+            </Suspense>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
+          <span>
+            {r.rubricName} · {r.vertical}
+          </span>
+          <span>{evidenceLabel(r.fields)}</span>
+          {matter.consultationAt ? (
+            <span>Consultation: {new Date(matter.consultationAt).toLocaleString()}</span>
+          ) : null}
+          {r.clientEmail ? <span>{r.clientEmail}</span> : null}
+        </div>
+        <ReadinessMeter value={r.readiness} className="max-w-2xl" />
+      </header>
+
+      {/* Returning client — deferred */}
+      <Suspense fallback={null}>
+        <ReturningClientSection matter={matter} />
+      </Suspense>
+
+      {/* One source of truth, three contextual views */}
+      <MatterTabs tabs={tabs} defaultTab={defaultTab} />
     </div>
   );
 }

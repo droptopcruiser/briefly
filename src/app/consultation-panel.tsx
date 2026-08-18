@@ -14,22 +14,29 @@ import {
 import type { WorkPacket } from "@/lib/consultation-packet";
 
 /**
- * The Pre-Consultation Packet on the matter view. A meeting-focused artifact,
- * deliberately distinct from the Initial Work Brief: not "what arrived / what's
- * missing" but "we're meeting — how do we use this hour well". Prepared on demand
- * (a date is optional), source-backed facts render instantly while the meeting-
- * planning sections fill in behind a skeleton. Nothing is sent — internal briefing.
+ * The Consultation plan — the "we're meeting, how do we use this well" view. A
+ * deliberately distinct professional moment from the Matter record (the facts) and
+ * Next step (the current decision). It does NOT reprint the facts: a tiny snapshot,
+ * then purpose · resolve today · agenda · questions · changes since intake · next
+ * commitment. Prepared on demand (a date is optional); works even before the matter
+ * is complete, highlighting what's still missing rather than pretending it's done.
  */
 export function ConsultationPanel({
   matterId,
   initialConsultationAt,
   initialPacket,
   initialStale,
+  incomplete,
+  missing,
 }: {
   matterId: string;
   initialConsultationAt: string | null;
   initialPacket: WorkPacket | null;
   initialStale: boolean;
+  /** Matter isn't 100% ready — the plan is based on what's currently known. */
+  incomplete: boolean;
+  /** Outstanding required items, surfaced so the meeting can chase them. */
+  missing: { label: string; kind: "field" | "document" }[];
 }) {
   const router = useRouter();
   const [consultationAt, setConsultationAt] = useState(initialConsultationAt);
@@ -122,17 +129,23 @@ export function ConsultationPanel({
     router.refresh();
   }
 
-  // No packet yet → the prepare panel (date optional, objective optional).
+  // No plan yet → the intelligent empty state (date optional, objective optional).
   if (!packet) {
     return (
-      <div className="space-y-4 rounded-xl border border-border bg-surface p-4">
+      <div className="space-y-4 rounded-xl border border-border bg-surface p-5">
         <div>
-          <div className="text-sm font-medium">Preparing for a consultation?</div>
-          <p className="text-xs text-muted">
-            Briefly compiles a briefing for the meeting — why the client is here, what to confirm,
-            what&apos;s changed since intake, a suggested agenda, and the decisions to leave with.
+          <div className="text-base font-semibold tracking-tight">Prepare consultation plan</div>
+          <p className="mt-1 text-sm text-muted">
+            Briefly will organise the purpose, questions, agenda, and decisions for the meeting. The
+            date is optional.
           </p>
         </div>
+        {incomplete ? (
+          <p className="rounded-lg border border-awaiting bg-awaiting-soft px-4 py-2.5 text-sm text-awaiting">
+            This matter isn&apos;t complete yet — the plan will be based on what&apos;s currently
+            known, with missing information highlighted for the consultation.
+          </p>
+        ) : null}
         <div className="space-y-3">
           <label className="block space-y-1">
             <span className="text-xs text-muted">Consultation date &amp; time (optional)</span>
@@ -165,7 +178,7 @@ export function ConsultationPanel({
               <Spinner /> Preparing…
             </>
           ) : (
-            "Prepare consultation packet"
+            "Prepare consultation plan"
           )}
         </button>
       </div>
@@ -179,7 +192,7 @@ export function ConsultationPanel({
     <div className="overflow-hidden rounded-xl border border-accent bg-surface">
       <div className="border-b border-border px-5 py-4">
         <div className="flex flex-wrap items-center gap-3">
-          <h3 className="text-lg font-semibold tracking-tight">Pre-consultation packet</h3>
+          <h3 className="text-lg font-semibold tracking-tight">Consultation plan</h3>
           <span className="rounded-full bg-inset px-2 py-0.5 text-xs text-muted tabular-nums">
             v{packet.version}
           </span>
@@ -240,7 +253,7 @@ export function ConsultationPanel({
           ) : (
             <>
               <span className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border px-2.5 py-1 text-xs text-muted">
-                Date to be confirmed
+                Consultation date: to be confirmed
               </span>
               <button
                 type="button"
@@ -257,8 +270,8 @@ export function ConsultationPanel({
       {stale ? (
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-awaiting bg-awaiting-soft px-5 py-3">
           <div className="text-sm text-awaiting">
-            <span className="font-medium">New information since this packet.</span> Refresh it before
-            the meeting.
+            <span className="font-medium">New information since this plan.</span> Refresh it before the
+            meeting.
           </div>
           <button
             type="button"
@@ -271,13 +284,20 @@ export function ConsultationPanel({
                 <Spinner /> Refreshing…
               </>
             ) : (
-              "Refresh packet"
+              "Refresh plan"
             )}
           </button>
         </div>
       ) : null}
 
       <div className="space-y-6 px-5 py-5">
+        {incomplete ? (
+          <p className="rounded-lg border border-awaiting bg-awaiting-soft px-4 py-2.5 text-sm text-awaiting">
+            This plan is based on what is currently known. Missing information is highlighted below for
+            the consultation.
+          </p>
+        ) : null}
+
         {c.meetingObjective ? (
           <div className="rounded-lg border border-accent/40 bg-accent/5 px-4 py-3">
             <div className="text-xs font-semibold uppercase tracking-wide text-accent">Your objective for this meeting</div>
@@ -285,41 +305,15 @@ export function ConsultationPanel({
           </div>
         ) : null}
 
-        <Section title="Why this client is here">
+        <Section title="Purpose — why is this client meeting with us">
           <p className="text-sm">{c.whyHere}</p>
         </Section>
-
-        {c.whatWeKnow.length > 0 ? (
-          <Section title="What we know">
-            <dl className="rounded-lg border border-border divide-y divide-border">
-              {c.whatWeKnow.map((f, i) => (
-                <div key={i} className="px-4 py-3">
-                  <dt className="text-xs uppercase tracking-wide text-muted">{f.label}</dt>
-                  <dd className="font-medium">{f.value}</dd>
-                  {f.source ? (
-                    f.carried ? (
-                      <dd className="mt-1 text-xs text-muted">📎 {f.source}</dd>
-                    ) : (
-                      <dd className="mt-1 text-xs text-muted italic">“{f.source}”</dd>
-                    )
-                  ) : null}
-                </div>
-              ))}
-            </dl>
-          </Section>
-        ) : null}
-
-        {c.changedSinceIntake.length > 0 ? (
-          <Section title="What's changed since intake">
-            <Bullets items={c.changedSinceIntake} tone="accent" />
-          </Section>
-        ) : null}
 
         {judgmentPending ? (
           <div className="space-y-3 rounded-lg border border-dashed border-border bg-inset px-4 py-4">
             <div className="flex items-center gap-2 text-sm text-muted">
               <Spinner />
-              <span className="font-medium">Planning the meeting — agenda, open questions, decisions…</span>
+              <span className="font-medium">Planning the meeting — agenda, decisions, next commitment…</span>
             </div>
             <div className="space-y-2" aria-hidden="true">
               <div className="h-2.5 w-2/3 animate-pulse rounded bg-border" />
@@ -329,9 +323,9 @@ export function ConsultationPanel({
           </div>
         ) : null}
 
-        {c.stillUncertain.length > 0 ? (
-          <Section title="Still uncertain — to answer in the meeting">
-            <Bullets items={c.stillUncertain} tone="awaiting" />
+        {c.decisionsToLeaveWith.length > 0 ? (
+          <Section title="Resolve today — what this meeting must decide">
+            <Bullets items={c.decisionsToLeaveWith} tone="accent" />
           </Section>
         ) : null}
 
@@ -348,10 +342,35 @@ export function ConsultationPanel({
           </Section>
         ) : null}
 
-        {c.decisionsToLeaveWith.length > 0 ? (
-          <Section title="Decisions to leave with">
-            <p className="-mt-1 mb-1 text-xs text-muted">What this consultation needs to resolve before the next stage.</p>
-            <Bullets items={c.decisionsToLeaveWith} tone="accent" />
+        {c.stillUncertain.length > 0 ? (
+          <Section title="Questions to ask — still uncertain">
+            <Bullets items={c.stillUncertain} tone="awaiting" />
+          </Section>
+        ) : null}
+
+        {missing.length > 0 ? (
+          <Section title="Not yet provided — chase in the meeting">
+            <ul className="space-y-1.5">
+              {missing.map((m, i) => (
+                <li key={i} className="flex items-center gap-2 text-sm">
+                  <span className="text-awaiting">○</span>
+                  <span className="rounded px-1.5 py-0.5 text-[10px] uppercase border border-border text-muted">{m.kind}</span>
+                  <span>{m.label}</span>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        ) : null}
+
+        {c.changedSinceIntake.length > 0 ? (
+          <Section title="Changes since intake">
+            <Bullets items={c.changedSinceIntake} tone="accent" />
+          </Section>
+        ) : null}
+
+        {c.nextCommitment ? (
+          <Section title="Next commitment — after the meeting">
+            <p className="rounded-lg border border-border bg-inset px-4 py-3 text-sm">{c.nextCommitment}</p>
           </Section>
         ) : null}
       </div>
@@ -363,7 +382,7 @@ export function ConsultationPanel({
           </span>
         ) : judgmentPending ? (
           <span className="inline-flex items-center gap-2 text-sm text-muted">
-            <Spinner /> Finishing the packet…
+            <Spinner /> Finishing the plan…
           </span>
         ) : (
           <>

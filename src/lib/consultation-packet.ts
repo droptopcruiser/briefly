@@ -45,7 +45,9 @@ export interface PacketContent {
   suggestedAgenda: string[];
   /** 6 — what this consultation needs to resolve before the next stage (model). */
   decisionsToLeaveWith: string[];
-  /** True while the model-written sections (3-6 judgment) are still being prepared. */
+  /** 7 — what should happen AFTER the meeting: the next commitment (model). */
+  nextCommitment: string;
+  /** True while the model-written sections (judgment) are still being prepared. */
   judgmentPending?: boolean;
 }
 
@@ -110,6 +112,7 @@ function normalizeContent(c: Record<string, unknown> | null | undefined): Packet
     stillUncertain: arr("stillUncertain", "unresolvedQuestions") as string[],
     suggestedAgenda: arr("suggestedAgenda") as string[],
     decisionsToLeaveWith: arr("decisionsToLeaveWith") as string[],
+    nextCommitment: typeof o.nextCommitment === "string" ? o.nextCommitment : "",
     judgmentPending: o.judgmentPending === true,
   };
 }
@@ -207,6 +210,7 @@ interface AgendaOut {
   stillUncertain: string[];
   suggestedAgenda: string[];
   decisionsToLeaveWith: string[];
+  nextCommitment: string;
 }
 
 async function draftAgenda(input: AgendaInput): Promise<{ out: AgendaOut; costCents: number }> {
@@ -222,6 +226,7 @@ RULES:
 - stillUncertain: 2-4 questions that genuinely need answering IN the meeting — ambiguities, gaps, or things only the client can confirm. Empty if none.
 - suggestedAgenda: exactly 3 short, action-oriented points, in the order to run the meeting, working toward "${goal}". Start each with a verb.
 - decisionsToLeaveWith: 2-4 concrete outcomes this consultation must clarify, decide, or agree before the next stage — the results the meeting should produce, not just topics to discuss.
+- nextCommitment: ONE short line — what should happen AFTER the meeting, the concrete next step both sides leave with (e.g. "Book the inspection and send written confirmation"), toward "${goal}".
 - Reason only from the supplied information; invent nothing.${objectiveLine}`;
   const user = `Matter summary: ${input.summary}
 Intended outcome (from the rulebook): ${input.nextActionIntent || "(not set)"}${input.meetingObjective ? `\nProfessional's objective for this meeting: ${input.meetingObjective}` : ""}
@@ -236,10 +241,11 @@ Changed since intake: ${input.changedSinceIntake.length ? input.changedSinceInta
       stillUncertain: { type: "array", items: { type: "string" } },
       suggestedAgenda: { type: "array", items: { type: "string" } },
       decisionsToLeaveWith: { type: "array", items: { type: "string" } },
+      nextCommitment: { type: "string" },
     },
-    required: ["stillUncertain", "suggestedAgenda", "decisionsToLeaveWith"],
+    required: ["stillUncertain", "suggestedAgenda", "decisionsToLeaveWith", "nextCommitment"],
   };
-  const { data, costCents } = await jsonCall<AgendaOut>({ system, user, schema, maxTokens: 760 });
+  const { data, costCents } = await jsonCall<AgendaOut>({ system, user, schema, maxTokens: 820 });
   return { out: data, costCents };
 }
 
@@ -256,6 +262,7 @@ function mockAgenda(input: AgendaInput): AgendaOut {
       `What is needed to move toward ${goal}.`,
       "Who does what before the next stage, and by when.",
     ],
+    nextCommitment: `Confirm the agreed next step toward ${goal} in writing.`,
   };
 }
 
@@ -319,6 +326,7 @@ export function buildFactualPacket(
     stillUncertain: [],
     suggestedAgenda: [],
     decisionsToLeaveWith: [],
+    nextCommitment: "",
     judgmentPending: true,
   };
 }
@@ -370,6 +378,7 @@ export async function createPacketForMatter(
       stillUncertain: out.stillUncertain.filter(Boolean),
       suggestedAgenda: out.suggestedAgenda.filter(Boolean),
       decisionsToLeaveWith: out.decisionsToLeaveWith.filter(Boolean),
+      nextCommitment: out.nextCommitment?.trim() ?? "",
       judgmentPending: false,
     };
     costCents = c;
@@ -412,6 +421,7 @@ export async function completeJudgmentForPacket(
     stillUncertain: out.stillUncertain.filter(Boolean),
     suggestedAgenda: out.suggestedAgenda.filter(Boolean),
     decisionsToLeaveWith: out.decisionsToLeaveWith.filter(Boolean),
+    nextCommitment: out.nextCommitment?.trim() ?? "",
     judgmentPending: false,
   };
   packet.costCents += costCents;

@@ -117,9 +117,9 @@ export function WorkBriefCard({
     <div className="overflow-hidden rounded-xl border border-accent bg-surface">
       {/* Header */}
       <div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-4">
-        <h2 className="text-lg font-semibold tracking-tight">Initial Work Brief</h2>
+        <h2 className="text-lg font-semibold tracking-tight">Next step</h2>
         <span className="rounded-full bg-inset px-2 py-0.5 text-xs text-muted tabular-nums">
-          v{version}
+          Initial Work Brief · v{version}
         </span>
         {approved ? (
           <span className="rounded-full bg-accent-soft px-2.5 py-1 text-xs font-medium text-accent">
@@ -147,71 +147,23 @@ export function WorkBriefCard({
       ) : null}
 
       <div className="space-y-6 px-5 py-5">
-        {/* 1 — Matter summary */}
-        <Section title="Matter summary">
+        {/* Context — references the facts, doesn't reprint them (they live in the record). */}
+        <Section title="What's arrived">
           <p className="text-sm">{content.summary}</p>
         </Section>
 
-        {/* 2 + 3 — Key facts, source-backed */}
-        {content.keyFacts.length > 0 ? (
-          <Section title="Key facts">
-            <dl className="rounded-lg border border-border divide-y divide-border">
-              {content.keyFacts.map((f, i) => (
-                <div key={i} className="px-4 py-3">
-                  <dt className="text-xs uppercase tracking-wide text-muted">{f.label}</dt>
-                  <dd className="font-medium">{f.value}</dd>
-                  {f.source ? (
-                    f.carried ? (
-                      <dd className="mt-1 text-xs text-muted">📎 {f.source}</dd>
-                    ) : (
-                      <dd className="mt-1 text-xs text-muted italic">“{f.source}”</dd>
-                    )
-                  ) : null}
-                </div>
-              ))}
-            </dl>
-          </Section>
+        {/* Suggested next step — the headline decision, lifted to the top. */}
+        {content.suggestedNextStep ? (
+          <div className="rounded-lg border border-accent/50 bg-accent/5 px-4 py-3">
+            <div className="text-xs font-semibold uppercase tracking-wide text-accent">Next step</div>
+            <p className="mt-1 text-sm font-medium">{content.suggestedNextStep}</p>
+          </div>
         ) : null}
 
-        {/* 4 — Documents received */}
-        {content.documents.length > 0 ? (
-          <Section title="Documents received">
-            <ul className="space-y-1.5">
-              {content.documents.map((d, i) => (
-                <li key={i} className="flex items-center gap-2 text-sm">
-                  <span className="text-accent">✓</span>
-                  <span className="font-medium">{d.label}</span>
-                  {d.satisfies && d.satisfies !== d.label ? (
-                    <span className="text-muted">— {d.satisfies}</span>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          </Section>
-        ) : null}
-
-        {/* 5 — Important dates */}
-        {content.importantDates.length > 0 ? (
-          <Section title="Important dates">
-            <ol className="relative space-y-3 border-l border-border pl-5">
-              {content.importantDates.map((e, i) => (
-                <li key={i} className="relative">
-                  <span className="absolute -left-[1.42rem] top-1.5 h-2 w-2 rounded-full bg-accent" />
-                  <div className="text-sm font-medium tabular-nums">{e.date || "Undated"}</div>
-                  <div className="text-sm">{e.description}</div>
-                  {e.source ? (
-                    <div className="mt-0.5 text-xs text-muted italic">“{e.source}”</div>
-                  ) : null}
-                </li>
-              ))}
-            </ol>
-          </Section>
-        ) : null}
-
-        {/* Judgment sections (6-10): a skeleton until the model fills them in. */}
+        {/* Judgment sections: a skeleton until the model fills them in. */}
         {judgmentPending ? <JudgmentSkeleton /> : null}
 
-        {/* 6 — Outstanding considerations */}
+        {/* Outstanding considerations */}
         {content.considerations.length > 0 ? (
           <Section title="Outstanding considerations">
             <Bullets items={content.considerations} />
@@ -222,15 +174,6 @@ export function WorkBriefCard({
         {content.rubricIssues.length > 0 ? (
           <Section title="Issues for consideration">
             <Bullets items={content.rubricIssues} />
-          </Section>
-        ) : null}
-
-        {/* 8 — Suggested next step */}
-        {content.suggestedNextStep ? (
-          <Section title="Suggested next step (for professional review)">
-            <p className="rounded-lg border border-border bg-inset px-4 py-3 text-sm">
-              {content.suggestedNextStep}
-            </p>
           </Section>
         ) : null}
 
