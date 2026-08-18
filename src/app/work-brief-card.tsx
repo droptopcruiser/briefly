@@ -163,28 +163,7 @@ export function WorkBriefCard({
         {/* Judgment sections: a skeleton until the model fills them in. */}
         {judgmentPending ? <JudgmentSkeleton /> : null}
 
-        {/* Outstanding considerations */}
-        {content.considerations.length > 0 ? (
-          <Section title="Outstanding considerations">
-            <Bullets items={content.considerations} />
-          </Section>
-        ) : null}
-
-        {/* 7 — Rubric-relevant issues */}
-        {content.rubricIssues.length > 0 ? (
-          <Section title="Issues for consideration">
-            <Bullets items={content.rubricIssues} />
-          </Section>
-        ) : null}
-
-        {/* 10 — Questions for the professional */}
-        {content.questionsForProfessional.length > 0 ? (
-          <Section title="Questions for you">
-            <Bullets items={content.questionsForProfessional} />
-          </Section>
-        ) : null}
-
-        {/* 9 — Suggested client communication: editable + sendable (human-gated) */}
+        {/* Value before explanation: the sendable client message leads (human-gated). */}
         {content.suggestedClientMessage ? (
           <Section title="Suggested client message (draft)">
             <BriefMessageSend
@@ -192,6 +171,25 @@ export function WorkBriefCard({
               to={clientEmail}
               initialBody={content.suggestedClientMessage}
             />
+          </Section>
+        ) : null}
+
+        {/* Supporting reasoning sits below the action. */}
+        {content.considerations.length > 0 ? (
+          <Section title="Outstanding considerations">
+            <Bullets items={content.considerations} />
+          </Section>
+        ) : null}
+
+        {content.rubricIssues.length > 0 ? (
+          <Section title="Issues for consideration">
+            <Bullets items={content.rubricIssues} />
+          </Section>
+        ) : null}
+
+        {content.questionsForProfessional.length > 0 ? (
+          <Section title="Questions for you">
+            <Bullets items={content.questionsForProfessional} />
           </Section>
         ) : null}
       </div>

@@ -1,6 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+const GOTO_EVENT = "matter-goto-tab";
+
+/**
+ * A button that jumps the matter to a given tab. Lets the "Now" overview point at
+ * the drill-down where the full action lives, without the overview needing to own
+ * the tab state (they communicate over a window event).
+ */
+export function GoToTab({
+  tab,
+  children,
+  variant = "primary",
+}: {
+  tab: string;
+  children: React.ReactNode;
+  variant?: "primary" | "secondary";
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => window.dispatchEvent(new CustomEvent(GOTO_EVENT, { detail: tab }))}
+      className={
+        variant === "primary"
+          ? "inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg"
+          : "inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-inset"
+      }
+    >
+      {children}
+    </button>
+  );
+}
 
 /**
  * The matter page as one source of truth with three contextual views:
@@ -19,6 +50,18 @@ export function MatterTabs({
   const [active, setActive] = useState(
     tabs.some((t) => t.id === defaultTab) ? defaultTab : tabs[0]?.id,
   );
+
+  useEffect(() => {
+    const onGoto = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      if (tabs.some((t) => t.id === id)) {
+        setActive(id);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    };
+    window.addEventListener(GOTO_EVENT, onGoto);
+    return () => window.removeEventListener(GOTO_EVENT, onGoto);
+  }, [tabs]);
 
   return (
     <div className="space-y-6">

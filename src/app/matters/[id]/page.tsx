@@ -9,7 +9,8 @@ import { ApproveButton } from "@/app/approve-button";
 import { DraftActions } from "@/app/draft-actions";
 import { BriefPanel } from "@/app/brief-panel";
 import { ConsultationPanel } from "@/app/consultation-panel";
-import { MatterTabs } from "@/app/matter-tabs";
+import { MatterTabs, GoToTab } from "@/app/matter-tabs";
+import type { Rubric } from "@/lib/types";
 import { SinceReviewCard } from "@/app/since-review-card";
 import { AssignControl } from "@/app/assign-control";
 import { requireAccount, type Account } from "@/lib/metering";
@@ -123,6 +124,163 @@ async function ReturningClientSection({ matter }: { matter: Matter }) {
         >
           View client →
         </Link>
+      ) : null}
+    </section>
+  );
+}
+
+/** First sentence of a summary, capped — the "what's happening now" line. */
+function firstSentence(text: string): string {
+  const t = (text ?? "").trim();
+  const m = t.match(/^(.*?[.!?])(\s|$)/);
+  const s = (m ? m[1] : t).trim();
+  return s.length > 200 ? s.slice(0, 197) + "…" : s;
+}
+
+/**
+ * A workflow status derived from the rulebook's intended next action, not a flat
+ * "100% ready" — what the professional should DO, in their own terms.
+ */
+function workflowStatus(
+  matter: Matter,
+  rubric: Rubric | undefined,
+  hasUpcoming: boolean,
+  hasPacket: boolean,
+): string {
+  const intent = rubric?.nextActionIntent?.trim();
+  switch (matter.status) {
+    case "ready_for_review": {
+      const n = matter.result?.gaps.length ?? 0;
+      return n <= 1 ? "Waiting on one client detail" : `Waiting on ${n} client details`;
+    }
+    case "awaiting_client":
+      return matter.lastNudgedAt ? "Follow-up ready to send" : "Waiting on the client";
+    case "ready_for_you":
+      if (hasUpcoming) return "Ready for the consultation";
+      return intent ? `Ready — ${intent}` : "Ready for your review";
+    case "in_progress":
+      if (hasUpcoming && hasPacket) return "Ready for the meeting";
+      return intent ? `In progress — ${intent}` : "In progress";
+    case "completed":
+      return "Completed";
+    default:
+      return "In progress";
+  }
+}
+
+/**
+ * THE "NOW" — the matter's centre of gravity. A compact synthesis at the top of the
+ * page: what's happening now, what's next, the workflow status, a preview of the
+ * most valuable prepared action, and a single button into the tab where it lives.
+ * Not another long summary — it carries the decision; the tabs carry the detail.
+ */
+async function OverviewSection({ matter, account }: { matter: Matter; account: Account }) {
+  const r = matter.result!;
+  const [brief, packet, rubrics] = await Promise.all([
+    r.draftEmail ? Promise.resolve(null) : getActiveBrief(matter.id),
+    getActivePacket(matter.id),
+    getEffectiveRubrics(account.id),
+  ]);
+  const rubric = rubrics.find((x) => x.id === r.rubricId);
+  const upcoming =
+    !!matter.consultationAt && new Date(matter.consultationAt).getTime() > Date.now();
+  const status = workflowStatus(matter, rubric, upcoming, !!packet);
+
+  const now = firstSentence(r.summary);
+  const next =
+    brief?.content.suggestedNextStep?.trim() ||
+    rubric?.nextActionIntent?.trim() ||
+    (r.draftEmail
+      ? "Review and send the follow-up to the client."
+      : matter.status === "completed"
+        ? "This matter is complete."
+        : "Review what Briefly has prepared.");
+
+  const messagePreview =
+    r.draftEmail?.body?.trim() || brief?.content.suggestedClientMessage?.trim() || null;
+  const messageLabel = r.draftEmail ? "Prepared follow-up" : "Prepared client message";
+
+  // What Briefly prepared, and the next expected transition.
+  const prepared: string[] = [];
+  if (r.draftEmail) prepared.push("a client follow-up");
+  if (brief) prepared.push("an Initial Work Brief");
+  if (packet) prepared.push("a consultation plan");
+  const preparedLine =
+    prepared.length > 0
+      ? `Briefly prepared ${prepared.length === 1 ? prepared[0] : prepared.slice(0, -1).join(", ") + " and " + prepared.slice(-1)}.`
+      : null;
+  const transition =
+    matter.status === "ready_for_review"
+      ? "You send the follow-up → the client replies → Briefly re-scores."
+      : matter.status === "awaiting_client"
+        ? "The client replies → Briefly re-scores and prepares the next step."
+        : matter.status === "ready_for_you"
+          ? "You approve → the work begins."
+          : matter.status === "in_progress"
+            ? upcoming
+              ? "You run the meeting → add notes to move the matter forward."
+              : "You prepare the consultation, or complete the matter."
+            : null;
+
+  const completed = matter.status === "completed";
+
+  return (
+    <section className="space-y-4 rounded-xl border border-accent bg-surface p-5">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-full bg-accent-soft px-3 py-1 text-sm font-semibold text-accent">
+          {status}
+        </span>
+        {upcoming && matter.consultationAt ? (
+          <span className="text-sm text-muted">
+            Consultation {new Date(matter.consultationAt).toLocaleString()}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="space-y-1.5">
+        <p className="text-base">{now}</p>
+        {!completed ? (
+          <p className="text-base">
+            <span className="font-semibold">Next:</span> {next}
+          </p>
+        ) : null}
+      </div>
+
+      {messagePreview && !completed ? (
+        <div className="rounded-lg border border-border bg-inset px-4 py-3">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted">{messageLabel}</div>
+          <p className="mt-1 line-clamp-3 whitespace-pre-line text-sm text-foreground/90">
+            {messagePreview}
+          </p>
+        </div>
+      ) : null}
+
+      {!completed ? (
+        <div className="flex flex-wrap items-center gap-3">
+          {r.draftEmail ? (
+            <GoToTab tab="next">Review &amp; send the follow-up →</GoToTab>
+          ) : messagePreview ? (
+            <GoToTab tab="next">Review &amp; send the message →</GoToTab>
+          ) : (
+            <GoToTab tab="next">Review the next step →</GoToTab>
+          )}
+          {!r.draftEmail ? (
+            <GoToTab tab="plan" variant="secondary">
+              {packet
+                ? upcoming
+                  ? "Open consultation plan"
+                  : "Open consultation plan"
+                : "Prepare consultation plan"}
+            </GoToTab>
+          ) : null}
+        </div>
+      ) : null}
+
+      {preparedLine || transition ? (
+        <p className="text-xs text-muted">
+          {preparedLine ? <span>{preparedLine} </span> : null}
+          {transition ? <span>{transition}</span> : null}
+        </p>
       ) : null}
     </section>
   );
@@ -482,6 +640,13 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
       {/* Returning client — deferred */}
       <Suspense fallback={null}>
         <ReturningClientSection matter={matter} />
+      </Suspense>
+
+      {/* The "Now" — the matter's centre of gravity, above the tabs */}
+      <Suspense
+        fallback={<div className="h-40 w-full animate-pulse rounded-xl border border-border bg-surface" />}
+      >
+        <OverviewSection matter={matter} account={account} />
       </Suspense>
 
       {/* One source of truth, three contextual views */}

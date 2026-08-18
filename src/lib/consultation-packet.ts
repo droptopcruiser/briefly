@@ -221,10 +221,12 @@ async function draftAgenda(input: AgendaInput): Promise<{ out: AgendaOut; costCe
     : "";
   const system = `You are preparing a professional to make good use of a client consultation on a "${input.rubricName}" (${input.vertical}) matter. The facts are already assembled elsewhere — write ONLY the three meeting-planning sections, concise and specific to THIS matter and THIS meeting. Do NOT re-list the facts.
 
+SPECIFICITY — the most important rule. Every question and decision must be SPECIFIC to THIS matter: reference an actual fact, constraint, document, or date from the supplied information, and connect it to the professional's next decision. Do NOT ask generic questions that could be asked of any matter of this type. Self-test each item: "Could this have been generated for any ${input.vertical.toLowerCase()} matter?" — if yes, rewrite it to name the specific detail and its consequence. (Weak: "What is your preferred timeframe?" Strong: "The client wants to sell before the school year and prefers weekday mornings — is there a target listing date the appraisal and prep must work back from?")
+
 RULES:
 - No autonomous legal/medical/financial advice — frame everything as "for the professional to consider / confirm / decide with the client".
-- stillUncertain: 2-4 questions that genuinely need answering IN the meeting — ambiguities, gaps, or things only the client can confirm. Empty if none.
-- suggestedAgenda: exactly 3 short, action-oriented points, in the order to run the meeting, working toward "${goal}". Start each with a verb.
+- stillUncertain: 2-4 matter-specific questions that genuinely need answering IN the meeting — each naming the fact/constraint it arises from. Empty if none.
+- suggestedAgenda: exactly 3 short, action-oriented points, in the order to run the meeting, working toward "${goal}". Start each with a verb; refer to this matter's specifics.
 - decisionsToLeaveWith: 2-4 concrete outcomes this consultation must clarify, decide, or agree before the next stage — the results the meeting should produce, not just topics to discuss.
 - nextCommitment: ONE short line — what should happen AFTER the meeting, the concrete next step both sides leave with (e.g. "Book the inspection and send written confirmation"), toward "${goal}".
 - Reason only from the supplied information; invent nothing.${objectiveLine}`;
