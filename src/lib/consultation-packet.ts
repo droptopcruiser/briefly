@@ -89,6 +89,31 @@ interface PacketRow {
   kind: string;
 }
 
+/**
+ * Coerce persisted content to the current shape. Packets created before the re-cut
+ * carried the old five-field shape (matterSummary/keyFacts/documentStatus/
+ * unresolvedQuestions); map what maps, default the rest, so old rows render instead
+ * of crashing the matter page.
+ */
+function normalizeContent(c: Record<string, unknown> | null | undefined): PacketContent {
+  const o = (c ?? {}) as Record<string, unknown>;
+  const arr = (k: string, alt?: string): unknown[] => {
+    const v = o[k] ?? (alt ? o[alt] : undefined);
+    return Array.isArray(v) ? v : [];
+  };
+  return {
+    preparedFrom: typeof o.preparedFrom === "string" ? o.preparedFrom : "",
+    meetingObjective: typeof o.meetingObjective === "string" ? o.meetingObjective : null,
+    whyHere: (typeof o.whyHere === "string" ? o.whyHere : (o.matterSummary as string)) ?? "",
+    whatWeKnow: arr("whatWeKnow", "keyFacts") as PacketFact[],
+    changedSinceIntake: arr("changedSinceIntake") as string[],
+    stillUncertain: arr("stillUncertain", "unresolvedQuestions") as string[],
+    suggestedAgenda: arr("suggestedAgenda") as string[],
+    decisionsToLeaveWith: arr("decisionsToLeaveWith") as string[],
+    judgmentPending: o.judgmentPending === true,
+  };
+}
+
 function rowToPacket(r: PacketRow): WorkPacket {
   return {
     id: r.id,
@@ -96,7 +121,7 @@ function rowToPacket(r: PacketRow): WorkPacket {
     matterId: r.matter_id,
     version: r.version,
     state: r.state,
-    content: r.content,
+    content: normalizeContent(r.content as unknown as Record<string, unknown>),
     sourceHash: r.source_hash ?? "",
     readiness: r.readiness ?? 0,
     costCents: r.cost_cents ?? 0,
