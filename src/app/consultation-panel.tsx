@@ -298,6 +298,14 @@ export function ConsultationPanel({
           </p>
         ) : null}
 
+        {/* Lead with the consequence — the one thing the meeting must resolve. */}
+        {c.keyQuestion ? (
+          <div className="rounded-lg border-l-4 border-accent bg-accent/5 px-4 py-3">
+            <div className="text-xs font-semibold uppercase tracking-wide text-accent">The meeting needs to resolve</div>
+            <p className="mt-1 text-[15px] leading-relaxed font-medium">{c.keyQuestion}</p>
+          </div>
+        ) : null}
+
         {c.meetingObjective ? (
           <div className="rounded-lg border border-accent/40 bg-accent/5 px-4 py-3">
             <div className="text-xs font-semibold uppercase tracking-wide text-accent">Your objective for this meeting</div>

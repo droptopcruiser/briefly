@@ -51,6 +51,12 @@ export interface BriefDocument {
 
 /** The structured body of a brief. Factual sections are grounded; prose is model-written. */
 export interface WorkBriefContent {
+  /**
+   * 0 — "Briefly noticed": the signature interpretation. Connects two or more
+   * separate facts into a single non-obvious implication or constraint that
+   * changes what to do next. Empty until the judgment phase fills it.
+   */
+  insight: string;
   /** 1 — a short orientation to the client's situation and stated objective. */
   summary: string;
   /** 2 + 3 — structured facts relevant to the rubric, each with its source. */
@@ -216,6 +222,7 @@ export function isBriefStale(brief: WorkBrief, matter: Matter): boolean {
 // --- Generation ------------------------------------------------------------
 
 interface JudgmentOut {
+  insight: string;
   considerations: string[];
   rubricIssues: string[];
   suggestedNextStep: string;
@@ -246,10 +253,11 @@ async function draftJudgment(input: JudgmentInput): Promise<{ out: JudgmentOut; 
 RULES:
 - No autonomous legal/medical/financial advice. Frame as "for professional review" / "issues for consideration".
 - Reason only from the supplied facts; invent nothing.
+- insight — THE MOST IMPORTANT FIELD ("Briefly noticed"): connect TWO OR MORE separate facts into ONE non-obvious implication or constraint that changes what to do next. SYNTHESISE, do not restate — name the specific facts and what they TOGETHER imply. 1-2 sentences. Self-test: "Could this have been written from a single fact, or for any ${input.vertical.toLowerCase()} matter?" If yes, rewrite. (Weak: "The client wants to sell." Strong: "The client wants to sell before the school year and is only free weekday mornings, so the appraisal must be booked early enough to leave time for the next step.") If genuinely nothing connects, state the single most decision-relevant constraint.
+- suggestedNextStep: ONE non-autonomous next step (a single sentence, verb first) that FOLLOWS FROM the insight.
+- suggestedClientMessage: a short, warm, human draft to the client that PROVES the insight — reflect the reason and constraint you noticed (their deadline, their availability), not merely restating the request. Else "" if no message is warranted. A draft the professional sends themselves — never sent automatically.
 - considerations: caveats or info that may still matter even at readiness. 0-3 short bullets.
 - rubricIssues: notable facts/flags for a "${input.rubricName}" matter. 0-3 short bullets.
-- suggestedNextStep: ONE non-autonomous next step (a single sentence, verb first).
-- suggestedClientMessage: a short optional draft to the client if warranted, else "". A draft the professional sends themselves — never sent automatically.
 - questionsForProfessional: material ambiguities needing judgment. 0-3 short questions, else empty.`;
 
   const user = `Matter summary: ${input.summary}
@@ -261,6 +269,7 @@ ${facts || "(none extracted)"}`;
     type: "object",
     additionalProperties: false,
     properties: {
+      insight: { type: "string" },
       considerations: { type: "array", items: { type: "string" } },
       rubricIssues: { type: "array", items: { type: "string" } },
       suggestedNextStep: { type: "string" },
@@ -268,6 +277,7 @@ ${facts || "(none extracted)"}`;
       questionsForProfessional: { type: "array", items: { type: "string" } },
     },
     required: [
+      "insight",
       "considerations",
       "rubricIssues",
       "suggestedNextStep",
@@ -276,7 +286,7 @@ ${facts || "(none extracted)"}`;
     ],
   };
 
-  const { data, costCents } = await jsonCall<JudgmentOut>({ system, user, schema, maxTokens: 640 });
+  const { data, costCents } = await jsonCall<JudgmentOut>({ system, user, schema, maxTokens: 760 });
   return { out: data, costCents };
 }
 
@@ -290,6 +300,7 @@ function mockJudgment(input: JudgmentInput): JudgmentOut {
   }
   considerations.push("Confirm the extracted facts against the original correspondence before acting.");
   return {
+    insight: "",
     considerations,
     rubricIssues: [],
     suggestedNextStep: `Review the prepared facts for this ${input.rubricName.toLowerCase()} and decide whether to begin the work or request confirmation from the client.`,
@@ -348,6 +359,7 @@ export function buildFactualContent(rubric: Rubric, result: PipelineResult): Wor
     .map((t) => ({ date: t.date, description: t.description, source: t.source }));
 
   return {
+    insight: "",
     summary: result.summary,
     keyFacts,
     documents,
@@ -365,6 +377,7 @@ export function buildFactualContent(rubric: Rubric, result: PipelineResult): Wor
 function applyJudgment(content: WorkBriefContent, judgment: JudgmentOut): WorkBriefContent {
   return {
     ...content,
+    insight: judgment.insight.trim(),
     considerations: judgment.considerations.filter(Boolean),
     rubricIssues: judgment.rubricIssues.filter(Boolean),
     suggestedNextStep: judgment.suggestedNextStep.trim(),

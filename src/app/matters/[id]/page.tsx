@@ -186,6 +186,7 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
     !!matter.consultationAt && new Date(matter.consultationAt).getTime() > Date.now();
   const status = workflowStatus(matter, rubric, upcoming, !!packet);
 
+  const insight = brief?.content.insight?.trim() || null;
   const now = firstSentence(r.summary);
   const next =
     brief?.content.suggestedNextStep?.trim() ||
@@ -237,14 +238,27 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
         ) : null}
       </div>
 
-      <div className="space-y-1.5">
-        <p className="text-base">{now}</p>
-        {!completed ? (
-          <p className="text-base">
-            <span className="font-semibold">Next:</span> {next}
-          </p>
-        ) : null}
-      </div>
+      {/* Briefly noticed — the signature interpretation, leads the "Now". */}
+      {insight ? (
+        <div className="rounded-lg border-l-4 border-accent bg-accent/5 px-4 py-3">
+          <div className="text-xs font-semibold uppercase tracking-wide text-accent">Briefly noticed</div>
+          <p className="mt-1 text-[15px] leading-relaxed">{insight}</p>
+          {!completed ? (
+            <p className="mt-2 text-sm">
+              <span className="font-semibold">Recommended next step:</span> {next}
+            </p>
+          ) : null}
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          <p className="text-base">{now}</p>
+          {!completed ? (
+            <p className="text-base">
+              <span className="font-semibold">Next:</span> {next}
+            </p>
+          ) : null}
+        </div>
+      )}
 
       {messagePreview && !completed ? (
         <div className="rounded-lg border border-border bg-inset px-4 py-3">

@@ -33,6 +33,8 @@ export interface PacketContent {
   preparedFrom: string;
   /** The professional's optional steer for THIS meeting (null = use the rubric). */
   meetingObjective: string | null;
+  /** 0 — the single consequence the meeting must resolve, matter-specific (model). */
+  keyQuestion: string;
   /** 1 — why this client is here (a line). */
   whyHere: string;
   /** 2 — what we know that's relevant to the conversation (source-backed). */
@@ -106,6 +108,7 @@ function normalizeContent(c: Record<string, unknown> | null | undefined): Packet
   return {
     preparedFrom: typeof o.preparedFrom === "string" ? o.preparedFrom : "",
     meetingObjective: typeof o.meetingObjective === "string" ? o.meetingObjective : null,
+    keyQuestion: typeof o.keyQuestion === "string" ? o.keyQuestion : "",
     whyHere: (typeof o.whyHere === "string" ? o.whyHere : (o.matterSummary as string)) ?? "",
     whatWeKnow: arr("whatWeKnow", "keyFacts") as PacketFact[],
     changedSinceIntake: arr("changedSinceIntake") as string[],
@@ -207,6 +210,7 @@ interface AgendaInput {
   changedSinceIntake: string[];
 }
 interface AgendaOut {
+  keyQuestion: string;
   stillUncertain: string[];
   suggestedAgenda: string[];
   decisionsToLeaveWith: string[];
@@ -225,6 +229,7 @@ SPECIFICITY — the most important rule. Every question and decision must be SPE
 
 RULES:
 - No autonomous legal/medical/financial advice — frame everything as "for the professional to consider / confirm / decide with the client".
+- keyQuestion — THE HEADLINE: the single most important thing THIS meeting must resolve, phrased as one concrete question that names the specific constraint driving it (e.g. "What appraisal timing lets the client list before the school year they mentioned?"). Not generic; the consequence the whole meeting hangs on.
 - stillUncertain: 2-4 matter-specific questions that genuinely need answering IN the meeting — each naming the fact/constraint it arises from. Empty if none.
 - suggestedAgenda: exactly 3 short, action-oriented points, in the order to run the meeting, working toward "${goal}". Start each with a verb; refer to this matter's specifics.
 - decisionsToLeaveWith: 2-4 concrete outcomes this consultation must clarify, decide, or agree before the next stage — the results the meeting should produce, not just topics to discuss.
@@ -240,20 +245,22 @@ Changed since intake: ${input.changedSinceIntake.length ? input.changedSinceInta
     type: "object",
     additionalProperties: false,
     properties: {
+      keyQuestion: { type: "string" },
       stillUncertain: { type: "array", items: { type: "string" } },
       suggestedAgenda: { type: "array", items: { type: "string" } },
       decisionsToLeaveWith: { type: "array", items: { type: "string" } },
       nextCommitment: { type: "string" },
     },
-    required: ["stillUncertain", "suggestedAgenda", "decisionsToLeaveWith", "nextCommitment"],
+    required: ["keyQuestion", "stillUncertain", "suggestedAgenda", "decisionsToLeaveWith", "nextCommitment"],
   };
-  const { data, costCents } = await jsonCall<AgendaOut>({ system, user, schema, maxTokens: 820 });
+  const { data, costCents } = await jsonCall<AgendaOut>({ system, user, schema, maxTokens: 900 });
   return { out: data, costCents };
 }
 
 function mockAgenda(input: AgendaInput): AgendaOut {
   const goal = input.meetingObjective || input.nextActionIntent || "the next step";
   return {
+    keyQuestion: `What does the client need in order to move toward ${goal}?`,
     stillUncertain: ["Confirm the key facts on file with the client at the start of the meeting."],
     suggestedAgenda: [
       "Confirm the client's situation and the key facts already on file.",
@@ -322,6 +329,7 @@ export function buildFactualPacket(
   return {
     preparedFrom: rubric.name,
     meetingObjective: meetingObjective?.trim() || null,
+    keyQuestion: "",
     whyHere: result.summary,
     whatWeKnow,
     changedSinceIntake,
@@ -377,6 +385,7 @@ export async function createPacketForMatter(
     const { out, costCents: c, mocked: m } = await runAgenda(agendaInput(rb, content, matter.result));
     content = {
       ...content,
+      keyQuestion: out.keyQuestion?.trim() ?? "",
       stillUncertain: out.stillUncertain.filter(Boolean),
       suggestedAgenda: out.suggestedAgenda.filter(Boolean),
       decisionsToLeaveWith: out.decisionsToLeaveWith.filter(Boolean),
@@ -420,6 +429,7 @@ export async function completeJudgmentForPacket(
   const { out, costCents, mocked } = await runAgenda(agendaInput(rb, packet.content, matter.result));
   packet.content = {
     ...packet.content,
+    keyQuestion: out.keyQuestion?.trim() ?? "",
     stillUncertain: out.stillUncertain.filter(Boolean),
     suggestedAgenda: out.suggestedAgenda.filter(Boolean),
     decisionsToLeaveWith: out.decisionsToLeaveWith.filter(Boolean),

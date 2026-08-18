@@ -147,6 +147,14 @@ export function WorkBriefCard({
       ) : null}
 
       <div className="space-y-6 px-5 py-5">
+        {/* Briefly noticed — the signature interpretation, leads the brief. */}
+        {content.insight ? (
+          <div className="rounded-lg border-l-4 border-accent bg-accent/5 px-4 py-3">
+            <div className="text-xs font-semibold uppercase tracking-wide text-accent">Briefly noticed</div>
+            <p className="mt-1 text-sm">{content.insight}</p>
+          </div>
+        ) : null}
+
         {/* Context — references the facts, doesn't reprint them (they live in the record). */}
         <Section title="What's arrived">
           <p className="text-sm">{content.summary}</p>
