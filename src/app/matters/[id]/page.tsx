@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { getMatterById } from "@/lib/store";
 import type { Matter } from "@/lib/types";
 import { approveMatter, approveAndSendMatter } from "@/app/actions";
-import { ReadinessBadge, ReadinessMeter, StatusBadge } from "@/app/ui";
+import { ReadinessBadge, ReadinessMeter, StatusBadge, StatusChip } from "@/app/ui";
+import { StickyNow } from "@/app/sticky-now";
 import { ApproveButton } from "@/app/approve-button";
 import { DraftActions } from "@/app/draft-actions";
 import { BriefPanel } from "@/app/brief-panel";
@@ -12,7 +13,7 @@ import { ConsultationPanel } from "@/app/consultation-panel";
 import { MatterTabs, GoToTab } from "@/app/matter-tabs";
 import { InsightCallout } from "@/app/insight-callout";
 import { BriefMessageSend } from "@/app/brief-message-send";
-import { workflowStatus, firstSentence } from "@/lib/matter-status";
+import { workflowStatus, statusTone, firstSentence } from "@/lib/matter-status";
 import { SinceReviewCard } from "@/app/since-review-card";
 import { AssignControl } from "@/app/assign-control";
 import { requireAccount, type Account } from "@/lib/metering";
@@ -183,7 +184,21 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
 
   const completed = matter.status === "completed";
 
+  // The compact bar shown once the full hero scrolls under the header.
+  const compactBar = (
+    <div className="flex items-center gap-3">
+      <StatusChip label={status} tone={statusTone(matter)} />
+      <span className="min-w-0 flex-1 truncate text-sm text-muted">{completed ? matter.clientName : next}</span>
+      {!completed ? (
+        <GoToTab tab="next">
+          {r.draftEmail || briefMessage ? "Review & send →" : "Review →"}
+        </GoToTab>
+      ) : null}
+    </div>
+  );
+
   return (
+    <StickyNow bar={compactBar}>
     <section className="space-y-4 rounded-xl border border-accent bg-surface p-5">
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-full bg-accent-soft px-3 py-1 text-sm font-semibold text-accent">
@@ -254,6 +269,7 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
 
       {preparedLine ? <p className="text-xs text-muted">{preparedLine}</p> : null}
     </section>
+    </StickyNow>
   );
 }
 
