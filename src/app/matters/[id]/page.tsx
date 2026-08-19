@@ -11,6 +11,7 @@ import { DraftActions } from "@/app/draft-actions";
 import { BriefPanel } from "@/app/brief-panel";
 import { ConsultationPanel } from "@/app/consultation-panel";
 import { MatterTabs, GoToTab } from "@/app/matter-tabs";
+import { EvidenceDrawer, OpenEvidenceButton } from "@/app/evidence-drawer";
 import { InsightCallout } from "@/app/insight-callout";
 import { BriefMessageSend } from "@/app/brief-message-send";
 import { workflowStatus, statusTone, firstSentence } from "@/lib/matter-status";
@@ -189,6 +190,10 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
     <div className="flex items-center gap-3">
       <StatusChip label={status} tone={statusTone(matter)} />
       <span className="min-w-0 flex-1 truncate text-sm text-muted">{completed ? matter.clientName : next}</span>
+      <OpenEvidenceButton className="hidden rounded-md border border-border px-2.5 py-1.5 text-sm text-muted transition-colors hover:bg-inset hover:text-foreground sm:inline-flex">
+        <span aria-hidden="true">▤</span>
+        <span className="sr-only">Open evidence</span>
+      </OpenEvidenceButton>
       {!completed ? (
         <GoToTab tab="next">
           {r.draftEmail || briefMessage ? "Review & send →" : "Review →"}
@@ -557,7 +562,6 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
   const defaultTab = upcomingConsult ? "plan" : "next";
 
   const tabs = [
-    { id: "record", label: "Matter record", node: <RecordPanel matter={matter} /> },
     {
       id: "next",
       label: "Next step",
@@ -592,10 +596,11 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
       {/* Pinned header — the matter's identity, always visible above the tabs */}
       <header className="space-y-3">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight">{r.clientName ?? "Unnamed client"}</h1>
+          <h1 className="font-serif text-2xl font-medium tracking-tight">{r.clientName ?? "Unnamed client"}</h1>
           <ReadinessBadge value={r.readiness} />
           <StatusBadge status={matter.status} />
           <div className="ml-auto flex items-center gap-2">
+            <OpenEvidenceButton />
             <form action={markMatterReviewed}>
               <input type="hidden" name="id" value={matter.id} />
               <button
@@ -636,8 +641,13 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
         <OverviewSection matter={matter} account={account} />
       </Suspense>
 
-      {/* One source of truth, three contextual views */}
+      {/* Two working views; the evidence is pulled forward on demand, not a tab. */}
       <MatterTabs tabs={tabs} defaultTab={defaultTab} />
+
+      {/* The matter record — pulled forward as a Liquid Glass evidence drawer. */}
+      <EvidenceDrawer>
+        <RecordPanel matter={matter} />
+      </EvidenceDrawer>
     </div>
   );
 }
