@@ -94,6 +94,8 @@ export interface WorkBriefContent {
   suggestedClientMessage: string | null;
   /** 10 — material ambiguity or decisions needing professional judgment. */
   questionsForProfessional: string[];
+  /** Items the professional promoted to the plan or dismissed — hidden from the brief. */
+  dismissed?: string[];
   /**
    * True while the judgment sections (6-10) are still being prepared. The
    * deterministic, source-backed sections (summary, facts, documents, dates) are
@@ -216,6 +218,21 @@ export async function getLatestBrief(matterId: string): Promise<WorkBrief | null
 export async function getActiveBrief(matterId: string): Promise<WorkBrief | null> {
   const latest = await getLatestBrief(matterId);
   return latest && latest.state !== "superseded" ? latest : null;
+}
+
+/**
+ * Hide a brief item (a consideration/issue/question the professional promoted to the
+ * plan or dismissed) so it no longer shows in the brief. Idempotent + deduped.
+ */
+export async function hideBriefItem(matterId: string, text: string): Promise<void> {
+  const brief = await getActiveBrief(matterId);
+  if (!brief) return;
+  const t = text.trim();
+  if (!t) return;
+  const dismissed = brief.content.dismissed ?? [];
+  if (dismissed.includes(t)) return;
+  brief.content = { ...brief.content, dismissed: [...dismissed, t] };
+  await saveBrief(brief);
 }
 
 // --- Staleness -------------------------------------------------------------
@@ -418,6 +435,7 @@ export function buildFactualContent(rubric: Rubric, result: PipelineResult): Wor
     suggestedNextStep: "",
     suggestedClientMessage: null,
     questionsForProfessional: [],
+    dismissed: [],
     judgmentPending: true,
   };
 }

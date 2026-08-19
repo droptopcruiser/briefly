@@ -350,6 +350,19 @@ export function ConsultationPanel({
           </Section>
         ) : null}
 
+        {c.promotedAgenda && c.promotedAgenda.length > 0 ? (
+          <Section title="Added from the brief">
+            <ul className="space-y-1.5">
+              {c.promotedAgenda.map((a, i) => (
+                <li key={i} className="anim-swapin flex items-start gap-2 text-sm">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+                  <span>{a}</span>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        ) : null}
+
         {c.stillUncertain.length > 0 ? (
           <Section title="Questions to ask — still uncertain">
             <Bullets items={c.stillUncertain} tone="awaiting" />

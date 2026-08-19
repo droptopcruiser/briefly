@@ -49,6 +49,8 @@ export interface PacketContent {
   decisionsToLeaveWith: string[];
   /** 7 — what should happen AFTER the meeting: the next commitment (model). */
   nextCommitment: string;
+  /** Agenda items the professional promoted from the brief — kept across refreshes. */
+  promotedAgenda?: string[];
   /** True while the model-written sections (judgment) are still being prepared. */
   judgmentPending?: boolean;
 }
@@ -116,6 +118,7 @@ function normalizeContent(c: Record<string, unknown> | null | undefined): Packet
     suggestedAgenda: arr("suggestedAgenda") as string[],
     decisionsToLeaveWith: arr("decisionsToLeaveWith") as string[],
     nextCommitment: typeof o.nextCommitment === "string" ? o.nextCommitment : "",
+    promotedAgenda: Array.isArray(o.promotedAgenda) ? (o.promotedAgenda as string[]) : [],
     judgmentPending: o.judgmentPending === true,
   };
 }
@@ -337,6 +340,7 @@ export function buildFactualPacket(
     suggestedAgenda: [],
     decisionsToLeaveWith: [],
     nextCommitment: "",
+    promotedAgenda: [],
     judgmentPending: true,
   };
 }
@@ -375,10 +379,12 @@ export async function createPacketForMatter(
     await savePacket(latest);
   }
 
-  // A refresh keeps the objective the professional already set unless a new one is given.
+  // A refresh keeps the objective + promoted agenda the professional already set.
   const objective = opts.meetingObjective ?? latest?.content.meetingObjective ?? null;
+  const carriedPromoted = latest?.content.promotedAgenda ?? [];
   const changed = await changedSinceIntakeBullets(matter, rb);
   let content = buildFactualPacket(rb, matter.result, changed, objective);
+  content.promotedAgenda = carriedPromoted;
   let costCents = 0;
   let mocked = true;
   if (opts.withJudgment) {
@@ -461,6 +467,35 @@ export async function ensurePacketForConsultation(
     return await createPacketForMatter(matter, rubric, { meetingObjective });
   } catch (err) {
     console.error("ensurePacketForConsultation failed:", err);
+    return null;
+  }
+}
+
+/**
+ * Promote a brief item onto the consultation plan's agenda. Ensures a plan exists
+ * (creating a facts-only one if needed — so promoting is also how a plan starts
+ * forming), then appends the item to the persistent promotedAgenda (deduped). Best-
+ * effort; returns the (existing or new) packet, or null.
+ */
+export async function addPromotedAgendaItem(
+  matter: Matter,
+  rubric: Rubric | undefined,
+  text: string,
+): Promise<WorkPacket | null> {
+  try {
+    const t = text.trim();
+    if (!t || !matter.result) return null;
+    let packet = await getActivePacket(matter.id);
+    if (!packet) packet = await createPacketForMatter(matter, rubric, {});
+    if (!packet) return null;
+    const current = packet.content.promotedAgenda ?? [];
+    if (!current.includes(t)) {
+      packet.content = { ...packet.content, promotedAgenda: [...current, t] };
+      await savePacket(packet);
+    }
+    return packet;
+  } catch (err) {
+    console.error("addPromotedAgendaItem failed:", err);
     return null;
   }
 }

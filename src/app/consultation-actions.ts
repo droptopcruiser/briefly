@@ -10,9 +10,11 @@ import {
   createPacketForMatter,
   completeJudgmentForPacket,
   ensurePacketForConsultation,
+  addPromotedAgendaItem,
   reviewPacket,
   type WorkPacket,
 } from "@/lib/consultation-packet";
+import { hideBriefItem } from "@/lib/work-brief";
 
 /**
  * Actions for the Pre-Consultation Packet. The packet is prepared on demand — a
@@ -108,6 +110,28 @@ export async function refreshPacket(matterId: string): Promise<WorkPacket | null
   const packet = await createPacketForMatter(matter, rubric, { supersede: true });
   if (packet) await addEvent(matter.accountId, matter.id, "packet_refreshed", "Pre-consultation packet refreshed");
   return packet;
+}
+
+/**
+ * Promote a brief item onto the consultation plan's agenda: add it to the plan
+ * (creating one if needed) and hide it from the brief, so the item visibly MOVES.
+ */
+export async function promoteToAgenda(matterId: string, text: string): Promise<{ ok: boolean }> {
+  await requireUser();
+  const { matter, rubric } = await loadMatterAndRubric(matterId);
+  if (!matter) return { ok: false };
+  const packet = await addPromotedAgendaItem(matter, rubric, text);
+  if (!packet) return { ok: false };
+  await hideBriefItem(matterId, text);
+  await addEvent(matter.accountId, matter.id, "agenda_promoted", "Added to the consultation plan agenda");
+  return { ok: true };
+}
+
+/** Dismiss a brief item — hide it from the brief without promoting it. */
+export async function dismissBriefItem(matterId: string, text: string): Promise<{ ok: boolean }> {
+  await requireUser();
+  await hideBriefItem(matterId, text);
+  return { ok: true };
 }
 
 /** Mark the packet reviewed / ready for the meeting. */

@@ -1,9 +1,12 @@
 "use client";
 
 import type { WorkBriefContent, WorkBriefState } from "@/lib/work-brief";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Spinner } from "@/app/pending-button";
 import { BriefMessageSend } from "@/app/brief-message-send";
 import { InsightCallout } from "@/app/insight-callout";
+import { promoteToAgenda, dismissBriefItem } from "@/app/consultation-actions";
 
 /**
  * The Initial Work Brief review surface — PRESENTATIONAL. All state and the
@@ -17,16 +20,96 @@ import { InsightCallout } from "@/app/insight-callout";
  * model fills them in.
  */
 
-function Bullets({ items }: { items: string[] }) {
+/**
+ * A brief item with promote/dismiss micro-actions (revealed on hover). Promoting
+ * moves it onto the consultation plan's agenda; dismissing hides it. Either way the
+ * item settles out of the brief with a short collapse — human-in-the-loop made
+ * visible: Briefly surfaced the issue; the professional decides what it becomes.
+ */
+function PromotableItem({ matterId, text }: { matterId: string; text: string }) {
+  const router = useRouter();
+  const [status, setStatus] = useState<"idle" | "working" | "promoted" | "leaving" | "gone">("idle");
+  if (status === "gone") return null;
+  const leaving = status === "leaving";
+
+  async function promote() {
+    setStatus("working");
+    await promoteToAgenda(matterId, text);
+    setStatus("promoted");
+    setTimeout(() => setStatus("leaving"), 1000);
+    setTimeout(() => {
+      setStatus("gone");
+      router.refresh();
+    }, 1300);
+  }
+  async function dismiss() {
+    setStatus("working");
+    await dismissBriefItem(matterId, text);
+    setStatus("leaving");
+    setTimeout(() => {
+      setStatus("gone");
+      router.refresh();
+    }, 300);
+  }
+
   return (
-    <ul className="space-y-1.5">
-      {items.map((t, i) => (
-        <li key={i} className="flex gap-2 text-sm">
-          <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-muted" />
-          <span>{t}</span>
-        </li>
-      ))}
-    </ul>
+    <li
+      className={`group overflow-hidden transition-all duration-300 ${leaving ? "max-h-0 opacity-0" : "max-h-40"}`}
+    >
+      <div className="flex items-start gap-2 py-1">
+        <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-muted" />
+        <span className="flex-1 text-sm">{text}</span>
+        {status === "promoted" ? (
+          <span className="shrink-0 text-xs font-medium text-accent">✓ Added to plan</span>
+        ) : (
+          <span className="flex shrink-0 items-center gap-2 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+            <button
+              type="button"
+              onClick={promote}
+              disabled={status === "working"}
+              className="text-xs font-medium text-accent hover:underline disabled:opacity-50"
+            >
+              Promote to agenda
+            </button>
+            <span className="text-border" aria-hidden="true">
+              ·
+            </span>
+            <button
+              type="button"
+              onClick={dismiss}
+              disabled={status === "working"}
+              className="text-xs text-muted hover:text-foreground disabled:opacity-50"
+            >
+              Dismiss
+            </button>
+          </span>
+        )}
+      </div>
+    </li>
+  );
+}
+
+function PromotableSection({
+  matterId,
+  title,
+  items,
+  dismissed,
+}: {
+  matterId: string;
+  title: string;
+  items: string[];
+  dismissed: Set<string>;
+}) {
+  const visible = items.filter((i) => !dismissed.has(i.trim()));
+  if (visible.length === 0) return null;
+  return (
+    <Section title={title}>
+      <ul className="space-y-0.5">
+        {visible.map((t, i) => (
+          <PromotableItem key={`${t}-${i}`} matterId={matterId} text={t} />
+        ))}
+      </ul>
+    </Section>
   );
 }
 
@@ -96,6 +179,7 @@ export function WorkBriefCard({
 }) {
   const approved = state === "approved";
   const judgmentPending = !!content.judgmentPending;
+  const dismissed = new Set((content.dismissed ?? []).map((d) => d.trim()));
 
   const RefreshButton = ({ label }: { label: string }) => (
     <button
@@ -181,24 +265,10 @@ export function WorkBriefCard({
           </Section>
         ) : null}
 
-        {/* Supporting reasoning sits below the action. */}
-        {content.considerations.length > 0 ? (
-          <Section title="Outstanding considerations">
-            <Bullets items={content.considerations} />
-          </Section>
-        ) : null}
-
-        {content.rubricIssues.length > 0 ? (
-          <Section title="Issues for consideration">
-            <Bullets items={content.rubricIssues} />
-          </Section>
-        ) : null}
-
-        {content.questionsForProfessional.length > 0 ? (
-          <Section title="Questions for you">
-            <Bullets items={content.questionsForProfessional} />
-          </Section>
-        ) : null}
+        {/* Supporting reasoning sits below the action — each item promotable to the plan. */}
+        <PromotableSection matterId={matterId} title="Outstanding considerations" items={content.considerations} dismissed={dismissed} />
+        <PromotableSection matterId={matterId} title="Issues for consideration" items={content.rubricIssues} dismissed={dismissed} />
+        <PromotableSection matterId={matterId} title="Questions for you" items={content.questionsForProfessional} dismissed={dismissed} />
       </div>
 
       {/* Human gate. When stale, the refresh CTA lives in the banner above. */}
