@@ -4,6 +4,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 const OPEN_EVENT = "briefly-open-evidence";
 
+/**
+ * Open the evidence drawer, optionally focused on a specific fact (its factSlug) —
+ * the "conclusion → evidence" jump. Usable from anywhere (header, sticky bar, an
+ * insight factor) since it just dispatches a window event.
+ */
+export function openEvidence(fact?: string) {
+  window.dispatchEvent(new CustomEvent(OPEN_EVENT, { detail: fact ? { fact } : undefined }));
+}
+
 /** Opens the evidence drawer from anywhere (header, sticky bar) via a window event. */
 export function OpenEvidenceButton({
   className,
@@ -15,7 +24,7 @@ export function OpenEvidenceButton({
   return (
     <button
       type="button"
-      onClick={() => window.dispatchEvent(new Event(OPEN_EVENT))}
+      onClick={() => openEvidence()}
       className={
         className ??
         "inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-muted transition-colors hover:bg-inset hover:text-foreground"
@@ -42,13 +51,15 @@ export function EvidenceDrawer({ children }: { children: React.ReactNode }) {
   const [expanded, setExpanded] = useState(false);
   const panelRef = useRef<HTMLElement>(null);
   const restoreTo = useRef<HTMLElement | null>(null);
+  const pendingFocus = useRef<string | null>(null);
 
   const close = useCallback(() => setOpen(false), []);
 
-  // Open on the window event (from the header / sticky bar / future factor links).
+  // Open on the window event (from the header / sticky bar / an insight factor).
   useEffect(() => {
-    const onOpen = () => {
+    const onOpen = (e: Event) => {
       restoreTo.current = document.activeElement as HTMLElement | null;
+      pendingFocus.current = (e as CustomEvent<{ fact?: string }>).detail?.fact ?? null;
       setOpen(true);
     };
     window.addEventListener(OPEN_EVENT, onOpen);
@@ -56,11 +67,27 @@ export function EvidenceDrawer({ children }: { children: React.ReactNode }) {
   }, []);
 
   // While open: lock body scroll, close on Esc, move focus in and restore on close.
+  // If opened focused on a fact, scroll it into view and light it (shared amber wash).
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     panelRef.current?.focus();
+
+    const targetSlug = pendingFocus.current;
+    pendingFocus.current = null;
+    let litEl: HTMLElement | null = null;
+    let litTimer: ReturnType<typeof setTimeout> | undefined;
+    if (targetSlug) {
+      requestAnimationFrame(() => {
+        litEl = panelRef.current?.querySelector<HTMLElement>(`[data-evi-fact="${targetSlug}"]`) ?? null;
+        if (litEl) {
+          litEl.scrollIntoView({ block: "center", behavior: "smooth" });
+          litEl.classList.add("evi-lit");
+          litTimer = setTimeout(() => litEl?.classList.remove("evi-lit"), 1900);
+        }
+      });
+    }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
@@ -68,6 +95,8 @@ export function EvidenceDrawer({ children }: { children: React.ReactNode }) {
     return () => {
       document.body.style.overflow = prev;
       document.removeEventListener("keydown", onKey);
+      if (litTimer) clearTimeout(litTimer);
+      litEl?.classList.remove("evi-lit");
       restoreTo.current?.focus?.();
     };
   }, [open]);

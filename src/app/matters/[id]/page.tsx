@@ -14,7 +14,7 @@ import { MatterTabs, GoToTab } from "@/app/matter-tabs";
 import { EvidenceDrawer, OpenEvidenceButton } from "@/app/evidence-drawer";
 import { InsightCallout } from "@/app/insight-callout";
 import { BriefMessageSend } from "@/app/brief-message-send";
-import { workflowStatus, statusTone, firstSentence } from "@/lib/matter-status";
+import { workflowStatus, statusTone, firstSentence, factSlug } from "@/lib/matter-status";
 import { SinceReviewCard } from "@/app/since-review-card";
 import { AssignControl } from "@/app/assign-control";
 import { requireAccount, type Account } from "@/lib/metering";
@@ -407,7 +407,7 @@ function RecordPanel({ matter }: { matter: Matter }) {
           <h2 className="text-lg font-semibold tracking-tight">Extracted facts</h2>
           <dl className="rounded-lg border border-border bg-surface divide-y divide-border">
             {r.fields.map((f) => (
-              <div key={f.key} className="px-4 py-3">
+              <div key={f.key} data-evi-fact={factSlug(f.label)} className="px-4 py-3">
                 <dt className="text-xs uppercase tracking-wide text-muted">{f.label}</dt>
                 {f.present ? (
                   <>

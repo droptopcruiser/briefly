@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import type { BriefInsight, InsightFactor } from "@/lib/work-brief";
+import { factSlug } from "@/lib/matter-status";
+import { openEvidence } from "@/app/evidence-drawer";
 
 /**
  * "Briefly noticed" — the signature interpretation as a VISIBLE, TRACEABLE chain.
@@ -130,10 +132,21 @@ function TraceFactor({ factor, first }: { factor: InsightFactor; first: boolean 
         >
           <div className="space-y-1.5 border-l-2 border-awaiting pl-2.5">
             {factor.sources.map((s, i) => (
-              <blockquote key={i}>
+              <button
+                key={i}
+                type="button"
+                onClick={() => openEvidence(factSlug(s.label))}
+                className="group/src block w-full rounded text-left outline-none focus-visible:ring-2 focus-visible:ring-awaiting/50"
+                title="Show this in the evidence drawer"
+              >
                 <span className="text-xs italic">“{s.quote}”</span>
-                <span className="mt-0.5 block text-[11px] not-italic text-muted">{s.label}</span>
-              </blockquote>
+                <span className="mt-0.5 flex items-center gap-1 text-[11px] not-italic text-muted">
+                  {s.label}
+                  <span className="text-awaiting opacity-0 transition-opacity group-hover/src:opacity-100">
+                    in evidence →
+                  </span>
+                </span>
+              </button>
             ))}
           </div>
         </div>

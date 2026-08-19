@@ -181,6 +181,13 @@ h1, h2, h3 {
 }
 .stagger-in { animation: briefly-settle 460ms var(--ease) both; animation-delay: calc(var(--i, 0) * 45ms); }
 
+/* Shared focus wash — a factor and its source fact light the same amber when linked. */
+.evi-lit {
+  background-color: var(--awaiting-soft) !important;
+  box-shadow: inset 0 0 0 1px var(--awaiting);
+  transition: background-color 320ms var(--ease), box-shadow 320ms var(--ease);
+}
+
 /* Scroll-reveal: primary section elements only (opacity + 12px rise). */
 .reveal {
   opacity: 0;
@@ -216,4 +223,5 @@ h1, h2, h3 {
   .anim-swapin { animation: none !important; }
   .line-draw, .line-grow { transform: none !important; transition: none !important; }
   .lift:hover { transform: none !important; }
+  .evi-lit { transition: none !important; }
 }

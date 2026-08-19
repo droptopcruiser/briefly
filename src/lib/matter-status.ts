@@ -1,5 +1,15 @@
 import type { Matter, Rubric } from "./types";
 
+/** Stable id shared by a fact (in the evidence drawer) and a factor's source that
+ *  points at it, so the workspace and the drawer can highlight the same thing. */
+export function factSlug(label: string): string {
+  return (label ?? "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
 /** First sentence of a summary, capped — the "what's happening now" line. */
 export function firstSentence(text: string): string {
   const t = (text ?? "").trim();
