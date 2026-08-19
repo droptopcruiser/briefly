@@ -41,11 +41,11 @@ export function BriefMessageSend({
     }
   }
 
-  const copyBtn = (
+  const copyLink = (
     <button
       type="button"
       onClick={copyDraft}
-      className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-inset"
+      className="text-xs text-muted underline decoration-dotted underline-offset-2 hover:text-foreground"
     >
       {copied ? "Copied ✓" : "Copy"}
     </button>
@@ -53,7 +53,7 @@ export function BriefMessageSend({
 
   if (state.ok) {
     return (
-      <div className="rounded-lg border border-accent bg-surface px-4 py-3 text-sm">
+      <div className="rounded-lg border border-accent bg-accent-soft px-4 py-3 text-sm">
         <span className="font-medium text-accent">✓ Sent to client</span>
         {to ? <span className="text-muted"> · {to}</span> : null}
       </div>
@@ -61,59 +61,62 @@ export function BriefMessageSend({
   }
 
   return (
-    <div className="space-y-2">
-      <div className="rounded-lg border border-border focus-within:border-accent">
-        <div className="flex flex-col gap-1 border-b border-border px-4 py-2 text-sm">
-          <div>
-            <span className="text-muted">To:</span>{" "}
-            {to ?? "(no client email found — send from your own mail client)"}
-          </div>
-          <label className="flex items-center gap-2">
-            <span className="text-muted">Subject:</span>
-            <input
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              className="flex-1 bg-transparent font-medium outline-none"
-            />
-          </label>
+    <div className="space-y-3">
+      {/* The external communication — a paper-like sheet, distinct from the internal brief. */}
+      <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-[var(--shadow-sm)] focus-within:border-accent">
+        <div className="flex items-center gap-2 border-b border-border bg-inset px-4 py-2 text-xs text-muted">
+          <span aria-hidden="true">✉</span>
+          <span className="font-medium uppercase tracking-wide">Message to client</span>
+          <span className="ml-auto truncate">{to ?? "no email on file — use your mail client"}</span>
         </div>
+        <label className="flex items-center gap-2 border-b border-border px-4 py-2 text-sm">
+          <span className="text-muted">Subject</span>
+          <input
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            className="min-w-0 flex-1 bg-transparent font-medium outline-none"
+          />
+        </label>
         <textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          rows={8}
-          className="w-full resize-y bg-transparent px-4 py-3 text-sm font-sans outline-none"
+          rows={9}
+          className="w-full resize-y bg-transparent px-4 py-3.5 text-sm leading-relaxed outline-none"
         />
       </div>
 
+      {/* One dominant action; the rest recede to quiet fallbacks. */}
       {to ? (
-        <form action={formAction} className="flex flex-wrap items-center gap-3">
+        <form action={formAction} className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <input type="hidden" name="id" value={matterId} />
           <input type="hidden" name="subject" value={subject} />
           <input type="hidden" name="body" value={body} />
           <button
             type="submit"
             disabled={pending}
-            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg disabled:opacity-60"
+            className="rounded-md bg-accent px-5 py-2.5 text-sm font-semibold text-accent-fg shadow-[var(--shadow-sm)] transition-opacity disabled:opacity-60"
           >
             {pending ? "Sending…" : "Approve & send"}
           </button>
-          {copyBtn}
-          <a
-            href={mailto}
-            className="text-xs text-muted underline underline-offset-2 hover:text-foreground"
-          >
-            or send from your own mail client
-          </a>
+          <div className="flex items-center gap-3">
+            {copyLink}
+            <a
+              href={mailto}
+              className="text-xs text-muted underline decoration-dotted underline-offset-2 hover:text-foreground"
+            >
+              use your mail client
+            </a>
+          </div>
         </form>
       ) : (
         <div className="flex flex-wrap items-center gap-3">
           <a
             href={mailto}
-            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:opacity-90"
+            className="rounded-md bg-accent px-5 py-2.5 text-sm font-semibold text-accent-fg hover:opacity-90"
           >
             Send in mail client
           </a>
-          {copyBtn}
+          {copyLink}
         </div>
       )}
 
@@ -121,7 +124,7 @@ export function BriefMessageSend({
         <p className="text-xs text-error">{state.error}</p>
       ) : (
         <p className="text-xs text-muted">
-          A draft for you — edit if you like, then approve. Briefly sends exactly what you see
+          Edit if you like, then approve — Briefly sends exactly what you see
           {to ? ` to ${to}` : ""}. Nothing goes out without your approval.
         </p>
       )}

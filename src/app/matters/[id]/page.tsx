@@ -13,7 +13,6 @@ import { ConsultationPanel } from "@/app/consultation-panel";
 import { MatterTabs, GoToTab } from "@/app/matter-tabs";
 import { EvidenceDrawer, OpenEvidenceButton } from "@/app/evidence-drawer";
 import { InsightCallout } from "@/app/insight-callout";
-import { BriefMessageSend } from "@/app/brief-message-send";
 import { workflowStatus, statusTone, firstSentence, factSlug } from "@/lib/matter-status";
 import { SinceReviewCard } from "@/app/since-review-card";
 import { AssignControl } from "@/app/assign-control";
@@ -230,13 +229,12 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
         </div>
       )}
 
-      {/* The vehicle for the decision — the prepared message, sendable right here. */}
+      {/* A preview of the prepared message; the sheet + Approve & send live in Next step. */}
       {!completed && briefMessage ? (
         <div className="space-y-2 rounded-lg border border-border bg-inset p-4">
-          <div className="text-xs font-semibold uppercase tracking-wide text-muted">
-            Prepared client message — send to act on this decision
-          </div>
-          <BriefMessageSend matterId={matter.id} to={matter.clientEmail} initialBody={briefMessage} />
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted">Prepared client message</div>
+          <p className="line-clamp-3 whitespace-pre-line text-sm text-foreground/90">{briefMessage}</p>
+          <GoToTab tab="next">Review &amp; send →</GoToTab>
         </div>
       ) : null}
 
@@ -258,11 +256,6 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
         <div className="flex flex-wrap items-center gap-3">
           {!r.draftEmail && !briefMessage ? (
             <GoToTab tab="next">Review the next step →</GoToTab>
-          ) : null}
-          {!r.draftEmail && briefMessage ? (
-            <GoToTab tab="next" variant="secondary">
-              Review full brief
-            </GoToTab>
           ) : null}
           {!r.draftEmail ? (
             <GoToTab tab="plan" variant="secondary">

@@ -113,6 +113,26 @@ function PromotableSection({
   );
 }
 
+/** A quiet, receding "refresh" — a text action, not a button competing with the gate. */
+function RefreshTextButton({ onRefresh, refreshing }: { onRefresh: () => void; refreshing: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onRefresh}
+      disabled={refreshing}
+      className="inline-flex items-center gap-1.5 text-xs text-muted underline decoration-dotted underline-offset-4 hover:text-foreground disabled:opacity-60"
+    >
+      {refreshing ? (
+        <>
+          <Spinner /> Refreshing…
+        </>
+      ) : (
+        "Refresh draft"
+      )}
+    </button>
+  );
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-2">
@@ -185,6 +205,7 @@ export function WorkBriefCard({
     typeof content.insight === "object" &&
     content.insight.consequence
   );
+  const hasMessage = !!content.suggestedClientMessage;
 
   const RefreshButton = ({ label }: { label: string }) => (
     <button
@@ -255,60 +276,79 @@ export function WorkBriefCard({
           </div>
         ) : null}
 
-        {/* Context — references the facts, doesn't reprint them (they live in the record). */}
-        <Section title="What's arrived">
-          <p className="text-sm">{content.summary}</p>
-        </Section>
-
         {/* Judgment sections: a skeleton until the model fills them in. */}
         {judgmentPending ? <JudgmentSkeleton /> : null}
 
-        {/* Value before explanation: the sendable client message leads (human-gated). */}
+        {/* PRIMARY — the external communication that completes the decision. */}
         {content.suggestedClientMessage ? (
-          <Section title="Suggested client message (draft)">
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-accent">Prepared client message</h3>
             <BriefMessageSend
               matterId={matterId}
               to={clientEmail}
               initialBody={content.suggestedClientMessage}
             />
-          </Section>
+          </section>
         ) : null}
 
-        {/* Supporting reasoning sits below the action — each item promotable to the plan. */}
-        <PromotableSection matterId={matterId} title="Outstanding considerations" items={content.considerations} dismissed={dismissed} />
-        <PromotableSection matterId={matterId} title="Issues for consideration" items={content.rubricIssues} dismissed={dismissed} />
-        <PromotableSection matterId={matterId} title="Questions for you" items={content.questionsForProfessional} dismissed={dismissed} />
+        {/* SUPPORTING reasoning — the internal brief, quieter, below the action. */}
+        {!judgmentPending ? (
+          <div className="space-y-5 border-t border-border pt-5">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Supporting reasoning</p>
+            <Section title="What's arrived">
+              <p className="text-sm">{content.summary}</p>
+            </Section>
+            <PromotableSection matterId={matterId} title="Outstanding considerations" items={content.considerations} dismissed={dismissed} />
+            <PromotableSection matterId={matterId} title="Issues for consideration" items={content.rubricIssues} dismissed={dismissed} />
+            <PromotableSection matterId={matterId} title="Questions for you" items={content.questionsForProfessional} dismissed={dismissed} />
+          </div>
+        ) : null}
       </div>
 
-      {/* Human gate. When stale, the refresh CTA lives in the banner above. */}
-      <div className="flex flex-wrap items-center gap-3 border-t border-border px-5 py-4">
+      {/* Human gate. When a client message exists, its "Approve & send" above is the
+          primary action — so this footer recedes to a secondary "begin work"
+          control. When there's no message, approving the brief IS the action. */}
+      <div className="border-t border-border px-5 py-4">
         {approved ? (
-          <>
-            <span className="rounded-md border border-accent px-4 py-2 text-sm font-medium text-accent">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="inline-flex items-center gap-1.5 text-sm font-medium text-accent">
               ✓ Brief approved
             </span>
-            {!stale ? <RefreshButton label="Refresh draft" /> : null}
-          </>
+            {!stale ? <RefreshTextButton onRefresh={onRefresh} refreshing={refreshing} /> : null}
+          </div>
         ) : judgmentPending ? (
           <span className="inline-flex items-center gap-2 text-sm text-muted">
             <Spinner />
             Finishing the brief before you approve…
           </span>
-        ) : (
-          <>
+        ) : hasMessage ? (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted">
             <button
               type="button"
               onClick={onApprove}
               disabled={approving}
-              className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg disabled:opacity-70"
+              className="rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-inset disabled:opacity-70"
             >
               Approve brief
             </button>
-            {!stale ? <RefreshButton label="Refresh draft" /> : null}
+            {!stale ? <RefreshTextButton onRefresh={onRefresh} refreshing={refreshing} /> : null}
+            <span>Approving begins the work internally — the client message above is the action.</span>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={onApprove}
+              disabled={approving}
+              className="rounded-md bg-accent px-5 py-2.5 text-sm font-semibold text-accent-fg shadow-[var(--shadow-sm)] disabled:opacity-70"
+            >
+              Approve brief
+            </button>
+            {!stale ? <RefreshTextButton onRefresh={onRefresh} refreshing={refreshing} /> : null}
             <span className="text-xs text-muted">
               Human gate — approving begins the work. Nothing is sent.
             </span>
-          </>
+          </div>
         )}
       </div>
     </div>
