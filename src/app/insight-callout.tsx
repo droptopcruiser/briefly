@@ -23,9 +23,15 @@ export function InsightCallout({
   );
   const traceCount = factors.filter((f) => f.sources.length > 0).length;
 
+  // The "prepared" reveal: as judgment lands, the chain draws itself in — each link,
+  // then the consequence, then the decision — a gentle stagger keyed off --i. Instant
+  // under prefers-reduced-motion (the .stagger-in animation is disabled there).
+  let step = 0;
+  const at = (): React.CSSProperties => ({ ["--i" as string]: step++ } as React.CSSProperties);
+
   return (
     <div className="space-y-3 rounded-lg border-l-4 border-accent bg-accent/5 px-4 py-3.5">
-      <div className="flex items-center justify-between gap-2">
+      <div className="stagger-in flex items-center justify-between gap-2" style={at()}>
         <div className="text-xs font-semibold uppercase tracking-wide text-accent">Briefly noticed</div>
         {traceCount > 0 ? (
           <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-awaiting">
@@ -38,13 +44,15 @@ export function InsightCallout({
       {factors.length > 0 ? (
         <div className="space-y-1.5">
           {factors.map((f, i) => (
-            <TraceFactor key={i} factor={f} first={i === 0} />
+            <div key={i} className="stagger-in" style={at()}>
+              <TraceFactor factor={f} first={i === 0} />
+            </div>
           ))}
         </div>
       ) : null}
 
       {/* → the consequence they force. */}
-      <div className="flex items-start gap-2">
+      <div className="stagger-in flex items-start gap-2" style={at()}>
         <span aria-hidden="true" className="select-none text-muted">↳</span>
         <p className="text-sm">
           <span className="font-semibold">So:</span> {insight.consequence}
@@ -53,13 +61,13 @@ export function InsightCallout({
 
       {/* → the one decision that follows. */}
       {therefore ? (
-        <div className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-fg">
+        <div className="stagger-in rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-fg" style={at()}>
           Decision now: {therefore}
         </div>
       ) : null}
 
       {insight.afterThis ? (
-        <p className="text-xs text-muted">
+        <p className="stagger-in text-xs text-muted" style={at()}>
           <span className="font-medium">After you decide:</span> {insight.afterThis}
         </p>
       ) : null}
