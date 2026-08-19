@@ -5,10 +5,10 @@ import type { BriefInsight, InsightFactor } from "@/lib/work-brief";
 
 /**
  * "Briefly noticed" — the signature interpretation as a VISIBLE, TRACEABLE chain.
- * Each factor is a link the professional would otherwise connect themselves; hover
- * (or focus) a link and the exact client phrase it was drawn from glows beneath it,
- * proving Briefly didn't invent the connection — it read it from the client's own
- * words. The chain ends in the one decision that follows.
+ * Each factor is a link the professional would otherwise connect themselves; open a
+ * link (hover, tap, or keyboard) and the exact client phrase it was drawn from lifts
+ * forward on a frosted evidence surface, proving Briefly read the connection rather
+ * than inventing it. The evidence stays subordinate: conclusion first, proof on ask.
  */
 export function InsightCallout({
   insight,
@@ -21,10 +21,19 @@ export function InsightCallout({
   const factors: InsightFactor[] = (insight.factors as unknown as (string | InsightFactor)[]).map(
     (f) => (typeof f === "string" ? { text: f, sources: [] } : { text: f.text ?? "", sources: f.sources ?? [] }),
   );
+  const traceCount = factors.filter((f) => f.sources.length > 0).length;
 
   return (
     <div className="space-y-3 rounded-lg border-l-4 border-accent bg-accent/5 px-4 py-3.5">
-      <div className="text-xs font-semibold uppercase tracking-wide text-accent">Briefly noticed</div>
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-xs font-semibold uppercase tracking-wide text-accent">Briefly noticed</div>
+        {traceCount > 0 ? (
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-awaiting">
+            <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-awaiting" />
+            {traceCount} source-backed
+          </span>
+        ) : null}
+      </div>
 
       {factors.length > 0 ? (
         <div className="space-y-1.5">
@@ -58,53 +67,67 @@ export function InsightCallout({
   );
 }
 
-/** One factor — traceable to its source phrase on hover/focus. */
+/**
+ * One factor — traceable to its source phrase. Works by hover, focus, tap, and
+ * keyboard: it's a real button (Enter/Space toggle, Escape closes, tap pins on
+ * touch where there's no hover). aria-expanded announces that evidence is available.
+ */
 function TraceFactor({ factor, first }: { factor: InsightFactor; first: boolean }) {
-  const [open, setOpen] = useState(false);
+  const [hover, setHover] = useState(false);
+  const [pinned, setPinned] = useState(false);
   const traceable = factor.sources.length > 0;
+  const open = traceable && (hover || pinned);
+
+  if (!traceable) {
+    return (
+      <div className="flex items-start gap-2 text-sm">
+        <span aria-hidden="true" className="mt-0.5 select-none text-xs font-semibold text-muted">
+          {first ? "" : "+"}
+        </span>
+        <span>{factor.text}</span>
+      </div>
+    );
+  }
 
   return (
-    <div
-      onMouseEnter={() => traceable && setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-    >
-      <div
-        tabIndex={traceable ? 0 : -1}
-        onFocus={() => traceable && setOpen(true)}
-        onBlur={() => setOpen(false)}
-        aria-expanded={traceable ? open : undefined}
-        className={`flex items-start gap-2 text-sm outline-none ${traceable ? "cursor-help" : ""}`}
+    <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+      <button
+        type="button"
+        onClick={() => setPinned((p) => !p)}
+        onFocus={() => setHover(true)}
+        onBlur={() => setHover(false)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") setPinned(false);
+        }}
+        aria-expanded={open}
+        className="flex w-full items-start gap-2 rounded text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-awaiting/50"
       >
         <span aria-hidden="true" className="mt-0.5 select-none text-xs font-semibold text-muted">
           {first ? "" : "+"}
         </span>
-        <span
-          className={
-            traceable
-              ? "underline decoration-dotted decoration-awaiting/70 underline-offset-4 transition-colors group-hover:text-foreground"
-              : ""
-          }
-        >
+        <span className="underline decoration-dotted decoration-awaiting/70 underline-offset-4">
           {factor.text}
         </span>
-        {traceable ? (
-          <span className="mt-0.5 shrink-0 text-[10px] font-medium uppercase tracking-wide text-awaiting/80">
-            source
-          </span>
-        ) : null}
-      </div>
+        <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-awaiting/80">
+          <span aria-hidden="true" className="h-1 w-1 rounded-full bg-awaiting" />
+          source
+        </span>
+      </button>
 
-      {traceable && open ? (
-        <div className="anim-swapin mt-1.5 ml-5 space-y-1.5">
-          {factor.sources.map((s, i) => (
-            <blockquote
-              key={i}
-              className="rounded-md border-l-2 border-awaiting bg-awaiting-soft px-3 py-1.5 shadow-[0_0_0_3px_var(--awaiting-soft)]"
-            >
-              <span className="text-xs italic">“{s.quote}”</span>
-              <span className="mt-0.5 block text-[11px] not-italic text-muted">{s.label}</span>
-            </blockquote>
-          ))}
+      {/* Evidence brought forward — the one place a frosted glass surface earns it. */}
+      {open ? (
+        <div
+          className="anim-swapin mt-1.5 ml-5 rounded-lg border border-[var(--glass-border)] bg-[var(--glass-fill)] px-3 py-2 backdrop-blur-xl"
+          style={{ boxShadow: "var(--glass-shadow), var(--glass-hi)" }}
+        >
+          <div className="space-y-1.5 border-l-2 border-awaiting pl-2.5">
+            {factor.sources.map((s, i) => (
+              <blockquote key={i}>
+                <span className="text-xs italic">“{s.quote}”</span>
+                <span className="mt-0.5 block text-[11px] not-italic text-muted">{s.label}</span>
+              </blockquote>
+            ))}
+          </div>
         </div>
       ) : null}
     </div>
