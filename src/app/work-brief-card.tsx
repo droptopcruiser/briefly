@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Spinner } from "@/app/pending-button";
 import { BriefMessageSend } from "@/app/brief-message-send";
-import { InsightCallout } from "@/app/insight-callout";
+import { openEvidence } from "@/app/evidence-drawer";
 import { promoteToAgenda, dismissBriefItem } from "@/app/consultation-actions";
 
 /**
@@ -180,6 +180,11 @@ export function WorkBriefCard({
   const approved = state === "approved";
   const judgmentPending = !!content.judgmentPending;
   const dismissed = new Set((content.dismissed ?? []).map((d) => d.trim()));
+  const hasInsight = !!(
+    content.insight &&
+    typeof content.insight === "object" &&
+    content.insight.consequence
+  );
 
   const RefreshButton = ({ label }: { label: string }) => (
     <button
@@ -232,24 +237,28 @@ export function WorkBriefCard({
       ) : null}
 
       <div className="space-y-6 px-5 py-5">
-        {/* Briefly noticed — the visible reasoning chain, leads the brief. */}
-        {content.insight && typeof content.insight === "object" && content.insight.consequence ? (
-          <InsightCallout insight={content.insight} therefore={content.suggestedNextStep || null} />
+        {/* The insight lives ONCE — in the Now overview. Next step owns the decision,
+            not a second copy of "Briefly noticed". Reasoning is a link away. */}
+        {content.suggestedNextStep ? (
+          <div className="rounded-lg border border-accent/50 bg-accent/5 px-4 py-3">
+            <div className="text-xs font-semibold uppercase tracking-wide text-accent">Decision now</div>
+            <p className="mt-1 text-sm font-medium">{content.suggestedNextStep}</p>
+            {hasInsight ? (
+              <button
+                type="button"
+                onClick={() => openEvidence()}
+                className="mt-2 text-xs font-medium text-muted underline decoration-dotted underline-offset-4 hover:text-foreground"
+              >
+                Show supporting evidence →
+              </button>
+            ) : null}
+          </div>
         ) : null}
 
         {/* Context — references the facts, doesn't reprint them (they live in the record). */}
         <Section title="What's arrived">
           <p className="text-sm">{content.summary}</p>
         </Section>
-
-        {/* Next step — shown standalone only when the insight chain isn't carrying it. */}
-        {!(content.insight && typeof content.insight === "object" && content.insight.consequence) &&
-        content.suggestedNextStep ? (
-          <div className="rounded-lg border border-accent/50 bg-accent/5 px-4 py-3">
-            <div className="text-xs font-semibold uppercase tracking-wide text-accent">Next step</div>
-            <p className="mt-1 text-sm font-medium">{content.suggestedNextStep}</p>
-          </div>
-        ) : null}
 
         {/* Judgment sections: a skeleton until the model fills them in. */}
         {judgmentPending ? <JudgmentSkeleton /> : null}
