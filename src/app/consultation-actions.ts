@@ -15,6 +15,7 @@ import {
   type WorkPacket,
 } from "@/lib/consultation-packet";
 import { hideBriefItem } from "@/lib/work-brief";
+import { formatWhen, toWallClock } from "@/lib/format";
 
 /**
  * Actions for the Pre-Consultation Packet. The packet is prepared on demand — a
@@ -50,12 +51,12 @@ export async function prepareConsultationPacket(
   if (!matter) return null;
 
   if (isoDateTime) {
-    const when = new Date(isoDateTime);
-    if (!Number.isNaN(when.getTime())) {
-      matter.consultationAt = when.toISOString();
+    const wall = toWallClock(isoDateTime);
+    if (wall) {
+      matter.consultationAt = wall;
       matter.updatedAt = new Date().toISOString();
       await saveMatter(matter);
-      await addEvent(matter.accountId, matter.id, "consultation_set", `Consultation set for ${when.toLocaleString()}`);
+      await addEvent(matter.accountId, matter.id, "consultation_set", `Consultation set for ${formatWhen(wall)}`);
     }
   }
 
@@ -69,14 +70,14 @@ export async function prepareConsultationPacket(
 /** Set or change the consultation date after the packet exists (no regeneration). */
 export async function setConsultationDate(matterId: string, isoDateTime: string): Promise<{ ok: boolean }> {
   await requireUser();
-  const when = new Date(isoDateTime);
-  if (Number.isNaN(when.getTime())) return { ok: false };
+  const wall = toWallClock(isoDateTime);
+  if (!wall) return { ok: false };
   const { matter } = await loadMatterAndRubric(matterId);
   if (!matter) return { ok: false };
-  matter.consultationAt = when.toISOString();
+  matter.consultationAt = wall;
   matter.updatedAt = new Date().toISOString();
   await saveMatter(matter);
-  await addEvent(matter.accountId, matter.id, "consultation_set", `Consultation set for ${when.toLocaleString()}`);
+  await addEvent(matter.accountId, matter.id, "consultation_set", `Consultation set for ${formatWhen(wall)}`);
   return { ok: true };
 }
 

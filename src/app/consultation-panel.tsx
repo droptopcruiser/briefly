@@ -12,7 +12,7 @@ import {
   approvePacket,
 } from "@/app/consultation-actions";
 import type { WorkPacket } from "@/lib/consultation-packet";
-import { formatWhen, weekday } from "@/lib/format";
+import { formatWhen, weekday, toWallClock } from "@/lib/format";
 
 /**
  * The Consultation plan — the "we're meeting, how do we use this well" view. A
@@ -72,7 +72,7 @@ export function ConsultationPanel({
         dateInput || null,
         objectiveInput.trim() || null,
       );
-      if (dateInput) setConsultationAt(new Date(dateInput).toISOString());
+      if (dateInput) setConsultationAt(toWallClock(dateInput));
       if (p) {
         setPacket(p);
         setStale(false);
@@ -89,7 +89,7 @@ export function ConsultationPanel({
     try {
       const res = await setConsultationDate(matterId, dateInput);
       if (res.ok) {
-        setConsultationAt(new Date(dateInput).toISOString());
+        setConsultationAt(toWallClock(dateInput));
         setDateEditing(false);
       }
     } finally {

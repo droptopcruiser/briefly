@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { Spinner } from "@/app/pending-button";
 import { BriefMessageSend } from "@/app/brief-message-send";
 import { openEvidence } from "@/app/evidence-drawer";
-import { DecisionPane } from "@/app/decision-pane";
 import { promoteToAgenda, dismissBriefItem } from "@/app/consultation-actions";
 
 /**
@@ -291,25 +290,18 @@ export function WorkBriefCard({
       ) : null}
 
       <div className="space-y-6 px-5 py-5">
-        {/* The insight lives ONCE — in the Now overview. Next step owns the decision,
-            not a second copy of "Briefly noticed". Reasoning is a link away. */}
-        {content.suggestedNextStep ? (
-          <DecisionPane
-            consequence={hasInsight ? (content.insight as { consequence: string }).consequence : null}
-            footer={
-              hasInsight ? (
-                <button
-                  type="button"
-                  onClick={() => openEvidence()}
-                  className="inline-flex items-center gap-1.5 rounded text-sm font-medium text-accent underline decoration-dotted underline-offset-4 outline-none hover:text-accent-h focus-visible:ring-2 focus-visible:ring-accent"
-                >
-                  <span aria-hidden="true">◆</span> Show supporting evidence →
-                </button>
-              ) : undefined
-            }
-          >
-            {content.suggestedNextStep}
-          </DecisionPane>
+        {/* The canonical decision lives ONCE — in the Now hero above. This tab is where
+            you ACT on it: lead with the prepared communication, reasoning a link away. */}
+        {hasInsight ? (
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => openEvidence()}
+              className="inline-flex items-center gap-1.5 rounded text-sm font-medium text-accent underline decoration-dotted underline-offset-4 outline-none hover:text-accent-h focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              <span aria-hidden="true">◆</span> Show supporting evidence →
+            </button>
+          </div>
         ) : null}
 
         {/* Judgment sections: a skeleton until the model fills them in. */}
