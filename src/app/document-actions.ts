@@ -16,6 +16,7 @@ import {
   type PendingDocFact,
 } from "@/lib/documents";
 import { readDocumentPdf } from "@/lib/document-read";
+import { ensureBriefOnReady } from "@/lib/work-brief";
 
 /**
  * Attachment actions — Slice 1. Upload/remove a matter's PDF. Storage is
@@ -192,9 +193,24 @@ export async function confirmDocFact(
       matter.result.gaps = computeGaps(rubric, matter.result.fields, matter.result.documentsPresent);
       matter.result.readiness = computeReadiness(rubric, matter.result.gaps);
     }
+    // Confirming a document fact can complete the matter — advance it exactly like
+    // the pipeline does when a reply makes it ready: flip to "ready for you" and
+    // prepare the Initial Work Brief, so the dashboard + workflow reflect it.
+    const becameReady =
+      matter.result.readiness >= 100 && matter.status === "ready_for_review";
+    if (becameReady) matter.status = "ready_for_you";
     matter.updatedAt = new Date().toISOString();
     await saveMatter(matter);
     await addEvent(owner, matter.id, "document_fact_confirmed", `Confirmed ${fact.label} from ${doc.fileName}`);
+    if (becameReady) {
+      await addEvent(owner, matter.id, "became_ready", "Everything required is now present — ready for review");
+      try {
+        const brief = await ensureBriefOnReady(matter, rubric);
+        if (brief) await addEvent(owner, matter.id, "brief_created", "Initial Work Brief prepared for review");
+      } catch (err) {
+        console.error("ensureBriefOnReady after doc confirm failed:", err);
+      }
+    }
   } else if (outcome === "conflict") {
     await addEvent(
       owner,
