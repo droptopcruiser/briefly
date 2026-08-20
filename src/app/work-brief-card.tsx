@@ -301,9 +301,9 @@ export function WorkBriefCard({
                 <button
                   type="button"
                   onClick={() => openEvidence()}
-                  className="text-xs font-medium text-accent-fg/80 underline decoration-dotted underline-offset-4 hover:text-accent-fg"
+                  className="inline-flex items-center gap-1.5 rounded text-sm font-medium text-accent underline decoration-dotted underline-offset-4 outline-none hover:text-accent-h focus-visible:ring-2 focus-visible:ring-accent"
                 >
-                  Show supporting evidence →
+                  <span aria-hidden="true">◆</span> Show supporting evidence →
                 </button>
               ) : undefined
             }

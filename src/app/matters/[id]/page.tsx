@@ -16,6 +16,7 @@ import { UsedInInsightTag } from "@/app/used-in-insight-tag";
 import { InsightCallout } from "@/app/insight-callout";
 import { DecisionPane } from "@/app/decision-pane";
 import { workflowStatus, statusTone, firstSentence, factSlug } from "@/lib/matter-status";
+import { formatWhen } from "@/lib/format";
 import { SinceReviewCard } from "@/app/since-review-card";
 import { AssignControl } from "@/app/assign-control";
 import { requireAccount, type Account } from "@/lib/metering";
@@ -218,7 +219,9 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
           {status}
         </span>
         {upcoming && matter.consultationAt ? (
-          <span className="text-muted">· consultation {new Date(matter.consultationAt).toLocaleString()}</span>
+          <span className="text-muted" suppressHydrationWarning>
+            · consultation {formatWhen(matter.consultationAt, { compact: true })}
+          </span>
         ) : null}
       </div>
 

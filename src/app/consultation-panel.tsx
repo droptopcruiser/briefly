@@ -12,6 +12,7 @@ import {
   approvePacket,
 } from "@/app/consultation-actions";
 import type { WorkPacket } from "@/lib/consultation-packet";
+import { formatWhen, weekday } from "@/lib/format";
 
 /**
  * The Consultation plan — the "we're meeting, how do we use this well" view. A
@@ -187,13 +188,17 @@ export function ConsultationPanel({
 
   const c = packet.content;
   const judgmentPending = !!c.judgmentPending;
+  const runOfShow = [
+    ...c.suggestedAgenda.map((t) => ({ text: t, fromBrief: false })),
+    ...(c.promotedAgenda ?? []).map((t) => ({ text: t, fromBrief: true })),
+  ];
 
   return (
     <div className="overflow-hidden rounded-xl border border-accent bg-surface">
       <div className="border-b border-border px-5 py-4">
         <div className="flex flex-wrap items-center gap-3">
-          <h3 className="text-lg font-semibold tracking-tight">Consultation plan</h3>
-          <span className="rounded-full bg-inset px-2 py-0.5 text-xs text-muted tabular-nums">
+          <h3 className="font-serif text-lg font-medium tracking-tight">Consultation plan</h3>
+          <span className="ml-auto text-[11px] text-muted tabular-nums" title="Plan version">
             v{packet.version}
           </span>
         </div>
@@ -231,8 +236,8 @@ export function ConsultationPanel({
             </>
           ) : consultationAt ? (
             <>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-inset px-2.5 py-1 text-xs">
-                📅 {new Date(consultationAt).toLocaleString()}
+              <span className="text-sm font-medium text-foreground" suppressHydrationWarning>
+                {formatWhen(consultationAt)}
               </span>
               <button
                 type="button"
@@ -298,30 +303,40 @@ export function ConsultationPanel({
           </p>
         ) : null}
 
-        {/* Lead with the decision — the insight converted into what the meeting must decide. */}
+        {/* The outcome — what the whole meeting hangs on. */}
         {c.keyQuestion ? (
-          <div className="rounded-lg border-l-4 border-accent bg-accent/5 px-4 py-3">
-            <div className="text-xs font-semibold uppercase tracking-wide text-accent">Decision for the meeting</div>
-            <p className="mt-1 text-[15px] leading-relaxed font-medium">{c.keyQuestion}</p>
+          <div className="rounded-xl rounded-l-md border-l-[3px] border-accent bg-accent/5 px-4 py-3.5">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-accent">The meeting needs to resolve</div>
+            <p className="mt-1.5 font-serif text-base leading-snug">{c.keyQuestion}</p>
+            {c.decisionsToLeaveWith.length > 0 ? (
+              <ul className="mt-2.5 space-y-1">
+                {c.decisionsToLeaveWith.map((d, i) => (
+                  <li key={i} className="flex gap-2 text-sm text-foreground/85">
+                    <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-accent" />
+                    <span>{d}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </div>
         ) : null}
 
-        {c.meetingObjective ? (
-          <div className="rounded-lg border border-accent/40 bg-accent/5 px-4 py-3">
-            <div className="text-xs font-semibold uppercase tracking-wide text-accent">Your objective for this meeting</div>
-            <p className="mt-1 text-sm">{c.meetingObjective}</p>
-          </div>
-        ) : null}
-
-        <Section title="Purpose — why is this client meeting with us">
+        {/* Why it matters — one line, not a paragraph explaining the request. */}
+        <Section title="Why this meeting matters">
           <p className="text-sm">{c.whyHere}</p>
         </Section>
+
+        {c.meetingObjective ? (
+          <Section title="Your objective for this meeting">
+            <p className="text-sm">{c.meetingObjective}</p>
+          </Section>
+        ) : null}
 
         {judgmentPending ? (
           <div className="space-y-3 rounded-lg border border-dashed border-border bg-inset px-4 py-4">
             <div className="flex items-center gap-2 text-sm text-muted">
               <Spinner />
-              <span className="font-medium">Planning the meeting — agenda, decisions, next commitment…</span>
+              <span className="font-medium">Planning the meeting — run of show, questions, next step…</span>
             </div>
             <div className="space-y-2" aria-hidden="true">
               <div className="h-2.5 w-2/3 animate-pulse rounded bg-border" />
@@ -331,40 +346,30 @@ export function ConsultationPanel({
           </div>
         ) : null}
 
-        {c.decisionsToLeaveWith.length > 0 ? (
-          <Section title="Resolve today — what this meeting must decide">
-            <Bullets items={c.decisionsToLeaveWith} tone="accent" />
-          </Section>
-        ) : null}
-
-        {c.suggestedAgenda.length > 0 ? (
-          <Section title="Suggested agenda (for your review)">
-            <ol className="space-y-1.5">
-              {c.suggestedAgenda.map((a, i) => (
-                <li key={i} className="flex gap-2 text-sm">
-                  <span className="font-medium text-accent tabular-nums">{i + 1}.</span>
-                  <span>{a}</span>
+        {/* Run of show — the order to conduct the meeting. */}
+        {runOfShow.length > 0 ? (
+          <Section title="Run of show">
+            <ol className="space-y-3">
+              {runOfShow.map((step, i) => (
+                <li key={i} className="anim-swapin flex gap-3">
+                  <span className="mt-px shrink-0 font-serif text-sm font-semibold text-accent tabular-nums">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm">{step.text}</p>
+                    {step.fromBrief ? (
+                      <span className="text-[11px] text-muted">added from the brief</span>
+                    ) : null}
+                  </div>
                 </li>
               ))}
             </ol>
           </Section>
         ) : null}
 
-        {c.promotedAgenda && c.promotedAgenda.length > 0 ? (
-          <Section title="Added from the brief">
-            <ul className="space-y-1.5">
-              {c.promotedAgenda.map((a, i) => (
-                <li key={i} className="anim-swapin flex items-start gap-2 text-sm">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
-                  <span>{a}</span>
-                </li>
-              ))}
-            </ul>
-          </Section>
-        ) : null}
-
+        {/* Questions to leave answered. */}
         {c.stillUncertain.length > 0 ? (
-          <Section title="Questions to ask — still uncertain">
+          <Section title="Questions to leave answered">
             <Bullets items={c.stillUncertain} tone="awaiting" />
           </Section>
         ) : null}
@@ -375,7 +380,7 @@ export function ConsultationPanel({
               {missing.map((m, i) => (
                 <li key={i} className="flex items-center gap-2 text-sm">
                   <span className="text-awaiting">○</span>
-                  <span className="rounded px-1.5 py-0.5 text-[10px] uppercase border border-border text-muted">{m.kind}</span>
+                  <span className="rounded border border-awaiting/50 px-1.5 py-0.5 text-[10px] uppercase text-awaiting">{m.kind}</span>
                   <span>{m.label}</span>
                 </li>
               ))}
@@ -389,49 +394,52 @@ export function ConsultationPanel({
           </Section>
         ) : null}
 
+        {/* After the meeting — the lifecycle continues, it doesn't end here. */}
         {c.nextCommitment ? (
-          <Section title="Next commitment — after the meeting">
+          <Section title="After the meeting">
             <p className="rounded-lg border border-border bg-inset px-4 py-3 text-sm">{c.nextCommitment}</p>
+            <p className="mt-1.5 text-xs text-muted">
+              Once you&apos;ve met, add the meeting notes and Briefly will re-score the matter and prepare the next step.
+            </p>
           </Section>
         ) : null}
       </div>
 
       <div className="flex flex-wrap items-center gap-3 border-t border-border px-5 py-4">
         {approved ? (
-          <span className="rounded-md border border-accent px-4 py-2 text-sm font-medium text-accent">
-            ✓ Ready for the meeting
+          // A STATUS, not a button — it tells you the plan is ready, it isn't clickable.
+          <span className="inline-flex items-center gap-1.5 text-sm font-medium text-accent" suppressHydrationWarning>
+            ✓ Prepared for {consultationAt ? `${weekday(consultationAt)}'s consultation` : "the consultation"}
           </span>
         ) : judgmentPending ? (
           <span className="inline-flex items-center gap-2 text-sm text-muted">
             <Spinner /> Finishing the plan…
           </span>
         ) : (
-          <>
-            <button
-              type="button"
-              onClick={markReviewed}
-              className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg"
-            >
-              Mark ready for the meeting
-            </button>
-            {!stale ? (
-              <button
-                type="button"
-                onClick={refresh}
-                disabled={refreshing}
-                className="inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-inset disabled:opacity-60"
-              >
-                {refreshing ? (
-                  <>
-                    <Spinner /> Refreshing…
-                  </>
-                ) : (
-                  "Refresh"
-                )}
-              </button>
-            ) : null}
-          </>
+          <button
+            type="button"
+            onClick={markReviewed}
+            className="btn-primary rounded-md px-4 py-2 text-sm font-medium"
+          >
+            Mark plan ready
+          </button>
         )}
+        {!approved && !judgmentPending && !stale ? (
+          <button
+            type="button"
+            onClick={refresh}
+            disabled={refreshing}
+            className="inline-flex items-center gap-1.5 text-xs text-muted underline decoration-dotted underline-offset-4 hover:text-foreground disabled:opacity-60"
+          >
+            {refreshing ? (
+              <>
+                <Spinner /> Refreshing…
+              </>
+            ) : (
+              "Refresh plan"
+            )}
+          </button>
+        ) : null}
       </div>
     </div>
   );

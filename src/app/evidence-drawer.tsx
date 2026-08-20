@@ -159,7 +159,7 @@ export function EvidenceDrawer({ children }: { children: React.ReactNode }) {
             </button>
           </div>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">{children}</div>
+        <div className="@container/evi min-h-0 flex-1 overflow-y-auto px-5 py-5">{children}</div>
       </aside>
     </div>
   );
