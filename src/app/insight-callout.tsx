@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { BriefInsight, InsightFactor } from "@/lib/work-brief";
 import { factSlug } from "@/lib/matter-status";
 import { openEvidence } from "@/app/evidence-drawer";
+import { DecisionPane } from "@/app/decision-pane";
 
 /**
  * "Briefly noticed" — the signature interpretation as a VISIBLE, TRACEABLE chain.
@@ -61,27 +62,10 @@ export function InsightCallout({
         </p>
       </div>
 
-      {/* → the one decision that follows: the FOCUSED state of the glass material —
-          same corners + spacing as the surfaces around it, lifted with depth, a top
-          edge highlight, and a faint sheen, so it reads as polished dark glass. */}
+      {/* → the one decision that follows: a translucent focus lens (see DecisionPane). */}
       {therefore ? (
-        <div
-          className="stagger-in relative overflow-hidden rounded-lg px-4 py-3 text-accent-fg"
-          style={{
-            ...at(),
-            background: "var(--accent)",
-            boxShadow: "var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.2)",
-          }}
-        >
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0"
-            style={{ background: "var(--glass-sheen)", opacity: 0.18 }}
-          />
-          <div className="relative text-[11px] font-semibold uppercase tracking-wide text-accent-fg/70">
-            Decision now
-          </div>
-          <p className="relative mt-0.5 text-sm font-medium">{therefore}</p>
+        <div className="stagger-in" style={at()}>
+          <DecisionPane>{therefore}</DecisionPane>
         </div>
       ) : null}
 

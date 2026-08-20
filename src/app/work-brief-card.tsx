@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Spinner } from "@/app/pending-button";
 import { BriefMessageSend } from "@/app/brief-message-send";
 import { openEvidence } from "@/app/evidence-drawer";
+import { DecisionPane } from "@/app/decision-pane";
 import { promoteToAgenda, dismissBriefItem } from "@/app/consultation-actions";
 
 /**
@@ -293,19 +294,21 @@ export function WorkBriefCard({
         {/* The insight lives ONCE — in the Now overview. Next step owns the decision,
             not a second copy of "Briefly noticed". Reasoning is a link away. */}
         {content.suggestedNextStep ? (
-          <div className="rounded-lg border border-accent/50 bg-accent/5 px-4 py-3">
-            <div className="text-xs font-semibold uppercase tracking-wide text-accent">Decision now</div>
-            <p className="mt-1 text-sm font-medium">{content.suggestedNextStep}</p>
-            {hasInsight ? (
-              <button
-                type="button"
-                onClick={() => openEvidence()}
-                className="mt-2 text-xs font-medium text-muted underline decoration-dotted underline-offset-4 hover:text-foreground"
-              >
-                Show supporting evidence →
-              </button>
-            ) : null}
-          </div>
+          <DecisionPane
+            footer={
+              hasInsight ? (
+                <button
+                  type="button"
+                  onClick={() => openEvidence()}
+                  className="text-xs font-medium text-accent-fg/80 underline decoration-dotted underline-offset-4 hover:text-accent-fg"
+                >
+                  Show supporting evidence →
+                </button>
+              ) : undefined
+            }
+          >
+            {content.suggestedNextStep}
+          </DecisionPane>
         ) : null}
 
         {/* Judgment sections: a skeleton until the model fills them in. */}
