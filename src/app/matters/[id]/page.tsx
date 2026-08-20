@@ -266,7 +266,9 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
           <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">
             What needs your attention
           </div>
-          <p className="text-sm leading-relaxed text-foreground/80">{r.summary}</p>
+          <p className="text-sm leading-relaxed text-foreground/80">
+            {insight?.attention?.trim() || r.summary}
+          </p>
           <GoToTab tab="next">Review prepared request →</GoToTab>
         </div>
       ) : null}

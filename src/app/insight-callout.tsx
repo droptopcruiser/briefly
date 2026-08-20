@@ -54,6 +54,13 @@ export function InsightCallout({ insight }: { insight: BriefInsight }) {
         ) : null}
       </div>
 
+      {/* Matter context — the orienting purpose, read before the evidence. */}
+      {insight.context?.trim() ? (
+        <p className="stagger-in text-sm leading-relaxed text-foreground/80" style={at()}>
+          {insight.context.trim()}
+        </p>
+      ) : null}
+
       {factors.length > 0 ? (
         <div className="space-y-1.5">
           {factors.map((f, i) => (

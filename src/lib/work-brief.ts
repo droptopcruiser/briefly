@@ -64,12 +64,18 @@ export interface InsightFactor {
 }
 
 export interface BriefInsight {
+  /** One concise sentence orienting the reader to the matter's PURPOSE — read before
+   *  the evidence. Names the client by first name; never repeats a factor's fact. */
+  context: string;
   /** 2-3 connected constraints, each a link — the visible chain, each traceable. */
   factors: InsightFactor[];
   /** The matter consequence the factors FORCE together — the non-obvious "so what". */
   consequence: string;
   /** Forward motion: what Briefly does once the professional decides. One sentence. */
   afterThis: string;
+  /** "What needs your attention" — one action-led sentence naming what to secure and
+   *  the downstream step it unblocks. Fuller than suggestedNextStep's terse decision. */
+  attention: string;
 }
 
 /** The structured body of a brief. Factual sections are grounded; prose is model-written. */
@@ -259,9 +265,11 @@ export function isBriefStale(brief: WorkBrief, matter: Matter): boolean {
 
 /** Raw model output for the insight — factors reference facts by label. */
 interface JudgmentInsight {
+  context: string;
   factors: { text: string; sourceLabels: string[] }[];
   consequence: string;
   afterThis: string;
+  attention: string;
 }
 interface JudgmentOut {
   insight: JudgmentInsight;
@@ -296,9 +304,11 @@ RULES:
 - No autonomous legal/medical/financial advice. Frame as "for professional review" / "issues for consideration".
 - Reason only from the supplied facts; invent nothing.
 - insight — THE MOST IMPORTANT FIELD ("Briefly noticed"). Make the reasoning a VISIBLE CHAIN of discrete links, not prose:
+  · context: ONE concise sentence orienting the reader to the matter's PURPOSE — why the client engaged the firm — read BEFORE the evidence. Use the client's FIRST name only (their full name is already in the header). It must NOT restate any fact you list as a factor: the factors carry the specific evidence; context gives only the orienting purpose. (Strong: "David is engaging the firm to handle conveyancing and settlement for a property purchase." Weak — repeats a factor: "David has provided a signed Contract of Sale.")
   · factors: the 2-3 SEPARATE facts/constraints you are connecting. Each factor is an object with 'text' and 'sourceLabels': 'text' is its own short statement (e.g. "Wants to sell before the school year"); 'sourceLabels' is the EXACT label(s) — copied verbatim from the "Known facts" list below — of the fact(s) that factor is drawn from (for traceability). At least two factors. These are the links the professional would otherwise have to connect themselves.
   · consequence: the matter consequence these factors FORCE together — the non-obvious "so what" that changes the action, going BEYOND restating the factors. (Strong: "The appraisal can't simply be scheduled — it must be booked early enough to preserve preparation time before listing.") One sentence.
   · afterThis: ONE sentence of forward motion — what Briefly does once the professional decides (e.g. "Briefly will update the matter timeline and build the consultation plan around the confirmed timing"). Reference Briefly's own follow-through, never autonomous client action.
+  · attention: "What needs your attention" — ONE action-led sentence (verb first) naming what the professional must secure AND the downstream step it unblocks. Distinct from suggestedNextStep: fuller, and it names the outcome it enables. Do NOT restate the matter's purpose (that is context). (Strong: "Confirm the contract conditions and obtain full title details before the settlement timeline is prepared.")
   Self-test the consequence: "Could this have been written from a single factor, or for any ${input.vertical.toLowerCase()} matter?" If yes, rewrite. If genuinely nothing connects, set factors to the single most decision-relevant fact and consequence to its implication.
 - suggestedNextStep: "Decision now" — the ONE decision, as a SHORT decisive instruction (≤10 words, verb first, no hedging, no compound clauses). The reasoning/why lives in the consequence, so do NOT restate it here. (Strong: "Confirm the sale deadline and inspection date." Weak: "Confirm the exact school-year start date and calculate the latest inspection date that permits a complete appraisal-to-report cycle before that deadline.")
 - suggestedClientMessage: a short, warm, human draft to the client that PROVES the insight — reflect the reason and constraint you noticed (their deadline, their availability), not merely restating the request. Else "" if no message is warranted. A draft the professional sends themselves — never sent automatically.
@@ -319,6 +329,7 @@ ${facts || "(none extracted)"}`;
         type: "object",
         additionalProperties: false,
         properties: {
+          context: { type: "string" },
           factors: {
             type: "array",
             items: {
@@ -333,8 +344,9 @@ ${facts || "(none extracted)"}`;
           },
           consequence: { type: "string" },
           afterThis: { type: "string" },
+          attention: { type: "string" },
         },
-        required: ["factors", "consequence", "afterThis"],
+        required: ["context", "factors", "consequence", "afterThis", "attention"],
       },
       considerations: { type: "array", items: { type: "string" } },
       rubricIssues: { type: "array", items: { type: "string" } },
@@ -366,7 +378,7 @@ function mockJudgment(input: JudgmentInput): JudgmentOut {
   }
   considerations.push("Confirm the extracted facts against the original correspondence before acting.");
   return {
-    insight: { factors: [], consequence: "", afterThis: "" } as JudgmentInsight,
+    insight: { context: "", factors: [], consequence: "", afterThis: "", attention: "" } as JudgmentInsight,
     considerations,
     rubricIssues: [],
     suggestedNextStep: `Review the prepared facts for this ${input.rubricName.toLowerCase()} and decide whether to begin the work or request confirmation from the client.`,
@@ -492,9 +504,11 @@ function applyJudgment(content: WorkBriefContent, judgment: JudgmentOut): WorkBr
     ...content,
     insight: judgment.insight.consequence.trim()
       ? {
+          context: judgment.insight.context?.trim() ?? "",
           factors: resolveFactors(judgment.insight.factors, content.keyFacts),
           consequence: judgment.insight.consequence.trim(),
           afterThis: judgment.insight.afterThis.trim(),
+          attention: judgment.insight.attention?.trim() ?? "",
         }
       : null,
     considerations: judgment.considerations.filter(Boolean),
