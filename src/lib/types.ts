@@ -72,6 +72,11 @@ export interface ExtractedField {
   source: string | null;
   /** True when this fact was carried forward from a prior matter (not this one). */
   carried?: boolean;
+  /**
+   * Set when this fact was confirmed from a read document (not the enquiry text).
+   * `page` is null for image-only/scanned PDFs, which can't be page-cited.
+   */
+  fromDocument?: { fileName: string; page: number | null };
 }
 
 /** A chronological event, each tagged to its source snippet. */

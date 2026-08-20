@@ -16,6 +16,19 @@ import { getSupabase } from "./supabase";
 
 export type DocumentStatus = "attached" | "reading" | "read" | "unreadable";
 
+/** A fact extracted from a document, AWAITING the professional's confirmation. */
+export interface PendingDocFact {
+  id: string;
+  key: string;
+  label: string;
+  value: string;
+  quote: string | null;
+  /** 1-indexed page, or null when image-only/scanned (not page-verified). */
+  page: number | null;
+  /** The matter field's current value at read time, if any — for a conflict warning. */
+  stated: string | null;
+}
+
 export interface MatterDocument {
   id: string;
   accountId: string;
@@ -29,6 +42,8 @@ export interface MatterDocument {
   readAt: string | null;
   costCents: number;
   createdAt: string;
+  /** Extracted facts awaiting confirmation — never merged until the pro confirms. */
+  pendingFacts: PendingDocFact[];
 }
 
 const BUCKET = "matter-docs";
@@ -53,6 +68,7 @@ interface DocRow {
   read_at: string | null;
   cost_cents: number | null;
   created_at: string;
+  pending_facts: PendingDocFact[] | null;
 }
 
 function rowToDoc(r: DocRow): MatterDocument {
@@ -69,6 +85,7 @@ function rowToDoc(r: DocRow): MatterDocument {
     readAt: r.read_at,
     costCents: Number(r.cost_cents ?? 0),
     createdAt: r.created_at,
+    pendingFacts: Array.isArray(r.pending_facts) ? r.pending_facts : [],
   };
 }
 
@@ -86,6 +103,7 @@ function docToRow(d: MatterDocument): DocRow {
     read_at: d.readAt,
     cost_cents: d.costCents,
     created_at: d.createdAt,
+    pending_facts: d.pendingFacts,
   };
 }
 
@@ -118,6 +136,7 @@ export async function uploadDocument(
     readAt: null,
     costCents: 0,
     createdAt: new Date().toISOString(),
+    pendingFacts: [],
   };
 
   const db = getSupabase();
@@ -162,6 +181,26 @@ export async function getDocument(id: string): Promise<MatterDocument | null> {
   const { data, error } = await db.from("documents").select("*").eq("id", id).limit(1);
   if (error) throw new Error(`getDocument: ${error.message}`);
   return data?.[0] ? rowToDoc(data[0] as DocRow) : null;
+}
+
+/** Persist status / pending-facts changes on an existing document record. */
+export async function updateDocument(doc: MatterDocument): Promise<void> {
+  const db = getSupabase();
+  if (!db) {
+    memRows.set(doc.id, doc);
+    return;
+  }
+  const { error } = await db
+    .from("documents")
+    .update({
+      status: doc.status,
+      read_at: doc.readAt,
+      cost_cents: doc.costCents,
+      page_count: doc.pageCount,
+      pending_facts: doc.pendingFacts,
+    })
+    .eq("id", doc.id);
+  if (error) throw new Error(`updateDocument: ${error.message}`);
 }
 
 export async function deleteDocument(id: string): Promise<void> {

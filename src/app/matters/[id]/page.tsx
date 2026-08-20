@@ -18,7 +18,12 @@ import { DecisionPane } from "@/app/decision-pane";
 import { workflowStatus, statusTone, firstSentence, factSlug } from "@/lib/matter-status";
 import { formatWhen } from "@/lib/format";
 import { listDocuments } from "@/lib/documents";
-import { DocumentUpload, DeleteDocButton } from "@/app/document-upload";
+import {
+  DocumentUpload,
+  DeleteDocButton,
+  ReadNowButton,
+  PendingFactRow,
+} from "@/app/document-upload";
 import { SinceReviewCard } from "@/app/since-review-card";
 import { AssignControl } from "@/app/assign-control";
 import { requireAccount, type Account } from "@/lib/metering";
@@ -433,24 +438,51 @@ async function AttachedFilesSection({ matter }: { matter: Matter }) {
     <section className="space-y-2">
       <h2 className="text-lg font-semibold tracking-tight">Attached files</h2>
       <p className="text-xs text-muted">
-        Stored securely in your region. Briefly hasn&apos;t read the contents yet — attach the file
-        here so it&apos;s on the matter; content reading is coming.
+        Stored securely in your region. Use <span className="font-medium">Read now</span> to extract
+        facts from a PDF — nothing is added to the matter until you confirm each one.
       </p>
       {docs.length > 0 ? (
-        <ul className="rounded-lg border border-border bg-surface divide-y divide-border">
-          {docs.map((d) => (
-            <li key={d.id} className="flex items-center gap-2 px-4 py-3 text-sm">
-              <span aria-hidden="true" className="text-muted">
-                ▤
-              </span>
-              <span className="min-w-0 truncate font-medium">{d.fileName}</span>
-              <span className="shrink-0 text-xs text-muted">{fileSize(d.sizeBytes)}</span>
-              <span className="ml-auto shrink-0 text-xs font-medium text-muted">
-                attached · not yet read
-              </span>
-              <DeleteDocButton matterId={matter.id} docId={d.id} fileName={d.fileName} />
-            </li>
-          ))}
+        <ul className="space-y-3">
+          {docs.map((d) => {
+            const statusLabel =
+              d.status === "read"
+                ? d.pendingFacts.length > 0
+                  ? `read · ${d.pendingFacts.length} for review`
+                  : "read"
+                : d.status === "reading"
+                  ? "reading…"
+                  : d.status === "unreadable"
+                    ? "couldn't read"
+                    : "attached · not yet read";
+            return (
+              <li key={d.id} className="overflow-hidden rounded-lg border border-border bg-surface">
+                <div className="flex items-center gap-2 px-4 py-3 text-sm">
+                  <span aria-hidden="true" className="text-muted">▤</span>
+                  <span className="min-w-0 truncate font-medium">{d.fileName}</span>
+                  <span className="shrink-0 text-xs text-muted">{fileSize(d.sizeBytes)}</span>
+                  <span className="ml-auto shrink-0 text-xs font-medium text-muted">{statusLabel}</span>
+                  <ReadNowButton matterId={matter.id} docId={d.id} status={d.status} />
+                  <DeleteDocButton matterId={matter.id} docId={d.id} fileName={d.fileName} />
+                </div>
+
+                {d.pendingFacts.length > 0 ? (
+                  <div className="border-t border-border bg-inset/50 px-4 py-3">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-accent">
+                      Document evidence found — awaiting your confirmation
+                    </div>
+                    <p className="mt-0.5 text-xs text-muted">
+                      Nothing affects the matter until you confirm it.
+                    </p>
+                    <ul className="mt-2 divide-y divide-border">
+                      {d.pendingFacts.map((f) => (
+                        <PendingFactRow key={f.id} matterId={matter.id} docId={d.id} fact={f} />
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       ) : (
         <p className="text-sm text-muted">No files attached yet.</p>
@@ -500,7 +532,14 @@ async function RecordPanel({ matter }: { matter: Matter }) {
                 {f.present ? (
                   <>
                     <dd className="font-medium">{f.value}</dd>
-                    {f.carried ? (
+                    {f.fromDocument ? (
+                      <dd className="mt-1 text-xs text-foreground/70">
+                        ▤ {f.fromDocument.fileName}
+                        {f.fromDocument.page !== null
+                          ? ` · p.${f.fromDocument.page}`
+                          : " · scan, not page-verified"}
+                      </dd>
+                    ) : f.carried ? (
                       <dd className="mt-1 text-xs text-foreground/70">📎 {f.source}</dd>
                     ) : (
                       <>

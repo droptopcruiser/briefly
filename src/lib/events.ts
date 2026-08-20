@@ -26,6 +26,8 @@ export type MatterEventType =
   | "packet_reviewed"
   | "agenda_promoted"
   | "document_attached"
+  | "document_read"
+  | "document_fact_confirmed"
   | "completed";
 
 export interface MatterEvent {
