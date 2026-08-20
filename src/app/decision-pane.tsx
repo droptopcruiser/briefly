@@ -1,43 +1,36 @@
 /**
- * The Decision-now surface — a restrained translucent FOCUS LENS, not a flat card.
- * Over the warm-paper workspace there's nothing for a backdrop blur to refract, so
- * the glass is BUILT: a deep forest tint with a soft internal bloom (brighter top-
- * left, deeper lower edge), a fine bright inner edge, a green-tinted ambient shadow,
- * and a diagonal sheen. The decision itself is set in the editorial serif. It reads
- * as the one decision Briefly has lifted forward — a surface that floats, next to
- * the paper message sheet and the floating Evidence Drawer.
+ * The decision surface — a LIGHT, softly-tinted translucent focus lens, not a
+ * saturated block. Its urgency comes from placement, the editorial serif, and a
+ * narrow forest accent edge — never from a giant dark fill. A soft lift shadow and a
+ * bright inner top edge make it float above the warm paper. One clear action on top;
+ * the consequence, quietly, beneath.
  */
 export function DecisionPane({
   children,
+  consequence,
   footer,
   label = "Decision now",
 }: {
   children: React.ReactNode;
+  consequence?: string | null;
   footer?: React.ReactNode;
   label?: string;
 }) {
   return (
     <div
-      className="relative overflow-hidden rounded-2xl px-5 py-4 text-accent-fg"
+      className="relative overflow-hidden rounded-xl rounded-l-md px-5 py-4"
       style={{
         background:
-          "radial-gradient(135% 120% at 20% -10%, color-mix(in srgb, var(--accent-h) 82%, white) 0%, var(--accent) 46%, color-mix(in srgb, var(--accent) 80%, black) 100%)",
-        border: "1px solid rgba(255, 255, 255, 0.16)",
+          "linear-gradient(180deg, color-mix(in srgb, var(--accent-soft) 82%, var(--surface)) 0%, var(--surface) 100%)",
+        borderLeft: "3px solid var(--accent)",
         boxShadow:
-          "0 24px 50px -22px rgba(29, 38, 33, 0.5), 0 8px 24px -10px color-mix(in srgb, var(--accent) 45%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.32), inset 0 -20px 38px -22px rgba(0, 0, 0, 0.35)",
+          "0 18px 40px -22px rgba(29, 38, 33, 0.32), 0 2px 6px -3px rgba(29, 38, 33, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6)",
       }}
     >
-      {/* Diagonal sheen — the glass catch. */}
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0"
-        style={{ background: "linear-gradient(152deg, rgba(255,255,255,0.20), rgba(255,255,255,0) 46%)" }}
-      />
-      <div className="relative text-[11px] font-semibold uppercase tracking-[0.14em] text-accent-fg/70">
-        {label}
-      </div>
-      <p className="relative mt-1.5 font-serif text-lg leading-snug">{children}</p>
-      {footer ? <div className="relative mt-2.5">{footer}</div> : null}
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">{label}</div>
+      <p className="mt-1.5 font-serif text-lg leading-snug text-foreground">{children}</p>
+      {consequence ? <p className="mt-1 text-sm text-muted">{consequence}</p> : null}
+      {footer ? <div className="mt-3">{footer}</div> : null}
     </div>
   );
 }

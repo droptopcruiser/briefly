@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { getMatterById } from "@/lib/store";
 import type { Matter } from "@/lib/types";
 import { approveMatter, approveAndSendMatter } from "@/app/actions";
-import { ReadinessBadge, ReadinessMeter, StatusBadge, StatusChip } from "@/app/ui";
+import { StatusChip } from "@/app/ui";
 import { StickyNow } from "@/app/sticky-now";
 import { ApproveButton } from "@/app/approve-button";
 import { DraftActions } from "@/app/draft-actions";
@@ -13,6 +13,7 @@ import { ConsultationPanel } from "@/app/consultation-panel";
 import { MatterTabs, GoToTab } from "@/app/matter-tabs";
 import { EvidenceDrawer, OpenEvidenceButton } from "@/app/evidence-drawer";
 import { InsightCallout } from "@/app/insight-callout";
+import { DecisionPane } from "@/app/decision-pane";
 import { workflowStatus, statusTone, firstSentence, factSlug } from "@/lib/matter-status";
 import { SinceReviewCard } from "@/app/since-review-card";
 import { AssignControl } from "@/app/assign-control";
@@ -203,57 +204,75 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
 
   return (
     <StickyNow bar={compactBar}>
-    <section className="space-y-4 rounded-xl border border-accent bg-surface p-5">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-full bg-accent-soft px-3 py-1 text-sm font-semibold text-accent">
+    <section className="relative space-y-5">
+      {/* A soft depth field so the floating surfaces have something to sit in. */}
+      <div aria-hidden="true" className="pointer-events-none absolute -inset-x-8 -top-6 -z-10 h-56 overflow-hidden">
+        <div className="absolute left-1/3 top-0 h-48 w-2/3 rounded-full bg-accent/10 blur-3xl" />
+      </div>
+
+      {/* ONE current state — not four competing "ready" labels. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+        <span className="inline-flex items-center gap-2 font-semibold text-accent">
+          <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-accent" />
           {status}
         </span>
         {upcoming && matter.consultationAt ? (
-          <span className="text-sm text-muted">
-            Consultation {new Date(matter.consultationAt).toLocaleString()}
-          </span>
+          <span className="text-muted">· consultation {new Date(matter.consultationAt).toLocaleString()}</span>
         ) : null}
       </div>
 
-      {/* Briefly noticed — the visible reasoning chain, leads the "Now". */}
+      {/* Briefly noticed — flat on the workspace, the connected factors. */}
       {insight ? (
-        <InsightCallout insight={insight} therefore={completed ? null : next} />
+        <InsightCallout insight={insight} />
       ) : (
-        <div className="space-y-1.5">
-          <p className="text-base">{now}</p>
-          {!completed ? (
-            <p className="text-base">
-              <span className="font-semibold">Next:</span> {next}
-            </p>
-          ) : null}
-        </div>
+        <p className="text-base text-muted">{now}</p>
       )}
 
-      {/* A preview of the prepared message; the sheet + Approve & send live in Next step. */}
+      {/* The decision — a floating light focus lens (decision + quiet consequence). */}
+      {!completed ? (
+        <DecisionPane consequence={insight?.consequence ?? null}>{next}</DecisionPane>
+      ) : null}
+
+      {insight?.afterThis && !completed ? (
+        <p className="text-xs text-muted">
+          <span className="font-medium">After you decide:</span> {insight.afterThis}
+        </p>
+      ) : null}
+
+      {/* The prepared communication — an opaque correspondence sheet, the work product. */}
       {!completed && briefMessage ? (
-        <div className="space-y-2 rounded-lg border border-border bg-inset p-4">
-          <div className="text-xs font-semibold uppercase tracking-wide text-muted">Prepared client message</div>
-          <p className="line-clamp-3 whitespace-pre-line text-sm text-foreground/90">{briefMessage}</p>
-          <GoToTab tab="next">Review &amp; send →</GoToTab>
+        <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-[var(--shadow-sm)]">
+          <div className="flex items-center gap-2 border-b border-border bg-inset px-4 py-2 text-xs text-muted">
+            <span aria-hidden="true">✉</span>
+            <span className="font-medium uppercase tracking-wide">Prepared client message</span>
+            {matter.clientEmail ? <span className="ml-auto truncate">{matter.clientEmail}</span> : null}
+          </div>
+          <p className="line-clamp-3 whitespace-pre-line px-4 py-3 text-sm text-foreground/90">{briefMessage}</p>
+          <div className="border-t border-border px-4 py-2.5">
+            <GoToTab tab="next">Review &amp; send →</GoToTab>
+          </div>
         </div>
       ) : null}
 
       {/* Path A — the follow-up's full editor lives in Next step. */}
       {!completed && r.draftEmail ? (
-        <>
+        <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-[var(--shadow-sm)]">
+          <div className="flex items-center gap-2 border-b border-border bg-inset px-4 py-2 text-xs text-muted">
+            <span aria-hidden="true">✉</span>
+            <span className="font-medium uppercase tracking-wide">Prepared follow-up</span>
+          </div>
           {draftPreview ? (
-            <div className="rounded-lg border border-border bg-inset px-4 py-3">
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted">Prepared follow-up</div>
-              <p className="mt-1 line-clamp-3 whitespace-pre-line text-sm text-foreground/90">{draftPreview}</p>
-            </div>
+            <p className="line-clamp-3 whitespace-pre-line px-4 py-3 text-sm text-foreground/90">{draftPreview}</p>
           ) : null}
-          <GoToTab tab="next">Review &amp; send the follow-up →</GoToTab>
-        </>
+          <div className="border-t border-border px-4 py-2.5">
+            <GoToTab tab="next">Review &amp; send the follow-up →</GoToTab>
+          </div>
+        </div>
       ) : null}
 
       {/* Secondary review paths — everything else is supporting. */}
       {!completed ? (
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-4 text-sm">
           {!r.draftEmail && !briefMessage ? (
             <GoToTab tab="next">Review the next step →</GoToTab>
           ) : null}
@@ -586,12 +605,14 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
         <SinceReviewSection matter={matter} accountId={account.id} />
       </Suspense>
 
-      {/* Pinned header — the matter's identity, always visible above the tabs */}
-      <header className="space-y-3">
+      {/* Identity header — name + quiet metadata. The one current STATE lives in the
+          Now hero below, so it isn't competing with badges up here. */}
+      <header className="space-y-2">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="font-serif text-2xl font-medium tracking-tight">{r.clientName ?? "Unnamed client"}</h1>
-          <ReadinessBadge value={r.readiness} />
-          <StatusBadge status={matter.status} />
+          <span className="text-sm text-muted">
+            {r.rubricName} · {r.vertical}
+          </span>
           <div className="ml-auto flex items-center gap-2">
             <OpenEvidenceButton />
             <form action={markMatterReviewed}>
@@ -610,16 +631,9 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
           </div>
         </div>
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
-          <span>
-            {r.rubricName} · {r.vertical}
-          </span>
           <span>{evidenceLabel(r.fields)}</span>
-          {matter.consultationAt ? (
-            <span>Consultation: {new Date(matter.consultationAt).toLocaleString()}</span>
-          ) : null}
           {r.clientEmail ? <span>{r.clientEmail}</span> : null}
         </div>
-        <ReadinessMeter value={r.readiness} className="max-w-2xl" />
       </header>
 
       {/* Returning client — deferred */}

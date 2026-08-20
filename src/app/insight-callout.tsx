@@ -4,36 +4,28 @@ import { useState } from "react";
 import type { BriefInsight, InsightFactor } from "@/lib/work-brief";
 import { factSlug } from "@/lib/matter-status";
 import { openEvidence } from "@/app/evidence-drawer";
-import { DecisionPane } from "@/app/decision-pane";
 
 /**
- * "Briefly noticed" — the signature interpretation as a VISIBLE, TRACEABLE chain.
- * Each factor is a link the professional would otherwise connect themselves; open a
- * link (hover, tap, or keyboard) and the exact client phrase it was drawn from lifts
- * forward on a frosted evidence surface, proving Briefly read the connection rather
- * than inventing it. The evidence stays subordinate: conclusion first, proof on ask.
+ * "Briefly noticed" — the signature interpretation as a VISIBLE, TRACEABLE chain of
+ * links. Flat on the workspace (not a card): the label and the connected factors,
+ * each openable (hover, tap, keyboard) to the exact client phrase it was drawn from.
+ * The consequence and the decision live below, in the floating decision lens — this
+ * surface just shows what Briefly connected.
  */
-export function InsightCallout({
-  insight,
-  therefore,
-}: {
-  insight: BriefInsight;
-  therefore: string | null;
-}) {
+export function InsightCallout({ insight }: { insight: BriefInsight }) {
   // Tolerate older briefs whose factors were plain strings (no source links).
   const factors: InsightFactor[] = (insight.factors as unknown as (string | InsightFactor)[]).map(
     (f) => (typeof f === "string" ? { text: f, sources: [] } : { text: f.text ?? "", sources: f.sources ?? [] }),
   );
   const traceCount = factors.filter((f) => f.sources.length > 0).length;
 
-  // The "prepared" reveal: as judgment lands, the chain draws itself in — each link,
-  // then the consequence, then the decision — a gentle stagger keyed off --i. Instant
-  // under prefers-reduced-motion (the .stagger-in animation is disabled there).
+  // The "prepared" reveal: as judgment lands, each link settles in turn (--i stagger,
+  // instant under prefers-reduced-motion).
   let step = 0;
   const at = (): React.CSSProperties => ({ ["--i" as string]: step++ } as React.CSSProperties);
 
   return (
-    <div className="space-y-3 rounded-lg border-l-4 border-accent bg-accent/5 px-4 py-3.5">
+    <div className="space-y-2">
       <div className="stagger-in flex items-center justify-between gap-2" style={at()}>
         <div className="text-xs font-semibold uppercase tracking-wide text-accent">Briefly noticed</div>
         {traceCount > 0 ? (
@@ -52,27 +44,6 @@ export function InsightCallout({
             </div>
           ))}
         </div>
-      ) : null}
-
-      {/* → the consequence they force. */}
-      <div className="stagger-in flex items-start gap-2" style={at()}>
-        <span aria-hidden="true" className="select-none text-muted">↳</span>
-        <p className="text-sm">
-          <span className="font-semibold">So:</span> {insight.consequence}
-        </p>
-      </div>
-
-      {/* → the one decision that follows: a translucent focus lens (see DecisionPane). */}
-      {therefore ? (
-        <div className="stagger-in" style={at()}>
-          <DecisionPane>{therefore}</DecisionPane>
-        </div>
-      ) : null}
-
-      {insight.afterThis ? (
-        <p className="stagger-in text-xs text-muted" style={at()}>
-          <span className="font-medium">After you decide:</span> {insight.afterThis}
-        </p>
       ) : null}
     </div>
   );

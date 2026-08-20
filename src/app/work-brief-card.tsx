@@ -295,6 +295,7 @@ export function WorkBriefCard({
             not a second copy of "Briefly noticed". Reasoning is a link away. */}
         {content.suggestedNextStep ? (
           <DecisionPane
+            consequence={hasInsight ? (content.insight as { consequence: string }).consequence : null}
             footer={
               hasInsight ? (
                 <button
