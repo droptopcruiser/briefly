@@ -62,21 +62,30 @@ export function BriefMessageSend({
 
   return (
     <div className="space-y-3">
-      {/* The external communication — a paper-like sheet, distinct from the internal brief. */}
+      {/* The external communication — a paper-like sheet, distinct from the internal
+          brief. The mail mark establishes the object: an outbound message for approval. */}
       <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-[var(--shadow-sm)] focus-within:border-accent">
-        <div className="flex items-center gap-2 border-b border-border bg-inset px-4 py-2 text-xs text-muted">
-          <span aria-hidden="true">✉</span>
-          <span className="font-medium uppercase tracking-wide">Message to client</span>
-          <span className="ml-auto truncate">{to ?? "no email on file — use your mail client"}</span>
+        <div className="flex items-start gap-3 border-b border-border bg-inset px-4 py-3">
+          <span aria-hidden="true" className="mt-0.5 shrink-0 text-[22px] leading-none text-accent">
+            ✉
+          </span>
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+              Message to client
+            </div>
+            <div className="truncate text-sm">
+              <span className="text-muted">To:</span> {to ?? "no email on file — use your mail client"}
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <span className="shrink-0 text-muted">Subject:</span>
+              <input
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                className="min-w-0 flex-1 bg-transparent font-medium outline-none"
+              />
+            </label>
+          </div>
         </div>
-        <label className="flex items-center gap-2 border-b border-border px-4 py-2 text-sm">
-          <span className="text-muted">Subject</span>
-          <input
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            className="min-w-0 flex-1 bg-transparent font-medium outline-none"
-          />
-        </label>
         <textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}

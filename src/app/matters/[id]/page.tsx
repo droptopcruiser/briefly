@@ -250,18 +250,20 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
         </p>
       ) : null}
 
-      {/* The prepared communication — an opaque correspondence sheet, the work product. */}
+      {/* A COMPACT preview only — the one full editable sheet lives in Next step. */}
       {!completed && briefMessage ? (
-        <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-[var(--shadow-sm)]">
-          <div className="flex items-center gap-2 border-b border-border bg-inset px-4 py-2 text-xs text-muted">
-            <span aria-hidden="true">✉</span>
-            <span className="font-medium uppercase tracking-wide">Prepared client message</span>
-            {matter.clientEmail ? <span className="ml-auto truncate">{matter.clientEmail}</span> : null}
+        <div className="space-y-1.5 rounded-lg border border-border bg-inset px-4 py-3">
+          <div className="flex items-center gap-2">
+            <span aria-hidden="true" className="text-accent">✉</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+              Prepared client message
+            </span>
           </div>
-          <p className="line-clamp-3 whitespace-pre-line px-4 py-3 text-sm text-foreground/90">{briefMessage}</p>
-          <div className="border-t border-border px-4 py-2.5">
-            <GoToTab tab="next">Review &amp; send →</GoToTab>
-          </div>
+          {matter.clientName || matter.clientEmail ? (
+            <div className="text-xs text-muted">To {matter.clientName ?? matter.clientEmail}</div>
+          ) : null}
+          <p className="line-clamp-2 whitespace-pre-line text-sm text-foreground/75">{briefMessage}</p>
+          <GoToTab tab="next">Review &amp; send →</GoToTab>
         </div>
       ) : null}
 
