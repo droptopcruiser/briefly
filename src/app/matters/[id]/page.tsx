@@ -402,6 +402,18 @@ async function ConsultationPlanSection({ matter }: { matter: Matter }) {
   );
 }
 
+/**
+ * A gap's workflow consequence, generated at display time from the matter's own
+ * rubric — so old matters (whose stored reason predates this) show it too. Grounded
+ * (names the firm's rulebook + the next stage), honest about documents (referenced,
+ * not read), and never invented advice.
+ */
+function gapConsequence(rubricName: string, kind: "field" | "document"): string {
+  return kind === "document"
+    ? `Required by the ${rubricName} rulebook — the client hasn't referenced it yet; needed before the matter can move to review.`
+    : `Required by the ${rubricName} rulebook — the matter can't be marked ready until this is confirmed.`;
+}
+
 /** Prettify a rubric document key when no label is to hand (e.g. "title_deed"). */
 function humanizeKey(key: string): string {
   const s = key.replace(/[_-]+/g, " ").trim();
@@ -485,31 +497,35 @@ async function RecordPanel({ matter }: { matter: Matter }) {
 
       {/* Documents */}
       {r.documentsPresent.length > 0 || outstandingDocs.length > 0 ? (
-        <section className="space-y-3">
+        <section className="space-y-2">
           <h2 className="text-lg font-semibold tracking-tight">Documents</h2>
+          <p className="text-xs text-muted">
+            Detected from the client&apos;s message — Briefly hasn&apos;t opened the files. Confirm each
+            attachment on review.
+          </p>
           <ul className="rounded-lg border border-border bg-surface divide-y divide-border">
             {r.documentsPresent.map((k) => (
               <li key={k} className="flex items-center gap-2 px-4 py-3 text-sm">
                 <span className="text-accent">✓</span>
                 <span className="font-medium">{humanizeKey(k)}</span>
-                <span className="ml-auto text-xs font-medium text-accent">provided</span>
+                <span className="ml-auto text-xs font-medium text-accent">referenced by client</span>
               </li>
             ))}
             {outstandingDocs.map((g) => (
               <li key={g.key} className="flex items-center gap-2 px-4 py-3 text-sm">
                 <span className="text-awaiting">○</span>
                 <span className="font-medium">{g.label}</span>
-                <span className="ml-auto text-xs font-medium text-awaiting">outstanding</span>
+                <span className="ml-auto text-xs font-medium text-awaiting">not referenced</span>
               </li>
             ))}
           </ul>
         </section>
       ) : null}
 
-      {/* Gaps */}
+      {/* Gaps — each carries its workflow consequence: what it blocks. */}
       <section className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">
-          Gaps <span className="text-muted font-normal text-base">({r.gaps.length} missing)</span>
+          Outstanding <span className="text-muted font-normal text-base">({r.gaps.length})</span>
         </h2>
         {r.gaps.length === 0 ? (
           <p className="rounded-lg border border-accent bg-surface px-4 py-3 text-sm text-accent">
@@ -518,12 +534,15 @@ async function RecordPanel({ matter }: { matter: Matter }) {
         ) : (
           <ul className="rounded-lg border border-border bg-surface divide-y divide-border">
             {r.gaps.map((g) => (
-              <li key={g.key} className="flex items-center gap-3 px-4 py-3 text-sm">
-                <span className="rounded border border-awaiting/50 px-1.5 py-0.5 text-xs uppercase text-awaiting">
-                  {g.kind}
-                </span>
-                <span className="font-medium">{g.label}</span>
-                <span className="text-foreground/70">— {g.reason}</span>
+              <li key={g.key} className="px-4 py-3 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="rounded border border-awaiting/50 px-1.5 py-0.5 text-[10px] uppercase text-awaiting">
+                    {g.kind}
+                  </span>
+                  <span className="font-medium">{g.label}</span>
+                  <span className="ml-auto text-xs font-medium text-awaiting">outstanding</span>
+                </div>
+                <p className="mt-1 text-sm text-foreground/70">{gapConsequence(r.rubricName, g.kind)}</p>
               </li>
             ))}
           </ul>
@@ -584,12 +603,10 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
 
   const r = matter.result;
 
-  // Smart default: open on Next step; but if a plan-worthy consultation is coming
-  // up, open on the Consultation plan (the moment that matters right now). A past
-  // consultation returns to Next step — the matter needs a fresh decision.
-  const upcomingConsult =
-    !!matter.consultationAt && new Date(matter.consultationAt).getTime() > Date.now();
-  const defaultTab = upcomingConsult ? "plan" : "next";
+  // A matter always opens on Next step — where the immediate decision and the
+  // prepared client communication live. The Consultation plan is a secondary tab,
+  // reached only by explicit choice (never by an automatic default or scroll).
+  const defaultTab = "next";
 
   const tabs = [
     {

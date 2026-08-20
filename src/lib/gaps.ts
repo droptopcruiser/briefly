@@ -17,7 +17,9 @@ export function computeGaps(
         key: f.key,
         label: f.label,
         kind: "field",
-        reason: "Required fact not found in the submission.",
+        // A grounded workflow consequence — what the missing item blocks — never
+        // invented advice. Names the firm's own rulebook and the next stage.
+        reason: `Required by the ${rubric.name} rulebook — the matter can't be marked ready until this is confirmed.`,
       });
     }
   }
@@ -28,7 +30,9 @@ export function computeGaps(
         key: d.key,
         label: d.label,
         kind: "document",
-        reason: "Required document not yet provided.",
+        // Honest: Briefly notices whether the client REFERENCED the document in the
+        // enquiry; it doesn't open the file. So "not yet referenced", not "unread".
+        reason: `Required by the ${rubric.name} rulebook — the client hasn't referenced it yet; needed before the matter can move to review.`,
       });
     }
   }

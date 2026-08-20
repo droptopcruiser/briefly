@@ -5,6 +5,7 @@ import type { MatterStatus } from "@/lib/types";
 import { isConfigured } from "@/lib/anthropic";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { SubmissionForm } from "../submission-form";
+import { Greeting } from "../greeting";
 import { MatterRow, UsageMeter, StatsPanel } from "../ui";
 import {
   requireAccount,
@@ -26,24 +27,6 @@ const SAMPLE = `Hi, my name is Priya Sharma and I'm hoping to apply for a spousa
 
 const NEEDS_YOU: MatterStatus[] = ["ready_for_review", "ready_for_you"];
 
-function hourIn(tz: string | null): number {
-  try {
-    const s = new Intl.DateTimeFormat("en-US", {
-      hour: "numeric",
-      hour12: false,
-      timeZone: tz ?? "UTC",
-    }).format(new Date());
-    return parseInt(s, 10) % 24;
-  } catch {
-    return new Date().getUTCHours();
-  }
-}
-
-function greeting(tz: string | null, name: string | null): string {
-  const h = hourIn(tz);
-  const part = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
-  return name ? `${part}, ${name}` : part;
-}
 
 export default async function Dashboard() {
   const account = await requireAccount();
@@ -71,8 +54,8 @@ export default async function Dashboard() {
   return (
     <div className="space-y-10">
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {greeting(account.timezone, firstName)}
+        <h1 className="font-serif text-2xl font-medium tracking-tight">
+          <Greeting name={firstName} />
         </h1>
         <p className="mt-1 text-muted">
           {needsYou.length === 0
