@@ -620,7 +620,7 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
               <button
                 type="submit"
                 title="Snapshot the matter as it stands, so Briefly can show what changes next"
-                className="rounded-md border border-border px-3 py-1.5 text-sm text-muted hover:bg-inset hover:text-foreground"
+                className="btn-control rounded-md px-3 py-1.5 text-sm"
               >
                 Mark reviewed
               </button>

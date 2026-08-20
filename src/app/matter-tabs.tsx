@@ -24,8 +24,8 @@ export function GoToTab({
       onClick={() => window.dispatchEvent(new CustomEvent(GOTO_EVENT, { detail: tab }))}
       className={
         variant === "primary"
-          ? "inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg"
-          : "inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-inset"
+          ? "btn-primary inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium"
+          : "btn-control inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium"
       }
     >
       {children}

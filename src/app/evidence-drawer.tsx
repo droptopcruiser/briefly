@@ -27,7 +27,7 @@ export function OpenEvidenceButton({
       onClick={() => openEvidence()}
       className={
         className ??
-        "inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-muted transition-colors hover:bg-inset hover:text-foreground"
+        "btn-control inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm"
       }
     >
       {children ?? (

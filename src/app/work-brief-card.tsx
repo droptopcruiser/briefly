@@ -376,7 +376,7 @@ export function WorkBriefCard({
               type="button"
               onClick={onApprove}
               disabled={approving}
-              className="rounded-md bg-accent px-5 py-2.5 text-sm font-semibold text-accent-fg shadow-[var(--shadow-sm)] disabled:opacity-70"
+              className="btn-primary rounded-md px-5 py-2.5 text-sm font-semibold disabled:opacity-70"
             >
               Approve brief
             </button>

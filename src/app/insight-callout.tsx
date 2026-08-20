@@ -82,7 +82,7 @@ function TraceFactor({ factor, first }: { factor: InsightFactor; first: boolean 
           if (e.key === "Escape") setPinned(false);
         }}
         aria-expanded={open}
-        className="flex w-full items-start gap-2 rounded text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-awaiting/50"
+        className="-mx-1.5 flex w-[calc(100%+0.75rem)] items-start gap-2 rounded-md px-1.5 py-1 text-left text-sm outline-none hover:bg-awaiting/5 focus-visible:ring-2 focus-visible:ring-awaiting"
       >
         <span aria-hidden="true" className="mt-0.5 select-none text-xs font-semibold text-muted">
           {first ? "" : "+"}
@@ -90,8 +90,8 @@ function TraceFactor({ factor, first }: { factor: InsightFactor; first: boolean 
         <span className="underline decoration-dotted decoration-awaiting/70 underline-offset-4">
           {factor.text}
         </span>
-        <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-awaiting/80">
-          <span aria-hidden="true" className="h-1 w-1 rounded-full bg-awaiting" />
+        <span className="mt-px inline-flex shrink-0 items-center gap-1 rounded-full bg-awaiting/10 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-awaiting">
+          <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-awaiting" />
           source
         </span>
       </button>

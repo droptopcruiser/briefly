@@ -94,7 +94,7 @@ export function BriefMessageSend({
           <button
             type="submit"
             disabled={pending}
-            className="rounded-md bg-accent px-5 py-2.5 text-sm font-semibold text-accent-fg shadow-[var(--shadow-sm)] transition-opacity disabled:opacity-60"
+            className="btn-primary rounded-md px-5 py-2.5 text-sm font-semibold disabled:opacity-60"
           >
             {pending ? "Sending…" : "Approve & send"}
           </button>
@@ -112,7 +112,7 @@ export function BriefMessageSend({
         <div className="flex flex-wrap items-center gap-3">
           <a
             href={mailto}
-            className="rounded-md bg-accent px-5 py-2.5 text-sm font-semibold text-accent-fg hover:opacity-90"
+            className="btn-primary rounded-md px-5 py-2.5 text-sm font-semibold"
           >
             Send in mail client
           </a>
