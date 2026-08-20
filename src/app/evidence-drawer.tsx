@@ -3,6 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 const OPEN_EVENT = "briefly-open-evidence";
+const FACTOR_EVENT = "briefly-highlight-factor";
+
+/**
+ * Point from a fact in the drawer back to the "Briefly noticed" factor it supports:
+ * closes the drawer (so the workspace is visible) and asks the insight to light that
+ * factor. The reverse of openEvidence — completing the traceability loop.
+ */
+export function highlightFactor(slug: string) {
+  window.dispatchEvent(new CustomEvent(FACTOR_EVENT, { detail: { slug } }));
+}
 
 /**
  * Open the evidence drawer, optionally focused on a specific fact (its factSlug) —
@@ -62,8 +72,14 @@ export function EvidenceDrawer({ children }: { children: React.ReactNode }) {
       pendingFocus.current = (e as CustomEvent<{ fact?: string }>).detail?.fact ?? null;
       setOpen(true);
     };
+    // Pointing back to a factor closes the drawer so the workspace is visible.
+    const onFactor = () => setOpen(false);
     window.addEventListener(OPEN_EVENT, onOpen);
-    return () => window.removeEventListener(OPEN_EVENT, onOpen);
+    window.addEventListener(FACTOR_EVENT, onFactor);
+    return () => {
+      window.removeEventListener(OPEN_EVENT, onOpen);
+      window.removeEventListener(FACTOR_EVENT, onFactor);
+    };
   }, []);
 
   // While open: lock body scroll, close on Esc, move focus in and restore on close.

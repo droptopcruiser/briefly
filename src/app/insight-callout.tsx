@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { BriefInsight, InsightFactor } from "@/lib/work-brief";
 import { factSlug } from "@/lib/matter-status";
 import { openEvidence } from "@/app/evidence-drawer";
@@ -24,6 +24,24 @@ export function InsightCallout({ insight }: { insight: BriefInsight }) {
   let step = 0;
   const at = (): React.CSSProperties => ({ ["--i" as string]: step++ } as React.CSSProperties);
 
+  // Reverse traceability: when a fact in the drawer points back here, light the
+  // factor(s) it supports (the drawer has already closed itself).
+  useEffect(() => {
+    const onFactor = (e: Event) => {
+      const slug = (e as CustomEvent<{ slug: string }>).detail?.slug;
+      if (!slug) return;
+      window.setTimeout(() => {
+        const el = document.querySelector<HTMLElement>(`[data-factor-sources~="${slug}"]`);
+        if (!el) return;
+        el.scrollIntoView({ block: "center", behavior: "smooth" });
+        el.classList.add("evi-lit");
+        window.setTimeout(() => el.classList.remove("evi-lit"), 1900);
+      }, 220);
+    };
+    window.addEventListener("briefly-highlight-factor", onFactor);
+    return () => window.removeEventListener("briefly-highlight-factor", onFactor);
+  }, []);
+
   return (
     <div className="space-y-2">
       <div className="stagger-in flex items-center justify-between gap-2" style={at()}>
@@ -39,7 +57,12 @@ export function InsightCallout({ insight }: { insight: BriefInsight }) {
       {factors.length > 0 ? (
         <div className="space-y-1.5">
           {factors.map((f, i) => (
-            <div key={i} className="stagger-in" style={at()}>
+            <div
+              key={i}
+              className="stagger-in rounded-md"
+              style={at()}
+              data-factor-sources={f.sources.map((s) => factSlug(s.label)).join(" ")}
+            >
               <TraceFactor factor={f} first={i === 0} />
             </div>
           ))}

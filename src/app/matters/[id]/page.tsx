@@ -12,6 +12,7 @@ import { BriefPanel } from "@/app/brief-panel";
 import { ConsultationPanel } from "@/app/consultation-panel";
 import { MatterTabs, GoToTab } from "@/app/matter-tabs";
 import { EvidenceDrawer, OpenEvidenceButton } from "@/app/evidence-drawer";
+import { UsedInInsightTag } from "@/app/used-in-insight-tag";
 import { InsightCallout } from "@/app/insight-callout";
 import { DecisionPane } from "@/app/decision-pane";
 import { workflowStatus, statusTone, firstSentence, factSlug } from "@/lib/matter-status";
@@ -408,9 +409,20 @@ function humanizeKey(key: string): string {
  * MATTER RECORD — the single source of truth: source-backed facts, documents,
  * timeline, and gaps. Every other view references these without repeating them.
  */
-function RecordPanel({ matter }: { matter: Matter }) {
+async function RecordPanel({ matter }: { matter: Matter }) {
   const r = matter.result!;
   const outstandingDocs = r.gaps.filter((g) => g.kind === "document");
+
+  // Which facts fed the "Briefly noticed" insight — so the record can point back.
+  const brief = await getActiveBrief(matter.id);
+  const usedSlugs = new Set<string>();
+  const ins = brief?.content.insight;
+  if (ins && typeof ins === "object" && Array.isArray(ins.factors)) {
+    for (const f of ins.factors as { sources?: { label: string }[] }[]) {
+      for (const s of f.sources ?? []) usedSlugs.add(factSlug(s.label));
+    }
+  }
+
   return (
     <div className="space-y-8">
       <div className="grid gap-8 md:grid-cols-2">
@@ -420,7 +432,10 @@ function RecordPanel({ matter }: { matter: Matter }) {
           <dl className="rounded-lg border border-border bg-surface divide-y divide-border">
             {r.fields.map((f) => (
               <div key={f.key} data-evi-fact={factSlug(f.label)} className="px-4 py-3">
-                <dt className="text-xs uppercase tracking-wide text-muted">{f.label}</dt>
+                <div className="flex items-start justify-between gap-2">
+                  <dt className="text-xs uppercase tracking-wide text-muted">{f.label}</dt>
+                  {usedSlugs.has(factSlug(f.label)) ? <UsedInInsightTag slug={factSlug(f.label)} /> : null}
+                </div>
                 {f.present ? (
                   <>
                     <dd className="font-medium">{f.value}</dd>
@@ -653,7 +668,9 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
 
       {/* The matter record — pulled forward as a Liquid Glass evidence drawer. */}
       <EvidenceDrawer>
-        <RecordPanel matter={matter} />
+        <Suspense fallback={<div className="px-1 py-2 text-sm text-muted">Loading the record…</div>}>
+          <RecordPanel matter={matter} />
+        </Suspense>
       </EvidenceDrawer>
     </div>
   );
