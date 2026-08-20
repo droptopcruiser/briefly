@@ -187,12 +187,26 @@ export async function confirmDocFact(
 
   const owner = matter.accountId ?? accountId;
   if (outcome === "merged") {
+    // If we don't have a display name yet, take it from a confirmed name field
+    // (e.g. Owner Name) — only when it's currently empty, so a real name is never
+    // overwritten. Fixes the "Unnamed client" that lingered after a nameless enquiry.
+    if ((!matter.clientName || !matter.clientName.trim()) && /\bname\b/i.test(field?.label ?? "")) {
+      matter.clientName = fact.value;
+      matter.result.clientName = fact.value;
+    }
+
     const rubrics = await getEffectiveRubrics(owner);
     const rubric = rubrics.find((r) => r.id === matter.result!.rubricId);
     if (rubric) {
       matter.result.gaps = computeGaps(rubric, matter.result.fields, matter.result.documentsPresent);
       matter.result.readiness = computeReadiness(rubric, matter.result.gaps);
     }
+
+    // The intake follow-up asked for details this document just supplied — it's now
+    // stale. Once the matter is complete, drop it so the matter moves to the brief
+    // (Path B) instead of still showing the old "please send X" draft (Path A).
+    if (matter.result.readiness >= 100) matter.result.draftEmail = null;
+
     // Confirming a document fact can complete the matter — advance it exactly like
     // the pipeline does when a reply makes it ready: flip to "ready for you" and
     // prepare the Initial Work Brief, so the dashboard + workflow reflect it.
