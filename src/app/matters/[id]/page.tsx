@@ -406,18 +406,18 @@ function RecordPanel({ matter }: { matter: Matter }) {
                   <>
                     <dd className="font-medium">{f.value}</dd>
                     {f.carried ? (
-                      <dd className="mt-1 text-xs text-muted">📎 {f.source}</dd>
+                      <dd className="mt-1 text-xs text-foreground/70">📎 {f.source}</dd>
                     ) : (
                       <>
                         {f.source ? (
-                          <dd className="mt-1 text-xs text-muted italic">“{f.source}”</dd>
+                          <dd className="mt-1 text-sm italic text-foreground/85">“{f.source}”</dd>
                         ) : null}
-                        <dd className="mt-0.5 text-xs text-accent">✓ Provided in current enquiry</dd>
+                        <dd className="mt-1 text-xs font-medium text-accent">✓ Provided in current enquiry</dd>
                       </>
                     )}
                   </>
                 ) : (
-                  <dd className="text-muted italic">— missing</dd>
+                  <dd className="text-sm italic text-muted">— missing</dd>
                 )}
               </div>
             ))}
@@ -437,7 +437,7 @@ function RecordPanel({ matter }: { matter: Matter }) {
                   <div className="text-sm font-medium tabular-nums">{e.date || "Undated"}</div>
                   <div className="text-sm">{e.description}</div>
                   {e.source ? (
-                    <div className="mt-0.5 text-xs text-muted italic">“{e.source}”</div>
+                    <div className="mt-0.5 text-sm italic text-foreground/85">“{e.source}”</div>
                   ) : null}
                 </li>
               ))}
@@ -455,14 +455,14 @@ function RecordPanel({ matter }: { matter: Matter }) {
               <li key={k} className="flex items-center gap-2 px-4 py-3 text-sm">
                 <span className="text-accent">✓</span>
                 <span className="font-medium">{humanizeKey(k)}</span>
-                <span className="text-xs text-muted">provided</span>
+                <span className="ml-auto text-xs font-medium text-accent">provided</span>
               </li>
             ))}
             {outstandingDocs.map((g) => (
               <li key={g.key} className="flex items-center gap-2 px-4 py-3 text-sm">
                 <span className="text-awaiting">○</span>
-                <span>{g.label}</span>
-                <span className="text-xs text-muted">outstanding</span>
+                <span className="font-medium">{g.label}</span>
+                <span className="ml-auto text-xs font-medium text-awaiting">outstanding</span>
               </li>
             ))}
           </ul>
@@ -482,11 +482,11 @@ function RecordPanel({ matter }: { matter: Matter }) {
           <ul className="rounded-lg border border-border bg-surface divide-y divide-border">
             {r.gaps.map((g) => (
               <li key={g.key} className="flex items-center gap-3 px-4 py-3 text-sm">
-                <span className="rounded px-1.5 py-0.5 text-xs border border-border text-muted uppercase">
+                <span className="rounded border border-awaiting/50 px-1.5 py-0.5 text-xs uppercase text-awaiting">
                   {g.kind}
                 </span>
                 <span className="font-medium">{g.label}</span>
-                <span className="text-muted">— {g.reason}</span>
+                <span className="text-foreground/70">— {g.reason}</span>
               </li>
             ))}
           </ul>

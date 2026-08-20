@@ -115,19 +115,19 @@ export function EvidenceDrawer({ children }: { children: React.ReactNode }) {
         aria-modal="true"
         aria-label="Matter evidence"
         tabIndex={-1}
-        className={`absolute inset-y-0 right-0 flex w-full flex-col border-l border-[var(--glass-border)] bg-[var(--glass-fill)] backdrop-blur-2xl outline-none transition-[transform,width] duration-200 sm:w-[34rem] ${
+        className={`absolute inset-y-0 right-0 flex w-full flex-col border-l border-[var(--glass-border)] bg-[var(--glass-panel)] backdrop-blur-2xl outline-none transition-[transform,width] duration-200 sm:w-[34rem] ${
           expanded ? "sm:w-[58rem] sm:max-w-[95%]" : ""
         } ${open ? "translate-x-0" : "translate-x-full"}`}
         style={{ boxShadow: "var(--glass-shadow), var(--glass-hi)" }}
       >
         <div className="flex shrink-0 items-center gap-3 border-b border-border px-5 py-3.5">
-          <h2 className="font-serif text-lg font-medium tracking-tight">Evidence</h2>
-          <span className="text-xs text-muted">the matter record</span>
+          <h2 className="font-serif text-lg font-medium tracking-tight text-foreground">Evidence</h2>
+          <span className="text-sm text-muted">the matter record</span>
           <div className="ml-auto flex items-center gap-1">
             <button
               type="button"
               onClick={() => setExpanded((e) => !e)}
-              className="hidden rounded-md p-1.5 text-muted hover:bg-inset hover:text-foreground sm:inline-flex"
+              className="hidden rounded-md p-1.5 text-muted outline-none hover:bg-inset hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent sm:inline-flex"
               title={expanded ? "Collapse" : "Expand for a full read"}
               aria-label={expanded ? "Collapse drawer" : "Expand drawer"}
             >
@@ -136,7 +136,7 @@ export function EvidenceDrawer({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               onClick={close}
-              className="rounded-md p-1.5 text-muted hover:bg-inset hover:text-foreground"
+              className="rounded-md p-1.5 text-muted outline-none hover:bg-inset hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent"
               aria-label="Close evidence"
             >
               ✕

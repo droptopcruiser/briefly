@@ -25,6 +25,9 @@
   --shadow-sm: 0 1px 3px rgba(29, 38, 33, 0.05);
   /* liquid-glass values, tokenised so they follow the theme */
   --glass-fill: color-mix(in srgb, var(--surface) 58%, transparent);
+  /* A near-opaque glass for panels that hold READING content (evidence drawer):
+     the softness comes from depth + blur + border, never from faint text. */
+  --glass-panel: color-mix(in srgb, var(--surface) 95%, transparent);
   --glass-border: rgba(255, 255, 255, 0.55);
   --glass-shadow: 0 28px 70px -28px rgba(29, 38, 33, 0.3);
   --glass-hi: inset 0 1px 0 rgba(255, 255, 255, 0.65);
