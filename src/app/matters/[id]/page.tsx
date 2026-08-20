@@ -17,6 +17,8 @@ import { InsightCallout } from "@/app/insight-callout";
 import { DecisionPane } from "@/app/decision-pane";
 import { workflowStatus, statusTone, firstSentence, factSlug } from "@/lib/matter-status";
 import { formatWhen } from "@/lib/format";
+import { listDocuments } from "@/lib/documents";
+import { DocumentUpload, DeleteDocButton } from "@/app/document-upload";
 import { SinceReviewCard } from "@/app/since-review-card";
 import { AssignControl } from "@/app/assign-control";
 import { requireAccount, type Account } from "@/lib/metering";
@@ -414,6 +416,50 @@ function gapConsequence(rubricName: string, kind: "field" | "document"): string 
     : `Required by the ${rubricName} rulebook — the matter can't be marked ready until this is confirmed.`;
 }
 
+/** Human file size, e.g. "1.4 MB". */
+function fileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * Attached files — real uploaded documents (Slice 1). Honest status: stored, NOT
+ * read. Content reading + page-cited facts land in Slice 2.
+ */
+async function AttachedFilesSection({ matter }: { matter: Matter }) {
+  const docs = await listDocuments(matter.id);
+  return (
+    <section className="space-y-2">
+      <h2 className="text-lg font-semibold tracking-tight">Attached files</h2>
+      <p className="text-xs text-muted">
+        Stored securely in your region. Briefly hasn&apos;t read the contents yet — attach the file
+        here so it&apos;s on the matter; content reading is coming.
+      </p>
+      {docs.length > 0 ? (
+        <ul className="rounded-lg border border-border bg-surface divide-y divide-border">
+          {docs.map((d) => (
+            <li key={d.id} className="flex items-center gap-2 px-4 py-3 text-sm">
+              <span aria-hidden="true" className="text-muted">
+                ▤
+              </span>
+              <span className="min-w-0 truncate font-medium">{d.fileName}</span>
+              <span className="shrink-0 text-xs text-muted">{fileSize(d.sizeBytes)}</span>
+              <span className="ml-auto shrink-0 text-xs font-medium text-muted">
+                attached · not yet read
+              </span>
+              <DeleteDocButton matterId={matter.id} docId={d.id} fileName={d.fileName} />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-muted">No files attached yet.</p>
+      )}
+      <DocumentUpload matterId={matter.id} />
+    </section>
+  );
+}
+
 /** Prettify a rubric document key when no label is to hand (e.g. "title_deed"). */
 function humanizeKey(key: string): string {
   const s = key.replace(/[_-]+/g, " ").trim();
@@ -521,6 +567,11 @@ async function RecordPanel({ matter }: { matter: Matter }) {
           </ul>
         </section>
       ) : null}
+
+      {/* Attached files — real uploads (Slice 1). Stored, not yet read. */}
+      <Suspense fallback={<div className="h-16 animate-pulse rounded-lg border border-border bg-surface" />}>
+        <AttachedFilesSection matter={matter} />
+      </Suspense>
 
       {/* Gaps — each carries its workflow consequence: what it blocks. */}
       <section className="space-y-3">
