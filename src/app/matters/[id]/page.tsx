@@ -239,31 +239,35 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
         <p className="text-base text-muted">{now}</p>
       )}
 
-      {/* The decision — a floating light focus lens (decision + quiet consequence). */}
+      {/* The decision — a floating light focus lens. The consequence sits quietly
+          beneath, and "what follows once you decide" is folded in as its footer, so
+          the decision and its outcome read as one coherent unit. */}
       {!completed ? (
-        <DecisionPane consequence={insight?.consequence ?? null}>{next}</DecisionPane>
+        <DecisionPane
+          consequence={insight?.consequence ?? null}
+          footer={
+            insight?.afterThis ? (
+              <p className="text-xs text-muted">
+                <span className="font-medium text-foreground/70">When confirmed:</span>{" "}
+                {insight.afterThis}
+              </p>
+            ) : null
+          }
+        >
+          {next}
+        </DecisionPane>
       ) : null}
 
-      {insight?.afterThis && !completed ? (
-        <p className="text-xs text-muted">
-          <span className="font-medium">After you decide:</span> {insight.afterThis}
-        </p>
-      ) : null}
-
-      {/* A COMPACT preview only — the one full editable sheet lives in Next step. */}
-      {!completed && briefMessage ? (
-        <div className="space-y-1.5 rounded-lg border border-border bg-inset px-4 py-3">
-          <div className="flex items-center gap-2">
-            <span aria-hidden="true" className="text-accent">✉</span>
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-              Prepared client message
-            </span>
+      {/* WHAT NEEDS YOUR ATTENTION — a compact situational summary, NOT the message.
+          It explains the state of the matter; the one editable message sheet, its
+          subject and recipient all live only in Next step. One action opens it. */}
+      {!completed && !r.draftEmail ? (
+        <div className="space-y-2 rounded-lg border border-border bg-inset px-4 py-3.5">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+            What needs your attention
           </div>
-          {matter.clientName || matter.clientEmail ? (
-            <div className="text-xs text-muted">To {matter.clientName ?? matter.clientEmail}</div>
-          ) : null}
-          <p className="line-clamp-2 whitespace-pre-line text-sm text-foreground/75">{briefMessage}</p>
-          <GoToTab tab="next">Review &amp; send →</GoToTab>
+          <p className="text-sm leading-relaxed text-foreground/80">{r.summary}</p>
+          <GoToTab tab="next">Review prepared request →</GoToTab>
         </div>
       ) : null}
 
@@ -283,21 +287,16 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
         </div>
       ) : null}
 
-      {/* Secondary review paths — everything else is supporting. */}
-      {!completed ? (
-        <div className="flex flex-wrap items-center gap-4 text-sm">
-          {!r.draftEmail && !briefMessage ? (
-            <GoToTab tab="next">Review the next step →</GoToTab>
-          ) : null}
-          {!r.draftEmail ? (
-            <GoToTab tab="plan" variant="secondary">
-              {packet ? "Open consultation plan" : "Prepare consultation plan"}
-            </GoToTab>
-          ) : null}
-        </div>
+      {/* A quiet provenance line — the artifact Briefly prepared. It must not compete
+          with the decision or the action above; consultation planning is the NEXT
+          lifecycle stage and lives in its own tab, not as a rival action here. */}
+      {!completed && brief ? (
+        <p className="text-xs text-muted">
+          Briefly prepared an Initial Work Brief · v{brief.version}
+        </p>
+      ) : preparedLine ? (
+        <p className="text-xs text-muted">{preparedLine}</p>
       ) : null}
-
-      {preparedLine ? <p className="text-xs text-muted">{preparedLine}</p> : null}
     </section>
     </StickyNow>
   );
