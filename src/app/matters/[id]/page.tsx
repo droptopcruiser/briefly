@@ -24,6 +24,7 @@ import {
   DeleteDocButton,
   ReadNowButton,
   PendingFactRow,
+  ReadingPoller,
 } from "@/app/document-upload";
 import { SinceReviewCard } from "@/app/since-review-card";
 import { AssignControl } from "@/app/assign-control";
@@ -542,13 +543,17 @@ function fileSize(bytes: number): string {
  */
 async function AttachedFilesSection({ matter }: { matter: Matter }) {
   const docs = await listDocuments(matter.id);
+  const anyReading = docs.some((d) => d.status === "reading");
   return (
     <section className="space-y-2">
       <h2 className="text-lg font-semibold tracking-tight">Attached files</h2>
       <p className="text-xs text-muted">
-        Stored securely in your region. Use <span className="font-medium">Read now</span> to extract
-        facts from a PDF — nothing is added to the matter until you confirm each one.
+        Stored securely in your region. Small PDFs a client emails in are read automatically;
+        otherwise use <span className="font-medium">Read now</span> — nothing is added to the matter
+        until you confirm each fact.
       </p>
+      {/* While a background read is in flight, refresh so facts appear when it lands. */}
+      {anyReading ? <ReadingPoller /> : null}
       {docs.length > 0 ? (
         <ul className="space-y-3">
           {docs.map((d) => {
@@ -557,21 +562,41 @@ async function AttachedFilesSection({ matter }: { matter: Matter }) {
                 ? d.pendingFacts.length > 0
                   ? `read · ${d.pendingFacts.length} for review`
                   : "read"
-                : d.status === "reading"
-                  ? "reading…"
-                  : d.status === "unreadable"
-                    ? "couldn't read"
+                : d.status === "unreadable"
+                  ? "couldn't read"
+                  : d.status === "reading"
+                    ? null
                     : "attached · not yet read";
             return (
               <li key={d.id} className="overflow-hidden rounded-lg border border-border bg-surface">
                 <div className="flex items-center gap-2 px-4 py-3 text-sm">
                   <span aria-hidden="true" className="text-muted">▤</span>
                   <span className="min-w-0 truncate font-medium">{d.fileName}</span>
-                  <span className="shrink-0 text-xs text-muted">{fileSize(d.sizeBytes)}</span>
-                  <span className="ml-auto shrink-0 text-xs font-medium text-muted">{statusLabel}</span>
+                  <span className="shrink-0 text-xs text-muted">
+                    {fileSize(d.sizeBytes)}
+                    {d.pageCount ? ` · ${d.pageCount} pp` : ""}
+                  </span>
+                  {statusLabel ? (
+                    <span className="ml-auto shrink-0 text-xs font-medium text-muted">{statusLabel}</span>
+                  ) : (
+                    <span className="ml-auto" />
+                  )}
                   <ReadNowButton matterId={matter.id} docId={d.id} status={d.status} />
                   <DeleteDocButton matterId={matter.id} docId={d.id} fileName={d.fileName} />
                 </div>
+
+                {/* Sleek reading state — the visible surface of the background read. */}
+                {d.status === "reading" ? (
+                  <div className="flex items-center gap-2.5 border-t border-border bg-inset/60 px-4 py-3 text-xs font-medium text-accent">
+                    <span className="relative flex h-2 w-2 shrink-0">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+                    </span>
+                    <span className="animate-pulse">
+                      Briefly is reading this document — extracting the facts…
+                    </span>
+                  </div>
+                ) : null}
 
                 {d.pendingFacts.length > 0 ? (
                   <div className="border-t border-border bg-inset/50 px-4 py-3">

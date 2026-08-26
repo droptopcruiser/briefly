@@ -1,21 +1,13 @@
 "use server";
 
-import { randomUUID } from "crypto";
 import { requireUser } from "@/lib/auth";
 import { getMatter, saveMatter } from "@/lib/store";
 import { getCurrentAccount, DEFAULT_ACCOUNT_ID } from "@/lib/metering";
 import { getEffectiveRubrics } from "@/lib/rubric-store";
 import { computeGaps, computeReadiness } from "@/lib/gaps";
 import { addEvent } from "@/lib/events";
-import {
-  uploadDocument,
-  deleteDocument,
-  getDocument,
-  updateDocument,
-  downloadDocument,
-  type PendingDocFact,
-} from "@/lib/documents";
-import { readDocumentPdf } from "@/lib/document-read";
+import { uploadDocument, deleteDocument, getDocument, updateDocument } from "@/lib/documents";
+import { readStoredDocument } from "@/lib/document-service";
 import { ensureBriefOnReady } from "@/lib/work-brief";
 import { recordReview } from "@/lib/reviews";
 
@@ -89,60 +81,15 @@ export async function readMatterDocument(
 
   const rubrics = await getEffectiveRubrics(matter.accountId ?? accountId);
   const rubric = rubrics.find((r) => r.id === matter.result!.rubricId);
-  const fields = (rubric?.fields ?? []).map((f) => ({
-    key: f.key,
-    label: f.label,
-    description: f.description,
-  }));
-  const byKey = new Map(matter.result.fields.map((f) => [f.key, f]));
 
-  doc.status = "reading";
-  await updateDocument(doc);
-  try {
-    const bytes = await downloadDocument(doc);
-    if (!bytes) {
-      doc.status = "unreadable";
-      await updateDocument(doc);
-      return { ok: false, error: "Could not read the stored file." };
-    }
-    const res = await readDocumentPdf(bytes, { fields: fields.length ? fields : undefined });
-
-    // Keep only facts that map to a rubric field (when a rubric exists), so the
-    // pending list stays about this firm's requirements, not incidental content.
-    const pending: PendingDocFact[] = res.facts
-      .filter((f) => (rubric ? byKey.has(f.key) : true))
-      .map((f) => {
-        const field = byKey.get(f.key);
-        const stated = field?.present && field.value ? field.value : null;
-        return {
-          id: randomUUID(),
-          key: f.key,
-          label: field?.label ?? f.key,
-          value: f.value,
-          quote: f.quote,
-          page: f.page,
-          stated,
-        };
-      });
-
-    doc.pendingFacts = pending;
-    doc.costCents = res.costCents;
-    doc.readAt = new Date().toISOString();
-    doc.status = pending.length > 0 ? "read" : "unreadable";
-    await updateDocument(doc);
-    await addEvent(
-      matter.accountId ?? accountId,
-      matter.id,
-      "document_read",
-      `Read ${doc.fileName} — ${pending.length} fact${pending.length === 1 ? "" : "s"} for your review`,
-    );
-    return { ok: true };
-  } catch (err) {
-    console.error("readMatterDocument failed:", err);
-    doc.status = "attached"; // revert so it can be retried
-    await updateDocument(doc);
-    return { ok: false, error: "Reading failed — please try again." };
-  }
+  // Manual read: no auto page-cap (the professional chose to read it), but the
+  // hard 100-page limit still applies inside the service.
+  const outcome = await readStoredDocument(matter, rubric, doc);
+  if (outcome.ok) return { ok: true };
+  if (outcome.reason === "too_large")
+    return { ok: false, error: `This document is ${outcome.pages} pages — over the 100-page limit Briefly can read at once.` };
+  if (outcome.reason === "missing") return { ok: false, error: "Could not read the stored file." };
+  return { ok: false, error: "Reading failed — please try again." };
 }
 
 /**

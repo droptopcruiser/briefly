@@ -1,27 +1,33 @@
+import { after } from "next/server";
 import { ingestSubmission, ingestReply } from "@/lib/ingest";
 import { getMatter, findOpenMatterByClient } from "@/lib/store";
 import { QuotaExceededError, getAccountByInboundToken } from "@/lib/metering";
-import { uploadDocument } from "@/lib/documents";
+import { getEffectiveRubrics } from "@/lib/rubric-store";
+import { uploadDocument, updateDocument, type MatterDocument } from "@/lib/documents";
+import { readStoredDocument, countPdfPages, AUTO_READ_MAX_PAGES } from "@/lib/document-service";
 import { addEvent } from "@/lib/events";
+import type { Matter } from "@/lib/types";
 
-// Runs the pipeline (3 sequential Haiku calls, ~10-20s) — give it headroom.
-export const maxDuration = 60;
+// The pipeline (~15s) plus a background auto-read (~15-40s) run in one invocation
+// via after() — give the whole thing room (Fluid Compute allows up to 300s).
+export const maxDuration = 300;
 
 const ATTACH_MAX_BYTES = 20 * 1024 * 1024; // 20 MB — matches the manual upload cap.
 
 /**
  * Auto-store a client's PDF email attachments onto the matter, so replying WITH
  * the signed document just works — no manual upload. Best-effort per file: a bad
- * attachment is skipped, never failing the whole inbound. Reading stays manual
- * ("Read now") behind the confirmation gate. Returns the stored file names.
+ * attachment is skipped, never failing the whole inbound. Records each file's
+ * page count so the caller can decide auto-read eligibility. Returns the stored
+ * document rows.
  */
 async function storeInboundPdfAttachments(
   accountId: string,
   matterId: string,
   fields: Record<string, unknown>,
-): Promise<string[]> {
+): Promise<MatterDocument[]> {
   const list = Array.isArray(fields.Attachments) ? (fields.Attachments as Array<Record<string, unknown>>) : [];
-  const stored: string[] = [];
+  const stored: MatterDocument[] = [];
   for (const a of list) {
     const name = str(a.Name) || "attachment.pdf";
     const contentType = str(a.ContentType);
@@ -32,13 +38,48 @@ async function storeInboundPdfAttachments(
       const bytes = new Uint8Array(Buffer.from(content, "base64"));
       if (bytes.byteLength === 0 || bytes.byteLength > ATTACH_MAX_BYTES) continue;
       const doc = await uploadDocument(accountId, matterId, name, "application/pdf", bytes);
+      doc.pageCount = await countPdfPages(bytes);
+      await updateDocument(doc);
       await addEvent(accountId, matterId, "document_attached", `Client attached ${doc.fileName}`);
-      stored.push(doc.fileName);
+      stored.push(doc);
     } catch (err) {
       console.error("storeInboundPdfAttachments: failed on", name, err);
     }
   }
   return stored;
+}
+
+/**
+ * After storing, auto-read the small PDFs (<= AUTO_READ_MAX_PAGES) in the
+ * background so the webhook still answers fast. Larger docs stay "attached" for a
+ * one-click manual read. Facts land PENDING — the confirmation gate is unchanged.
+ * Marks eligible docs "reading" up front so the matter shows the loading state.
+ */
+async function autoReadInboundDocuments(
+  matter: Matter,
+  accountId: string,
+  docs: MatterDocument[],
+): Promise<void> {
+  const eligible = docs.filter((d) => d.pageCount === null || d.pageCount <= AUTO_READ_MAX_PAGES);
+  if (eligible.length === 0) return;
+
+  for (const d of eligible) {
+    d.status = "reading";
+    await updateDocument(d);
+  }
+
+  const rubrics = await getEffectiveRubrics(accountId);
+  const rubric = rubrics.find((r) => r.id === matter.result?.rubricId);
+
+  after(async () => {
+    for (const d of eligible) {
+      try {
+        await readStoredDocument(matter, rubric, d, { autoMaxPages: AUTO_READ_MAX_PAGES });
+      } catch (err) {
+        console.error("autoReadInboundDocuments: read failed for", d.fileName, err);
+      }
+    }
+  });
 }
 
 /**
@@ -229,9 +270,11 @@ export async function POST(req: Request): Promise<Response> {
     }
 
     // Slice 4 — a client can just reply WITH the signed document. PDF attachments
-    // are auto-stored onto the matter (same store as a manual upload); reading
-    // stays the deliberate "Read now" + confirmation flow.
-    const attachments = await storeInboundPdfAttachments(account.id, matter.id, fields);
+    // are auto-stored, then small ones (<= 30 pages) are auto-read in the
+    // background (larger stay one-click manual); facts land pending for confirmation.
+    const stored = await storeInboundPdfAttachments(account.id, matter.id, fields);
+    if (stored.length) await autoReadInboundDocuments(matter, account.id, stored);
+    const attachments = stored.map((d) => d.fileName);
 
     return jsonResponse(200, {
       id: matter.id,

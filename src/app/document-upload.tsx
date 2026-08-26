@@ -1,8 +1,22 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Spinner } from "@/app/pending-button";
+
+/**
+ * While a document is being read in the background (inbound auto-read), refresh
+ * the page periodically so the pending facts appear the moment the read finishes.
+ * Rendered only when something is reading; unmounts (and stops) once it isn't.
+ */
+export function ReadingPoller() {
+  const router = useRouter();
+  useEffect(() => {
+    const id = setInterval(() => router.refresh(), 3000);
+    return () => clearInterval(id);
+  }, [router]);
+  return null;
+}
 import {
   uploadMatterDocument,
   deleteMatterDocument,
