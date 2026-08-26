@@ -1,9 +1,45 @@
 import { ingestSubmission, ingestReply } from "@/lib/ingest";
 import { getMatter, findOpenMatterByClient } from "@/lib/store";
 import { QuotaExceededError, getAccountByInboundToken } from "@/lib/metering";
+import { uploadDocument } from "@/lib/documents";
+import { addEvent } from "@/lib/events";
 
 // Runs the pipeline (3 sequential Haiku calls, ~10-20s) — give it headroom.
 export const maxDuration = 60;
+
+const ATTACH_MAX_BYTES = 20 * 1024 * 1024; // 20 MB — matches the manual upload cap.
+
+/**
+ * Auto-store a client's PDF email attachments onto the matter, so replying WITH
+ * the signed document just works — no manual upload. Best-effort per file: a bad
+ * attachment is skipped, never failing the whole inbound. Reading stays manual
+ * ("Read now") behind the confirmation gate. Returns the stored file names.
+ */
+async function storeInboundPdfAttachments(
+  accountId: string,
+  matterId: string,
+  fields: Record<string, unknown>,
+): Promise<string[]> {
+  const list = Array.isArray(fields.Attachments) ? (fields.Attachments as Array<Record<string, unknown>>) : [];
+  const stored: string[] = [];
+  for (const a of list) {
+    const name = str(a.Name) || "attachment.pdf";
+    const contentType = str(a.ContentType);
+    const content = str(a.Content); // Postmark delivers base64
+    const isPdf = contentType.toLowerCase().includes("pdf") || /\.pdf$/i.test(name);
+    if (!isPdf || !content) continue;
+    try {
+      const bytes = new Uint8Array(Buffer.from(content, "base64"));
+      if (bytes.byteLength === 0 || bytes.byteLength > ATTACH_MAX_BYTES) continue;
+      const doc = await uploadDocument(accountId, matterId, name, "application/pdf", bytes);
+      await addEvent(accountId, matterId, "document_attached", `Client attached ${doc.fileName}`);
+      stored.push(doc.fileName);
+    } catch (err) {
+      console.error("storeInboundPdfAttachments: failed on", name, err);
+    }
+  }
+  return stored;
+}
 
 /**
  * Inbound email webhook (PRD Phase 1). An inbound mail service (Postmark,
@@ -169,35 +205,40 @@ export async function POST(req: Request): Promise<Response> {
   const threadMeta = parseThreadMeta(fields);
 
   try {
+    let matter;
+    let threaded = false;
     if (existing) {
-      const matter = await ingestReply({
+      matter = await ingestReply({
         account,
         matter: existing,
         message: email.body,
         emailMeta: threadMeta,
       });
-      return jsonResponse(200, {
-        id: matter.id,
-        status: matter.status,
-        readiness: matter.result?.readiness ?? null,
-        threaded: true,
+      threaded = true;
+    } else {
+      const submission = email.subject
+        ? `Subject: ${email.subject}\n\n${email.body}`
+        : email.body;
+      matter = await ingestSubmission({
+        submission,
+        account,
+        clientNameHint: email.fromName,
+        clientEmailHint: email.fromEmail,
+        emailMeta: threadMeta,
       });
     }
 
-    const submission = email.subject
-      ? `Subject: ${email.subject}\n\n${email.body}`
-      : email.body;
-    const matter = await ingestSubmission({
-      submission,
-      account,
-      clientNameHint: email.fromName,
-      clientEmailHint: email.fromEmail,
-      emailMeta: threadMeta,
-    });
+    // Slice 4 — a client can just reply WITH the signed document. PDF attachments
+    // are auto-stored onto the matter (same store as a manual upload); reading
+    // stays the deliberate "Read now" + confirmation flow.
+    const attachments = await storeInboundPdfAttachments(account.id, matter.id, fields);
+
     return jsonResponse(200, {
       id: matter.id,
       status: matter.status,
       readiness: matter.result?.readiness ?? null,
+      ...(threaded ? { threaded: true } : {}),
+      ...(attachments.length ? { attachments } : {}),
     });
   } catch (err) {
     if (err instanceof QuotaExceededError) {
