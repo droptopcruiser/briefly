@@ -39,11 +39,15 @@ export function SinceReviewCard({
   changes,
   needsAttention,
   markReviewedAction,
+  auto = false,
 }: {
   id: string;
   changes: MatterChanges;
   needsAttention: string | null;
   markReviewedAction: (formData: FormData) => void | Promise<void>;
+  /** True when the baseline was captured automatically (when Briefly prepared the
+   *  brief), not by a human review — the heading says so honestly. */
+  auto?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -67,7 +71,9 @@ export function SinceReviewCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 shrink-0 rounded-full bg-accent" />
-            <h2 className="text-base font-semibold tracking-tight">Since the last review</h2>
+            <h2 className="text-base font-semibold tracking-tight">
+              {auto ? "Since Briefly prepared this" : "Since the last review"}
+            </h2>
           </div>
           <p className="mt-1 text-sm text-muted">
             {seg.length > 0 ? seg.join(" · ") : "No data changes."}

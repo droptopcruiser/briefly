@@ -105,6 +105,7 @@ async function SinceReviewSection({ matter, accountId }: { matter: Matter; accou
       changes={changes}
       needsAttention={needsAttention}
       markReviewedAction={markMatterReviewed}
+      auto={baseline.reviewedBy === null}
     />
   );
 }
@@ -193,6 +194,10 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
       : null;
 
   const completed = matter.status === "completed";
+  // A reply that arrived AFTER the brief was prepared means the narrative below
+  // (context, decision, figures) may quote superseded values — the record stays
+  // current, the brief prose doesn't. Say so plainly rather than mislead.
+  const briefStale = !!brief && isBriefStale(brief, matter);
 
   // The compact bar shown once the full hero scrolls under the header.
   const compactBar = (
@@ -231,6 +236,19 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
           </span>
         ) : null}
       </div>
+
+      {/* Stale guard — a reply landed after this was prepared, so the figures in the
+          narrative below may be superseded (the record is always current). A light
+          inline note right where the stale text sits; the diff + refresh live above. */}
+      {!completed && briefStale ? (
+        <p className="flex items-start gap-2 border-l-2 border-awaiting pl-3 text-xs text-awaiting">
+          <span aria-hidden="true" className="mt-px shrink-0">⚠</span>
+          <span>
+            A reply arrived after this was prepared — figures below may be superseded.
+            The matter record is current.
+          </span>
+        </p>
+      ) : null}
 
       {/* Briefly noticed — flat on the workspace, the connected factors. */}
       {insight ? (
@@ -295,6 +313,7 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
       {!completed && brief ? (
         <p className="text-xs text-muted">
           Briefly prepared an Initial Work Brief · v{brief.version}
+          {briefStale ? " · update available" : ""}
         </p>
       ) : preparedLine ? (
         <p className="text-xs text-muted">{preparedLine}</p>

@@ -17,6 +17,7 @@ import {
 } from "@/lib/documents";
 import { readDocumentPdf } from "@/lib/document-read";
 import { ensureBriefOnReady } from "@/lib/work-brief";
+import { recordReview } from "@/lib/reviews";
 
 /**
  * Attachment actions — Slice 1. Upload/remove a matter's PDF. Storage is
@@ -224,6 +225,8 @@ export async function confirmDocFact(
       } catch (err) {
         console.error("ensureBriefOnReady after doc confirm failed:", err);
       }
+      // Baseline the prepared state so a later change is diffable (see ingestReply).
+      await recordReview(matter, null);
     }
   } else if (outcome === "conflict") {
     await addEvent(

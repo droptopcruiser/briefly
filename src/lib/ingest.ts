@@ -5,6 +5,7 @@ import { getEffectiveRubrics } from "./rubric-store";
 import { computeGaps, computeReadiness } from "./gaps";
 import { addEvent } from "./events";
 import { ensureBriefOnReady, getActiveBrief, isBriefStale } from "./work-brief";
+import { recordReview } from "./reviews";
 import { listMembers } from "./team";
 import { upsertClient, getKnownFacts } from "./clients";
 import { isEmailConfigured, sendMatterReadyEmail } from "./email";
@@ -98,6 +99,8 @@ export async function ingestSubmission(opts: {
     if (brief) {
       await addEvent(matter.accountId, matter.id, "brief_created", "Initial Work Brief prepared for review");
     }
+    // Baseline the prepared state so a later change is diffable (see ingestReply).
+    await recordReview(matter, null);
   }
   return matter;
 }
@@ -158,15 +161,11 @@ export async function ingestReply(opts: {
   await upsertClient(matter.accountId, matter.clientEmail, matter.clientName);
 
   const acct = account?.id ?? matter.accountId;
-  await addEvent(acct, matter.id, "client_replied", "Client replied");
-  if (result.readiness !== prevReadiness) {
-    await addEvent(
-      acct,
-      matter.id,
-      "readiness_changed",
-      `Readiness ${prevReadiness}% → ${result.readiness}%`,
-    );
-  }
+  // One line per reply — the readiness move rides along, instead of a redundant
+  // "Client replied" then "Readiness x → y" pair stacking up over a negotiation.
+  const delta =
+    result.readiness !== prevReadiness ? ` · ${prevReadiness}% → ${result.readiness}%` : "";
+  await addEvent(acct, matter.id, "client_replied", `Client replied${delta}`);
 
   const becameReady =
     !wasFinal && prevStatus !== "ready_for_you" && matter.status === "ready_for_you";
@@ -182,6 +181,9 @@ export async function ingestReply(opts: {
     if (brief) {
       await addEvent(acct, matter.id, "brief_created", "Initial Work Brief prepared for review");
     }
+    // Baseline the just-prepared state so any later change (a renegotiated price,
+    // a moved settlement date) is shown as a diff — not silently absorbed.
+    await recordReview(matter, null);
     await notifyReady(account, matter);
   } else {
     // Already ready with a live brief? The new reply may have made it stale —
