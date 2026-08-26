@@ -8,7 +8,7 @@ import { getEffectiveRubrics } from "@/lib/rubric-store";
 import { addEvent } from "@/lib/events";
 import { addMessage } from "@/lib/messages";
 import { recordReview } from "@/lib/reviews";
-import { isEmailConfigured, sendEmail, senderFrom, composeEmailBody } from "@/lib/email";
+import { isEmailConfigured, sendEmail, senderFrom, composeEmailBody, replySubject } from "@/lib/email";
 import type { SendResult } from "@/app/actions";
 import {
   getActiveBrief,
@@ -198,6 +198,62 @@ export async function sendBriefMessage(_prev: SendResult, formData: FormData): P
   await addEvent(matter.accountId, matter.id, "sent", `Message sent to ${to}`);
   await addMessage(matter.accountId, matter.id, "outbound", finalBody, subjectToSend);
   revalidatePath(`/matters/${id}`);
+  return { ok: true };
+}
+
+/**
+ * Reply in the matter's conversation thread — the composer at the bottom of the
+ * Conversation tab. A plain-text message the professional types (optionally seeded
+ * by "Draft with Briefly"); the Send click is the gate. Reuses the threaded send
+ * path so the reply stays in ONE mailbox conversation (In-Reply-To / References)
+ * and is recorded in the message log. Does not change matter status — it's an
+ * ad-hoc reply, not the prepared follow-up flow.
+ */
+export async function sendConversationMessage(
+  matterId: string,
+  rawBody: string,
+): Promise<{ ok: boolean; error?: string }> {
+  await requireUser();
+  const body = (rawBody ?? "").trim();
+  if (!matterId || !body) return { ok: false, error: "Nothing to send." };
+
+  const { account, matter } = await loadMatterAndRubric(matterId);
+  if (!matter) return { ok: false, error: "Matter not found." };
+  const to = matter.clientEmail;
+  if (!to) {
+    return { ok: false, error: "No client email on this matter — reply from your own mail client." };
+  }
+  if (!isEmailConfigured()) {
+    return { ok: false, error: "Email sending isn't configured yet (POSTMARK_SERVER_TOKEN / MAIL_FROM)." };
+  }
+
+  const from = senderFrom(account?.name);
+  const replyTo =
+    account?.replyToMode === "firm"
+      ? account.replyToEmail?.trim() || undefined
+      : account?.inboundToken
+        ? `${account.inboundToken}+${matter.id}@${INBOUND_DOMAIN}`
+        : undefined;
+  const finalBody = composeEmailBody(body, { signature: account?.emailSignature, firmName: account?.name });
+  const thread = matter.result?.emailThread ?? null;
+  const subjectToSend = thread ? replySubject(thread.subject) : "Regarding your enquiry";
+
+  try {
+    await sendEmail({
+      to,
+      subject: subjectToSend,
+      body: finalBody,
+      from,
+      replyTo,
+      inReplyTo: thread?.messageId ?? undefined,
+      references: thread?.references ?? undefined,
+    });
+  } catch (err) {
+    return { ok: false, error: `Send failed: ${err instanceof Error ? err.message : "unknown error"}` };
+  }
+  await addEvent(matter.accountId, matter.id, "sent", `Message sent to ${to}`);
+  await addMessage(matter.accountId, matter.id, "outbound", finalBody, subjectToSend);
+  revalidatePath(`/matters/${matterId}`);
   return { ok: true };
 }
 

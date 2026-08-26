@@ -10,6 +10,7 @@ import { ApproveButton } from "@/app/approve-button";
 import { DraftActions } from "@/app/draft-actions";
 import { BriefPanel } from "@/app/brief-panel";
 import { ConsultationPanel } from "@/app/consultation-panel";
+import { ConversationComposer } from "@/app/conversation-composer";
 import { MatterTabs, GoToTab } from "@/app/matter-tabs";
 import { EvidenceDrawer, OpenEvidenceButton } from "@/app/evidence-drawer";
 import { UsedInInsightTag } from "@/app/used-in-insight-tag";
@@ -455,8 +456,30 @@ async function ConversationSection({ matter }: { matter: Matter }) {
         }));
   const clientName = matter.clientName ?? "Client";
 
+  // Seed for "Draft with Briefly": the prepared follow-up (Path A) or the brief's
+  // suggested client message (Path B), so the composer starts from Briefly's draft.
+  let suggestedDraft = matter.result?.draftEmail?.body?.trim() || null;
+  if (!suggestedDraft) {
+    const brief = await getActiveBrief(matter.id);
+    suggestedDraft = brief?.content.suggestedClientMessage?.trim() || null;
+  }
+
+  const composer = (
+    <ConversationComposer
+      matterId={matter.id}
+      clientEmail={matter.clientEmail}
+      clientName={matter.clientName}
+      suggestedDraft={suggestedDraft}
+    />
+  );
+
   if (thread.length === 0) {
-    return <p className="text-sm text-muted">No messages on this matter yet.</p>;
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-muted">No messages on this matter yet — start the conversation below.</p>
+        {composer}
+      </div>
+    );
   }
 
   return (
@@ -496,6 +519,9 @@ async function ConversationSection({ matter }: { matter: Matter }) {
           );
         })}
       </div>
+
+      {/* The reply composer — where you answer the client without leaving Briefly. */}
+      <div className="pt-1">{composer}</div>
     </div>
   );
 }
