@@ -438,6 +438,69 @@ async function ConsultationPlanSection({ matter }: { matter: Matter }) {
 }
 
 /**
+ * CONVERSATION — the actual client thread as a two-sided chat: the client's
+ * messages left, what the firm sent right. Reads the message log; falls back to
+ * the client side parsed from the submission for matters that predate the log.
+ */
+async function ConversationSection({ matter }: { matter: Matter }) {
+  const logged = await listMessages(matter.id);
+  const thread: { direction: "inbound" | "outbound"; subject: string | null; text: string; date: string | null }[] =
+    logged.length > 0
+      ? logged.map((m) => ({ direction: m.direction, subject: m.subject, text: m.body, date: m.createdAt.slice(0, 10) }))
+      : parseConversation(matter.submission).map((m) => ({
+          direction: "inbound" as const,
+          subject: m.subject,
+          text: m.text,
+          date: m.date,
+        }));
+  const clientName = matter.clientName ?? "Client";
+
+  if (thread.length === 0) {
+    return <p className="text-sm text-muted">No messages on this matter yet.</p>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-sm text-muted">
+          The full thread — the client&apos;s messages on the left, your replies on the right.
+        </p>
+        <span className="shrink-0 text-xs text-muted">
+          {thread.length} {thread.length === 1 ? "message" : "messages"}
+        </span>
+      </div>
+      <div className="space-y-4">
+        {thread.map((m, i) => {
+          const out = m.direction === "outbound";
+          return (
+            <div key={i} className={`flex ${out ? "justify-end" : "justify-start"}`}>
+              <div className="max-w-[80%] space-y-1">
+                <div className={`flex items-center gap-1.5 px-1 text-[11px] text-muted ${out ? "justify-end" : ""}`}>
+                  <span className="font-medium text-foreground/70">{out ? "You" : clientName}</span>
+                  {m.date ? <span className="tabular-nums">· {m.date}</span> : null}
+                </div>
+                <div
+                  className={`rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-[var(--shadow-sm)] ${
+                    out
+                      ? "rounded-br-md bg-accent-soft text-foreground"
+                      : "rounded-bl-md border border-border bg-surface text-foreground/90"
+                  }`}
+                >
+                  {m.subject && !out ? (
+                    <div className="mb-1 text-[11px] text-muted">Subject: {m.subject}</div>
+                  ) : null}
+                  <p className="whitespace-pre-line">{m.text}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/**
  * A gap's workflow consequence, generated at display time from the matter's own
  * rubric — so old matters (whose stored reason predates this) show it too. Grounded
  * (names the firm's rulebook + the next stage), honest about documents (referenced,
@@ -534,26 +597,6 @@ async function RecordPanel({ matter }: { matter: Matter }) {
   const r = matter.result!;
   const outstandingDocs = r.gaps.filter((g) => g.kind === "document");
 
-  // The conversation — both directions from the message log; if a matter predates
-  // the log (nothing recorded yet), fall back to the client side parsed from the
-  // submission so the thread is never empty.
-  const logged = await listMessages(matter.id);
-  const thread: { direction: "inbound" | "outbound"; subject: string | null; text: string; date: string | null }[] =
-    logged.length > 0
-      ? logged.map((m) => ({
-          direction: m.direction,
-          subject: m.subject,
-          text: m.body,
-          date: m.createdAt.slice(0, 10),
-        }))
-      : parseConversation(matter.submission).map((m) => ({
-          direction: "inbound" as const,
-          subject: m.subject,
-          text: m.text,
-          date: m.date,
-        }));
-  const clientName = matter.clientName ?? "Client";
-
   // Which facts fed the "Briefly noticed" insight — so the record can point back.
   const brief = await getActiveBrief(matter.id);
   const usedSlugs = new Set<string>();
@@ -566,50 +609,6 @@ async function RecordPanel({ matter }: { matter: Matter }) {
 
   return (
     <div className="space-y-8">
-      {/* Conversation — the source the facts are derived from. A real two-sided
-          thread: the client's messages on the left, what the firm sent on the right. */}
-      {thread.length > 0 ? (
-        <section className="space-y-3">
-          <div className="flex items-baseline justify-between gap-2">
-            <h2 className="text-lg font-semibold tracking-tight">Conversation</h2>
-            <span className="text-xs text-muted">
-              {thread.length} {thread.length === 1 ? "message" : "messages"}
-            </span>
-          </div>
-          <div className="space-y-4 rounded-2xl border border-border bg-inset/50 p-4 sm:p-5">
-            {thread.map((m, i) => {
-              const out = m.direction === "outbound";
-              return (
-                <div key={i} className={`flex ${out ? "justify-end" : "justify-start"}`}>
-                  <div className="max-w-[85%] space-y-1">
-                    <div
-                      className={`flex items-center gap-1.5 px-1 text-[11px] text-muted ${
-                        out ? "justify-end" : ""
-                      }`}
-                    >
-                      <span className="font-medium text-foreground/70">{out ? "You" : clientName}</span>
-                      {m.date ? <span className="tabular-nums">· {m.date}</span> : null}
-                    </div>
-                    <div
-                      className={`rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-[var(--shadow-sm)] ${
-                        out
-                          ? "rounded-br-md bg-accent-soft text-foreground"
-                          : "rounded-bl-md border border-border bg-surface text-foreground/90"
-                      }`}
-                    >
-                      {m.subject && !out ? (
-                        <div className="mb-1 text-[11px] text-muted">Subject: {m.subject}</div>
-                      ) : null}
-                      <p className="whitespace-pre-line">{m.text}</p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      ) : null}
-
       <div className="grid gap-8 md:grid-cols-2">
         {/* Extracted facts */}
         <section className="space-y-3">
@@ -797,6 +796,15 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
       node: (
         <Suspense fallback={<SectionSkeleton label="Preparing next step" />}>
           <NextStepSection matter={matter} account={account} />
+        </Suspense>
+      ),
+    },
+    {
+      id: "conversation",
+      label: "Conversation",
+      node: (
+        <Suspense fallback={<SectionSkeleton label="Loading the conversation" />}>
+          <ConversationSection matter={matter} />
         </Suspense>
       ),
     },
