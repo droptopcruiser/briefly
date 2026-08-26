@@ -15,10 +15,15 @@ export function BriefMessageSend({
   matterId,
   to,
   initialBody,
+  stale = false,
 }: {
   matterId: string;
   to: string | null;
   initialBody: string;
+  /** True when the brief this message belongs to is stale — a client update has
+   *  arrived since it was written, so sending it as-is would send superseded
+   *  details. Sending is held until the brief is refreshed. */
+  stale?: boolean;
 }) {
   const [state, formAction, pending] = useActionState<SendResult, FormData>(sendBriefMessage, {
     ok: false,
@@ -94,48 +99,63 @@ export function BriefMessageSend({
         />
       </div>
 
-      {/* One dominant action; the rest recede to quiet fallbacks. */}
-      {to ? (
-        <form action={formAction} className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <input type="hidden" name="id" value={matterId} />
-          <input type="hidden" name="subject" value={subject} />
-          <input type="hidden" name="body" value={body} />
-          <button
-            type="submit"
-            disabled={pending}
-            className="btn-primary rounded-md px-5 py-2.5 text-sm font-semibold disabled:opacity-60"
-          >
-            {pending ? "Sending…" : "Approve & send"}
-          </button>
-          <div className="flex items-center gap-3">
-            {copyLink}
-            <a
-              href={mailto}
-              className="text-xs text-muted underline decoration-dotted underline-offset-2 hover:text-foreground"
-            >
-              use your mail client
-            </a>
-          </div>
-        </form>
-      ) : (
-        <div className="flex flex-wrap items-center gap-3">
-          <a
-            href={mailto}
-            className="btn-primary rounded-md px-5 py-2.5 text-sm font-semibold"
-          >
-            Send in mail client
-          </a>
-          {copyLink}
+      {/* Stale hold — a client update landed after this was written, so sending it
+          as-is would send superseded details. Hold the send behind a refresh; Copy
+          stays available for anyone who wants to salvage wording by hand. */}
+      {stale ? (
+        <div className="space-y-2">
+          <p className="flex items-start gap-2 rounded-md border border-awaiting/50 bg-awaiting-soft px-3 py-2 text-xs text-awaiting">
+            <span aria-hidden="true" className="mt-px shrink-0">⚠</span>
+            <span>
+              This draft predates the latest client update — refresh the brief above to
+              regenerate it with the current details before sending.
+            </span>
+          </p>
+          <div className="flex items-center gap-3">{copyLink}</div>
         </div>
-      )}
-
-      {state.error ? (
-        <p className="text-xs text-error">{state.error}</p>
       ) : (
-        <p className="text-xs text-muted">
-          Edit if you like, then approve — Briefly sends exactly what you see
-          {to ? ` to ${to}` : ""}. Nothing goes out without your approval.
-        </p>
+        <>
+          {/* One dominant action; the rest recede to quiet fallbacks. */}
+          {to ? (
+            <form action={formAction} className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <input type="hidden" name="id" value={matterId} />
+              <input type="hidden" name="subject" value={subject} />
+              <input type="hidden" name="body" value={body} />
+              <button
+                type="submit"
+                disabled={pending}
+                className="btn-primary rounded-md px-5 py-2.5 text-sm font-semibold disabled:opacity-60"
+              >
+                {pending ? "Sending…" : "Approve & send"}
+              </button>
+              <div className="flex items-center gap-3">
+                {copyLink}
+                <a
+                  href={mailto}
+                  className="text-xs text-muted underline decoration-dotted underline-offset-2 hover:text-foreground"
+                >
+                  use your mail client
+                </a>
+              </div>
+            </form>
+          ) : (
+            <div className="flex flex-wrap items-center gap-3">
+              <a href={mailto} className="btn-primary rounded-md px-5 py-2.5 text-sm font-semibold">
+                Send in mail client
+              </a>
+              {copyLink}
+            </div>
+          )}
+
+          {state.error ? (
+            <p className="text-xs text-error">{state.error}</p>
+          ) : (
+            <p className="text-xs text-muted">
+              Edit if you like, then approve — Briefly sends exactly what you see
+              {to ? ` to ${to}` : ""}. Nothing goes out without your approval.
+            </p>
+          )}
+        </>
       )}
     </div>
   );

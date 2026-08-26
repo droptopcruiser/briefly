@@ -315,6 +315,7 @@ export function WorkBriefCard({
               matterId={matterId}
               to={clientEmail}
               initialBody={content.suggestedClientMessage}
+              stale={stale}
             />
           </section>
         ) : null}
