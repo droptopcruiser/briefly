@@ -11,7 +11,6 @@ import {
   TwoPathTriage,
   SummaryVsWorkflow,
   RubricWorkspace,
-  ThreadingProof,
 } from "@/app/landing";
 import { ThemeToggle } from "@/app/theme-toggle";
 
@@ -86,9 +85,13 @@ export default async function Landing() {
                 Work arrives ready.
               </h1>
               <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted">
-                While you were away, Briefly turned a night of client email into a short, prepared
-                brief — classified, structured, and checked against how <em>your</em> firm works.
-                You open reviewed matters, not an inbox.
+                While you were away, Briefly turned a night of client email into short, prepared
+                matters — checked against how <em>your</em> firm works.
+              </p>
+              <p className="mt-3 max-w-xl text-lg leading-relaxed text-muted">
+                It <strong className="font-medium text-foreground">reads the documents</strong>,
+                follows the conversation, and prepares the next move — so you open work that&apos;s
+                ready to review, not an inbox.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-4">
                 <Link
@@ -112,6 +115,99 @@ export default async function Landing() {
         {/* ── The core mechanic: two-path triage ────────────────────────── */}
         <Section id="triage">
           <TwoPathTriage />
+        </Section>
+
+        {/* ── Flagship: it reads the documents (page-cited, confirmation-gated) ─ */}
+        <Section id="reads">
+          <div className="grid items-start gap-10 lg:grid-cols-2 lg:gap-14">
+            <Reveal className="space-y-4 lg:pt-6">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+                <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+                Reads the source, not just the text
+              </div>
+              <h2 className="font-serif text-3xl font-semibold leading-[1.08] tracking-tight text-balance sm:text-4xl">
+                It reads the documents, not just the email.
+              </h2>
+              <p className="max-w-xl text-muted">
+                When a client attaches a contract, a rates notice, an ID — Briefly opens the file and
+                pulls the facts that matter, each one <strong className="font-medium text-foreground">traceable
+                to the page it came from</strong>. Nothing is added to the matter until you confirm it.
+              </p>
+              <div className="rounded-xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm">
+                <span className="font-medium text-accent">A client replies with the signed contract?</span>{" "}
+                <span className="text-foreground/80">Briefly reads it the moment it lands.</span>
+              </div>
+              <ul className="space-y-1.5 pt-1 text-sm text-muted">
+                {[
+                  "Every fact carries its page — verify it against the source in one click.",
+                  "Scanned or photographed? It reads those too, and flags what it can't verify.",
+                  "Findings wait as evidence; you confirm what goes on the matter.",
+                ].map((t) => (
+                  <li key={t} className="flex items-start gap-2">
+                    <span aria-hidden="true" className="mt-0.5 shrink-0 font-semibold text-accent">✓</span>
+                    <span>{t}</span>
+                  </li>
+                ))}
+              </ul>
+            </Reveal>
+
+            <Reveal className="grid gap-4 sm:grid-cols-[0.9fr_1.1fr] sm:items-start">
+              {/* The source document */}
+              <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-[var(--shadow-sm)]">
+                <div className="border-b border-border bg-inset px-4 py-2 text-[10px] font-medium uppercase tracking-wide text-muted">
+                  Contract of Sale · PDF · p.1
+                </div>
+                <div className="space-y-2 p-4">
+                  <div className="text-center font-serif text-[11px] font-semibold">
+                    CONTRACT OF SALE OF REAL ESTATE
+                  </div>
+                  <div className="h-1.5 w-full rounded bg-border/70" />
+                  <div className="h-1.5 w-4/5 rounded bg-border/70" />
+                  {[
+                    "Vendor: Rafael & Marisol Delgado",
+                    "Purchase Price: $980,000",
+                    "Settlement Date: 5 June 2027",
+                  ].map((line) => (
+                    <div key={line} className="rounded bg-accent-soft px-1.5 py-1 text-[10.5px] font-medium text-foreground/85">
+                      {line}
+                    </div>
+                  ))}
+                  <div className="h-1.5 w-3/4 rounded bg-border/70" />
+                  <div className="h-1.5 w-2/3 rounded bg-border/70" />
+                </div>
+              </div>
+
+              {/* The extracted, page-cited evidence */}
+              <div className="overflow-hidden rounded-xl border border-accent/40 bg-surface">
+                <div className="border-b border-border bg-inset px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
+                  Document evidence — awaiting your confirmation
+                </div>
+                <ul className="divide-y divide-border">
+                  {[
+                    { label: "Vendor name", value: "Rafael & Marisol Delgado" },
+                    { label: "Purchase price", value: "$980,000" },
+                    { label: "Settlement date", value: "5 June 2027" },
+                  ].map((f) => (
+                    <li key={f.label} className="space-y-1.5 px-4 py-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-[10px] uppercase tracking-wide text-muted">{f.label}</div>
+                        <span className="shrink-0 rounded-full bg-inset px-2 py-0.5 text-[10px] font-medium text-muted">
+                          ▤ p.1
+                        </span>
+                      </div>
+                      <div className="text-sm font-medium">{f.value}</div>
+                      <div className="flex items-center gap-2 pt-0.5">
+                        <span className="rounded-md bg-accent px-2 py-0.5 text-[10px] font-semibold text-accent-fg">
+                          Confirm
+                        </span>
+                        <span className="text-[10px] text-muted">Reject</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </Reveal>
+          </div>
         </Section>
 
         {/* ── How it connects: the truthful plumbing ────────────────────── */}
@@ -181,6 +277,32 @@ export default async function Landing() {
           <Reveal>
             <SummaryVsWorkflow />
           </Reveal>
+
+          {/* The prepared artifact, made tangible — its three real parts. */}
+          <Reveal className="mt-12 grid gap-4 sm:grid-cols-3">
+            {[
+              {
+                t: "Briefly noticed",
+                d: "The facts it connected — each tied to a client quote or the document page it came from.",
+              },
+              {
+                t: "Decision now",
+                d: "What this matter needs from you, and whether it's ready, still incomplete, or blocked.",
+              },
+              {
+                t: "Prepared response",
+                d: "A client-facing draft, grounded in the matter — yours to edit, approve, and send.",
+              },
+            ].map((c, i) => (
+              <div key={c.t} className="rounded-2xl border border-border bg-surface p-5">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
+                  {i === 0 ? "Understand" : i === 1 ? "Decide" : "Act"}
+                </div>
+                <h3 className="mt-2 font-serif text-lg font-semibold tracking-tight">{c.t}</h3>
+                <p className="mt-1.5 text-sm text-muted">{c.d}</p>
+              </div>
+            ))}
+          </Reveal>
         </Section>
 
         {/* ── The fit: one living rubric workspace (the interactive "how") ─ */}
@@ -216,8 +338,50 @@ export default async function Landing() {
         </Section>
 
         {/* ── Thread stays together ─────────────────────────────────────── */}
-        <Section>
-          <ThreadingProof />
+        {/* ── Flagship: the conversation, worked in one place ───────────── */}
+        <Section id="conversation">
+          <Heading
+            title="The whole conversation, in one place."
+            sub="Read the back-and-forth, see what's still outstanding, and reply without leaving the matter. Briefly drafts from the conversation and what's missing; you edit and send — one email thread, both ways."
+          />
+          <Reveal className="mx-auto max-w-2xl">
+            <div className="glass glass-sheen space-y-4 rounded-3xl p-5 sm:p-7">
+              {/* client → */}
+              <div className="flex justify-start">
+                <div className="max-w-[82%] space-y-1">
+                  <div className="px-1 text-[11px] text-muted">Tomas · client</div>
+                  <div className="rounded-2xl rounded-bl-md border border-border bg-surface px-3.5 py-2.5 text-sm">
+                    Done — I&apos;ve signed the Contract of Sale and attached it here.
+                    <span className="mt-2 flex w-fit items-center gap-1 rounded-md border border-border bg-surface/70 px-2 py-1 text-[11px] font-medium text-foreground/80">
+                      📎 Contract-of-Sale.pdf
+                    </span>
+                  </div>
+                </div>
+              </div>
+              {/* you → */}
+              <div className="flex justify-end">
+                <div className="max-w-[82%] space-y-1">
+                  <div className="px-1 text-right text-[11px] text-muted">You</div>
+                  <div className="rounded-2xl rounded-br-md bg-accent-soft px-3.5 py-2.5 text-sm text-foreground">
+                    Perfect — that&apos;s everything we need. We&apos;ll review the contract and begin
+                    the searches, then confirm your settlement.
+                  </div>
+                </div>
+              </div>
+              {/* composer */}
+              <div className="overflow-hidden rounded-xl border border-border bg-surface">
+                <div className="px-3.5 py-3 text-sm text-muted">Reply to Tomas…</div>
+                <div className="flex items-center justify-between gap-3 border-t border-border bg-inset px-3 py-2">
+                  <span className="text-xs font-medium text-accent">✦ Draft with Briefly</span>
+                  <span className="rounded-md bg-accent px-4 py-1.5 text-sm font-semibold text-accent-fg">Send</span>
+                </div>
+              </div>
+              <p className="text-center text-[11px] text-muted">
+                Every reply threads into the same client conversation — never a new one. Nothing sends
+                until you approve.
+              </p>
+            </div>
+          </Reveal>
         </Section>
 
         {/* ── It keeps the work moving: reminders · team · gate ─────────── */}
@@ -226,13 +390,44 @@ export default async function Landing() {
             title="It keeps the work moving."
             sub="Preparing the first draft is only the start. Briefly follows through — and holds the line at your approval."
           />
-          <Reveal className="grid gap-4 sm:grid-cols-3">
+          <Reveal className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[
               {
                 t: "Follow-ups, ready to send",
                 d: "When a client goes quiet, Briefly notices, drafts the follow-up, and flags it for you — you review and send. Nothing goes out on its own.",
                 icon: (
                   <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" />
+                ),
+              },
+              {
+                t: "Prepared for the meeting",
+                d: "Set a consultation date and Briefly compiles the pre-meeting packet — the facts, the open questions, and an agenda — so you walk in ready.",
+                icon: (
+                  <>
+                    <path d="M8 2v4M16 2v4M3 10h18" />
+                    <path d="M5 4h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
+                  </>
+                ),
+              },
+              {
+                t: "Since your last review",
+                d: "Come back to exactly what changed — new facts, documents received, replies folded in — each one sourced, so nothing slips past you.",
+                icon: (
+                  <>
+                    <path d="M3 3v5h5" />
+                    <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
+                    <path d="M12 8v4l3 2" />
+                  </>
+                ),
+              },
+              {
+                t: "Remembers your clients",
+                d: "A returning client's known facts carry forward across their matters — so you're never re-asking for what they already told you.",
+                icon: (
+                  <>
+                    <path d="M20 21a8 8 0 0 0-16 0" />
+                    <circle cx="12" cy="7" r="4" />
+                  </>
                 ),
               },
               {
@@ -248,7 +443,7 @@ export default async function Landing() {
               },
               {
                 t: "Always your call",
-                d: "Nothing sends and no decision is made until you approve. Briefly prepares the work; the professional decides.",
+                d: "Nothing sends and no decision is made until you approve. Briefly prepares the work; the professional owns the decision and the send.",
                 icon: <path d="M12 3l7 4v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V7l7-4Z" />,
               },
             ].map((c) => (
