@@ -36,6 +36,7 @@ import { getEffectiveRubrics } from "@/lib/rubric-store";
 import { getClientContext } from "@/lib/clients";
 import { assignMatter, markMatterReviewed } from "@/app/actions";
 import { composeEmailBody, replySubject } from "@/lib/email";
+import { parseConversation } from "@/lib/conversation";
 
 /**
  * Evidence over confidence: show how much of the matter is backed by source
@@ -531,6 +532,8 @@ function humanizeKey(key: string): string {
 async function RecordPanel({ matter }: { matter: Matter }) {
   const r = matter.result!;
   const outstandingDocs = r.gaps.filter((g) => g.kind === "document");
+  const conversation = parseConversation(matter.submission);
+  const clientInitial = (matter.clientName ?? "C").trim().slice(0, 1).toUpperCase() || "C";
 
   // Which facts fed the "Briefly noticed" insight — so the record can point back.
   const brief = await getActiveBrief(matter.id);
@@ -605,6 +608,49 @@ async function RecordPanel({ matter }: { matter: Matter }) {
           )}
         </section>
       </div>
+
+      {/* Conversation — the client's own words, folded back into discrete dated
+          messages. The facts above are DERIVED from this; here you read the source. */}
+      {conversation.length > 0 ? (
+        <section className="space-y-3">
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="text-lg font-semibold tracking-tight">Conversation</h2>
+            <span className="text-xs text-muted">
+              {conversation.length} client {conversation.length === 1 ? "message" : "messages"}
+            </span>
+          </div>
+          <p className="text-xs text-muted">
+            What the client has sent — the enquiry and every reply, in order. Messages you send
+            are tracked in Activity.
+          </p>
+          <ol className="space-y-3">
+            {conversation.map((m, i) => (
+              <li key={i} className="rounded-lg border border-border bg-surface px-4 py-3">
+                <div className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-inset text-[10px] font-semibold text-muted">
+                    {clientInitial}
+                  </span>
+                  <span className="font-medium text-foreground/80">{matter.clientName ?? "Client"}</span>
+                  <span className="text-muted">·</span>
+                  <span className="text-muted">{m.kind === "enquiry" ? "Enquiry" : "Reply"}</span>
+                  {m.date ? (
+                    <>
+                      <span className="text-muted">·</span>
+                      <span className="text-muted tabular-nums">{m.date}</span>
+                    </>
+                  ) : null}
+                </div>
+                {m.subject ? (
+                  <div className="mb-1 text-xs text-muted">
+                    Subject: <span className="text-foreground/80">{m.subject}</span>
+                  </div>
+                ) : null}
+                <p className="whitespace-pre-line text-sm leading-relaxed text-foreground/90">{m.text}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
 
       {/* Documents */}
       {r.documentsPresent.length > 0 || outstandingDocs.length > 0 ? (
