@@ -521,13 +521,17 @@ async function ConversationSection({ matter }: { matter: Matter }) {
                   {m.attachments.length > 0 ? (
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {m.attachments.map((att) => (
-                        <span
+                        <a
                           key={att.docId}
-                          className="inline-flex max-w-full items-center gap-1 rounded-md border border-border bg-surface/70 px-2 py-1 text-[11px] font-medium text-foreground/80"
+                          href={`/api/documents/${att.docId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={`Open ${att.fileName}`}
+                          className="inline-flex max-w-full items-center gap-1 rounded-md border border-border bg-surface/70 px-2 py-1 text-[11px] font-medium text-foreground/80 transition-colors hover:border-accent hover:text-accent"
                         >
                           <span aria-hidden="true">📎</span>
                           <span className="truncate">{att.fileName}</span>
-                        </span>
+                        </a>
                       ))}
                     </div>
                   ) : null}

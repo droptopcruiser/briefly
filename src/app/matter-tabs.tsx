@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const GOTO_EVENT = "matter-goto-tab";
 
@@ -50,13 +50,16 @@ export function MatterTabs({
   const [active, setActive] = useState(
     tabs.some((t) => t.id === defaultTab) ? defaultTab : tabs[0]?.id,
   );
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const onGoto = (e: Event) => {
       const id = (e as CustomEvent<string>).detail;
       if (tabs.some((t) => t.id === id)) {
         setActive(id);
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        // Land ON the tab content (so a jump to Conversation shows the thread),
+        // not the top of the page.
+        containerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     };
     window.addEventListener(GOTO_EVENT, onGoto);
@@ -64,7 +67,7 @@ export function MatterTabs({
   }, [tabs]);
 
   return (
-    <div className="space-y-6">
+    <div ref={containerRef} className="scroll-mt-4 space-y-6">
       <div
         role="tablist"
         aria-label="Matter views"

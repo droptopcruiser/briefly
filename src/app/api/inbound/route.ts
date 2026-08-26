@@ -7,6 +7,7 @@ import { uploadDocument, updateDocument, type MatterDocument } from "@/lib/docum
 import { readStoredDocument, countPdfPages, AUTO_READ_MAX_PAGES } from "@/lib/document-service";
 import { addEvent } from "@/lib/events";
 import { attachToLatestInbound } from "@/lib/messages";
+import { getActiveBrief, isBriefStale, createBriefForMatter } from "@/lib/work-brief";
 import type { Matter } from "@/lib/types";
 
 // The pipeline (~15s) plus a background auto-read (~15-40s) run in one invocation
@@ -79,6 +80,40 @@ async function autoReadInboundDocuments(
       } catch (err) {
         console.error("autoReadInboundDocuments: read failed for", d.fileName, err);
       }
+    }
+  });
+}
+
+/**
+ * Keep "Briefly noticed" current with the conversation after a reply. If the reply
+ * made an UNAPPROVED brief stale, regenerate it in the background (via after(), so
+ * the webhook stays fast) so the insight/decision reflect the latest back-and-forth.
+ * An APPROVED brief is never silently rewritten — it's only flagged stale.
+ */
+async function refreshBriefAfterReply(matter: Matter, accountId: string): Promise<void> {
+  const active = await getActiveBrief(matter.id);
+  if (!active || !isBriefStale(active, matter)) return;
+
+  if (active.state === "approved") {
+    await addEvent(accountId, matter.id, "brief_stale", "New information arrived — brief may need a refresh");
+    return;
+  }
+
+  const rubrics = await getEffectiveRubrics(accountId);
+  const rubric = rubrics.find((r) => r.id === matter.result?.rubricId);
+  after(async () => {
+    try {
+      const refreshed = await createBriefForMatter(matter, rubric, { supersede: true, withJudgment: true });
+      if (refreshed) {
+        await addEvent(
+          accountId,
+          matter.id,
+          "brief_refreshed",
+          `Brief updated with the latest reply (v${refreshed.version})`,
+        );
+      }
+    } catch (err) {
+      console.error("refreshBriefAfterReply failed:", err);
     }
   });
 }
@@ -282,6 +317,8 @@ export async function POST(req: Request): Promise<Response> {
       );
       await autoReadInboundDocuments(matter, account.id, stored);
     }
+    // Keep the brief current with the conversation (background, so the response stays fast).
+    if (threaded) await refreshBriefAfterReply(matter, account.id);
     const attachments = stored.map((d) => d.fileName);
 
     return jsonResponse(200, {

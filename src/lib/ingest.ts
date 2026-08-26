@@ -5,7 +5,7 @@ import { getEffectiveRubrics } from "./rubric-store";
 import { computeGaps, computeReadiness } from "./gaps";
 import { addEvent } from "./events";
 import { addMessage } from "./messages";
-import { ensureBriefOnReady, getActiveBrief, isBriefStale } from "./work-brief";
+import { ensureBriefOnReady } from "./work-brief";
 import { recordReview } from "./reviews";
 import { listMembers } from "./team";
 import { upsertClient, getKnownFacts } from "./clients";
@@ -230,14 +230,11 @@ export async function ingestReply(opts: {
     // a moved settlement date) is shown as a diff — not silently absorbed.
     await recordReview(matter, null);
     await notifyReady(account, matter);
-  } else {
-    // Already ready with a live brief? The new reply may have made it stale —
-    // flag it so the professional can refresh without losing the reviewed one.
-    const active = await getActiveBrief(matter.id);
-    if (active && isBriefStale(active, matter)) {
-      await addEvent(acct, matter.id, "brief_stale", "New information arrived — brief may need a refresh");
-    }
   }
+  // Note: when a reply arrives on an already-ready matter, keeping "Briefly
+  // noticed" current with the conversation (auto-refresh the unapproved brief, or
+  // flag an approved one stale) is handled by the inbound webhook AFTER the
+  // response, so the webhook stays fast — see refreshBriefAfterReply there.
 
   return matter;
 }

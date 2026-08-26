@@ -103,10 +103,17 @@ export function SinceReviewCard({
         <div className="space-y-5 border-t border-border px-5 py-5">
           {changes.newMessages > 0 ? (
             <Group title="New">
-              <p className="text-sm">
+              <button
+                type="button"
+                onClick={() =>
+                  window.dispatchEvent(new CustomEvent("matter-goto-tab", { detail: "conversation" }))
+                }
+                className="text-left text-sm text-accent underline decoration-dotted underline-offset-2 hover:text-accent-h"
+              >
                 {changes.newMessages} new client{" "}
-                {changes.newMessages === 1 ? "reply" : "replies"} folded into this matter.
-              </p>
+                {changes.newMessages === 1 ? "reply" : "replies"} folded into this matter — read
+                the conversation →
+              </button>
             </Group>
           ) : null}
 
