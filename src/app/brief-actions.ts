@@ -6,7 +6,9 @@ import { getMatter, saveMatter } from "@/lib/store";
 import { getCurrentAccount, DEFAULT_ACCOUNT_ID, INBOUND_DOMAIN } from "@/lib/metering";
 import { getEffectiveRubrics } from "@/lib/rubric-store";
 import { addEvent } from "@/lib/events";
-import { addMessage } from "@/lib/messages";
+import { addMessage, listMessages } from "@/lib/messages";
+import { parseConversation } from "@/lib/conversation";
+import { jsonCall, isConfigured } from "@/lib/anthropic";
 import { recordReview } from "@/lib/reviews";
 import { isEmailConfigured, sendEmail, senderFrom, composeEmailBody, replySubject } from "@/lib/email";
 import type { SendResult } from "@/app/actions";
@@ -199,6 +201,88 @@ export async function sendBriefMessage(_prev: SendResult, formData: FormData): P
   await addMessage(matter.accountId, matter.id, "outbound", finalBody, subjectToSend);
   revalidatePath(`/matters/${id}`);
   return { ok: true };
+}
+
+/**
+ * "Draft with Briefly" — a CONTEXTUAL reply, not the static brief message. Reads
+ * the actual conversation so far and the matter's outstanding items (from the
+ * rubric), then drafts the appropriate NEXT message: acknowledge what the client
+ * just said, ask ONLY for what's genuinely still missing, invent nothing. The
+ * professional edits and sends — Briefly never sends it itself.
+ */
+export async function draftConversationReply(
+  matterId: string,
+): Promise<{ ok: boolean; draft?: string; error?: string }> {
+  await requireUser();
+  const { matter, rubric } = await loadMatterAndRubric(matterId);
+  if (!matter?.result) return { ok: false, error: "Matter not found." };
+  const r = matter.result;
+
+  // The conversation so far — both directions from the log, or the client side
+  // parsed from the submission for matters that predate the log.
+  const logged = await listMessages(matterId);
+  const turns = logged.length
+    ? logged.map((m) => `${m.direction === "outbound" ? "Firm" : "Client"}: ${m.body}`)
+    : parseConversation(matter.submission).map((m) => `Client: ${m.text}`);
+
+  const clientName = matter.clientName ?? "the client";
+  const firstName = clientName.split(/\s+/)[0];
+  const outstanding = r.gaps.map((g) => `- ${g.label}${g.kind === "document" ? " (document)" : ""}`);
+  const known = r.fields.filter((f) => f.present && f.value).map((f) => `- ${f.label}: ${f.value}`);
+
+  // Deterministic fallback (demo mode / no key): acknowledge + ask for what's left.
+  if (!isConfigured()) {
+    const asks = r.gaps.map((g) => g.label);
+    const join =
+      asks.length <= 1 ? asks[0] ?? "" : `${asks.slice(0, -1).join(", ")} and ${asks.slice(-1)}`;
+    const draft = asks.length
+      ? `Thanks ${firstName} — this is really helpful. To move forward we still need ${join}. Send those through whenever you can and we'll proceed.`
+      : `Thanks ${firstName} — that's everything we need for now. We'll take it from here and be in touch as the matter progresses.`;
+    return { ok: true, draft };
+  }
+
+  const system = `You are drafting the NEXT message a ${rubric?.vertical ?? "professional services"} firm will send to their client "${clientName}", as a reply within an ongoing email conversation. Write ONLY the reply body — no subject line, no signature, no sign-off name (a firm signature is appended automatically).
+
+RULES:
+- It is a REPLY. Acknowledge what the client said in their most recent message. NEVER re-request anything they have already provided or that is already confirmed.
+- Ask ONLY for items in the "Still outstanding" list. If that list says nothing is outstanding, do NOT ask for anything — give a brief, warm acknowledgement and say what happens next in the firm's own process.
+- Ground every statement in the conversation and the known facts. Invent nothing — no dates, amounts, names, or requirements that are not given.
+- No autonomous legal/financial/medical advice; frame next steps as the firm's process ("we'll review the contract", "we'll begin the searches").
+- Warm, human, concise: 2–4 sentences. Use the client's first name. Plain text.`;
+
+  const user = `Matter type: ${r.rubricName} (${r.vertical}).
+Firm's intended next action: ${rubric?.nextActionIntent ?? "progress the matter"}.
+
+Known / already provided:
+${known.join("\n") || "(none yet)"}
+
+Still outstanding — ask ONLY for these (empty = ask for nothing):
+${outstanding.join("\n") || "(nothing outstanding — everything the rulebook requires is present)"}
+
+Conversation so far (most recent message last):
+${turns.join("\n\n")}
+
+Draft the firm's next reply now.`;
+
+  try {
+    const { data } = await jsonCall<{ reply: string }>({
+      system,
+      user,
+      schema: {
+        type: "object",
+        additionalProperties: false,
+        properties: { reply: { type: "string" } },
+        required: ["reply"],
+      },
+      maxTokens: 400,
+    });
+    const draft = (data.reply ?? "").trim();
+    if (!draft) return { ok: false, error: "Couldn't draft a reply — try again." };
+    return { ok: true, draft };
+  } catch (err) {
+    console.error("draftConversationReply failed:", err);
+    return { ok: false, error: "Draft failed — please try again." };
+  }
 }
 
 /**

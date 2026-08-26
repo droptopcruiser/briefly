@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Spinner } from "@/app/pending-button";
-import { sendConversationMessage } from "@/app/brief-actions";
+import { sendConversationMessage, draftConversationReply } from "@/app/brief-actions";
 
 /**
  * The reply box at the foot of the Conversation tab. The professional types (or
@@ -16,18 +16,33 @@ export function ConversationComposer({
   matterId,
   clientEmail,
   clientName,
-  suggestedDraft,
 }: {
   matterId: string;
   clientEmail: string | null;
   clientName: string | null;
-  suggestedDraft: string | null;
 }) {
   const router = useRouter();
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
+  const [drafting, setDrafting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+
+  async function draft() {
+    if (drafting || busy) return;
+    setDrafting(true);
+    setError(null);
+    try {
+      const res = await draftConversationReply(matterId);
+      if (!res.ok || !res.draft) {
+        setError(res.error ?? "Couldn't draft a reply.");
+        return;
+      }
+      setBody(res.draft);
+    } finally {
+      setDrafting(false);
+    }
+  }
 
   if (!clientEmail) {
     return (
@@ -75,15 +90,20 @@ export function ConversationComposer({
         />
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-inset px-3 py-2">
           <div className="flex items-center gap-3">
-            {suggestedDraft ? (
-              <button
-                type="button"
-                onClick={() => setBody(suggestedDraft)}
-                className="text-xs font-medium text-accent underline decoration-dotted underline-offset-2 hover:text-accent-h"
-              >
-                ✦ Draft with Briefly
-              </button>
-            ) : null}
+            <button
+              type="button"
+              onClick={draft}
+              disabled={drafting || busy}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-accent underline decoration-dotted underline-offset-2 hover:text-accent-h disabled:opacity-50"
+            >
+              {drafting ? (
+                <>
+                  <Spinner /> Drafting…
+                </>
+              ) : (
+                "✦ Draft with Briefly"
+              )}
+            </button>
           </div>
           <button
             type="button"

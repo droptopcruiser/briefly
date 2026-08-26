@@ -456,20 +456,11 @@ async function ConversationSection({ matter }: { matter: Matter }) {
         }));
   const clientName = matter.clientName ?? "Client";
 
-  // Seed for "Draft with Briefly": the prepared follow-up (Path A) or the brief's
-  // suggested client message (Path B), so the composer starts from Briefly's draft.
-  let suggestedDraft = matter.result?.draftEmail?.body?.trim() || null;
-  if (!suggestedDraft) {
-    const brief = await getActiveBrief(matter.id);
-    suggestedDraft = brief?.content.suggestedClientMessage?.trim() || null;
-  }
-
   const composer = (
     <ConversationComposer
       matterId={matter.id}
       clientEmail={matter.clientEmail}
       clientName={matter.clientName}
-      suggestedDraft={suggestedDraft}
     />
   );
 
