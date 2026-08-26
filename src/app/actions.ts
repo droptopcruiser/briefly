@@ -18,6 +18,7 @@ import {
 } from "@/lib/metering";
 import { setAssignee } from "@/lib/team";
 import { addEvent } from "@/lib/events";
+import { addMessage } from "@/lib/messages";
 import { recordReview } from "@/lib/reviews";
 import { isEmailConfigured, sendEmail, senderFrom, composeEmailBody } from "@/lib/email";
 
@@ -172,6 +173,7 @@ export async function approveAndSendMatter(
   await saveMatter(matter);
   await addEvent(matter.accountId, matter.id, "approved", "You approved the follow-up");
   await addEvent(matter.accountId, matter.id, "sent", `Follow-up sent to ${draft.to}`);
+  await addMessage(matter.accountId, matter.id, "outbound", bodyToSend, editedSubject);
   // Sending the follow-up is a review of the matter as it stands — set the
   // baseline so the client's reply surfaces as "since the last review".
   await recordReview(matter, user.id);

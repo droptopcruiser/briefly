@@ -4,6 +4,7 @@ import { saveMatter } from "./store";
 import { getEffectiveRubrics } from "./rubric-store";
 import { computeGaps, computeReadiness } from "./gaps";
 import { addEvent } from "./events";
+import { addMessage } from "./messages";
 import { ensureBriefOnReady, getActiveBrief, isBriefStale } from "./work-brief";
 import { recordReview } from "./reviews";
 import { listMembers } from "./team";
@@ -118,6 +119,16 @@ export async function ingestSubmission(opts: {
   if (account) await consumeCreditIfOverCap(account, usedBefore);
   await addEvent(matter.accountId, matter.id, "created", `New matter · ${result.readiness}% ready`);
   await upsertClient(matter.accountId, clientEmail, clientName);
+  // Log the enquiry as the first message in the conversation (strip the "Subject:"
+  // line an inbound email prepends — the subject rides alongside).
+  const enqMatch = submission.match(/^Subject:\s*(.+?)\n\n([\s\S]*)$/);
+  await addMessage(
+    matter.accountId,
+    matter.id,
+    "inbound",
+    enqMatch ? enqMatch[2] : submission,
+    opts.emailMeta?.subject ?? (enqMatch ? enqMatch[1] : null),
+  );
 
   // Born ready (nothing missing) → prepare the Initial Work Brief straight away,
   // so intake that arrives complete lands as review-ready work, not a dead end.
@@ -191,6 +202,8 @@ export async function ingestReply(opts: {
 
   await saveMatter(matter);
   await upsertClient(matter.accountId, matter.clientEmail, matter.clientName);
+  // Log the reply as an inbound message in the conversation thread.
+  await addMessage(matter.accountId, matter.id, "inbound", message, opts.emailMeta?.subject ?? null);
 
   const acct = account?.id ?? matter.accountId;
   // One line per reply — the readiness move rides along, instead of a redundant

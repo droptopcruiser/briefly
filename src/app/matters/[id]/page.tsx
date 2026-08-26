@@ -37,6 +37,7 @@ import { getClientContext } from "@/lib/clients";
 import { assignMatter, markMatterReviewed } from "@/app/actions";
 import { composeEmailBody, replySubject } from "@/lib/email";
 import { parseConversation } from "@/lib/conversation";
+import { listMessages } from "@/lib/messages";
 
 /**
  * Evidence over confidence: show how much of the matter is backed by source
@@ -532,8 +533,26 @@ function humanizeKey(key: string): string {
 async function RecordPanel({ matter }: { matter: Matter }) {
   const r = matter.result!;
   const outstandingDocs = r.gaps.filter((g) => g.kind === "document");
-  const conversation = parseConversation(matter.submission);
-  const clientInitial = (matter.clientName ?? "C").trim().slice(0, 1).toUpperCase() || "C";
+
+  // The conversation — both directions from the message log; if a matter predates
+  // the log (nothing recorded yet), fall back to the client side parsed from the
+  // submission so the thread is never empty.
+  const logged = await listMessages(matter.id);
+  const thread: { direction: "inbound" | "outbound"; subject: string | null; text: string; date: string | null }[] =
+    logged.length > 0
+      ? logged.map((m) => ({
+          direction: m.direction,
+          subject: m.subject,
+          text: m.body,
+          date: m.createdAt.slice(0, 10),
+        }))
+      : parseConversation(matter.submission).map((m) => ({
+          direction: "inbound" as const,
+          subject: m.subject,
+          text: m.text,
+          date: m.date,
+        }));
+  const clientName = matter.clientName ?? "Client";
 
   // Which facts fed the "Briefly noticed" insight — so the record can point back.
   const brief = await getActiveBrief(matter.id);
@@ -547,6 +566,50 @@ async function RecordPanel({ matter }: { matter: Matter }) {
 
   return (
     <div className="space-y-8">
+      {/* Conversation — the source the facts are derived from. A real two-sided
+          thread: the client's messages on the left, what the firm sent on the right. */}
+      {thread.length > 0 ? (
+        <section className="space-y-3">
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="text-lg font-semibold tracking-tight">Conversation</h2>
+            <span className="text-xs text-muted">
+              {thread.length} {thread.length === 1 ? "message" : "messages"}
+            </span>
+          </div>
+          <div className="space-y-4 rounded-2xl border border-border bg-inset/50 p-4 sm:p-5">
+            {thread.map((m, i) => {
+              const out = m.direction === "outbound";
+              return (
+                <div key={i} className={`flex ${out ? "justify-end" : "justify-start"}`}>
+                  <div className="max-w-[85%] space-y-1">
+                    <div
+                      className={`flex items-center gap-1.5 px-1 text-[11px] text-muted ${
+                        out ? "justify-end" : ""
+                      }`}
+                    >
+                      <span className="font-medium text-foreground/70">{out ? "You" : clientName}</span>
+                      {m.date ? <span className="tabular-nums">· {m.date}</span> : null}
+                    </div>
+                    <div
+                      className={`rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-[var(--shadow-sm)] ${
+                        out
+                          ? "rounded-br-md bg-accent-soft text-foreground"
+                          : "rounded-bl-md border border-border bg-surface text-foreground/90"
+                      }`}
+                    >
+                      {m.subject && !out ? (
+                        <div className="mb-1 text-[11px] text-muted">Subject: {m.subject}</div>
+                      ) : null}
+                      <p className="whitespace-pre-line">{m.text}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
       <div className="grid gap-8 md:grid-cols-2">
         {/* Extracted facts */}
         <section className="space-y-3">
@@ -608,49 +671,6 @@ async function RecordPanel({ matter }: { matter: Matter }) {
           )}
         </section>
       </div>
-
-      {/* Conversation — the client's own words, folded back into discrete dated
-          messages. The facts above are DERIVED from this; here you read the source. */}
-      {conversation.length > 0 ? (
-        <section className="space-y-3">
-          <div className="flex items-baseline justify-between gap-2">
-            <h2 className="text-lg font-semibold tracking-tight">Conversation</h2>
-            <span className="text-xs text-muted">
-              {conversation.length} client {conversation.length === 1 ? "message" : "messages"}
-            </span>
-          </div>
-          <p className="text-xs text-muted">
-            What the client has sent — the enquiry and every reply, in order. Messages you send
-            are tracked in Activity.
-          </p>
-          <ol className="space-y-3">
-            {conversation.map((m, i) => (
-              <li key={i} className="rounded-lg border border-border bg-surface px-4 py-3">
-                <div className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-inset text-[10px] font-semibold text-muted">
-                    {clientInitial}
-                  </span>
-                  <span className="font-medium text-foreground/80">{matter.clientName ?? "Client"}</span>
-                  <span className="text-muted">·</span>
-                  <span className="text-muted">{m.kind === "enquiry" ? "Enquiry" : "Reply"}</span>
-                  {m.date ? (
-                    <>
-                      <span className="text-muted">·</span>
-                      <span className="text-muted tabular-nums">{m.date}</span>
-                    </>
-                  ) : null}
-                </div>
-                {m.subject ? (
-                  <div className="mb-1 text-xs text-muted">
-                    Subject: <span className="text-foreground/80">{m.subject}</span>
-                  </div>
-                ) : null}
-                <p className="whitespace-pre-line text-sm leading-relaxed text-foreground/90">{m.text}</p>
-              </li>
-            ))}
-          </ol>
-        </section>
-      ) : null}
 
       {/* Documents */}
       {r.documentsPresent.length > 0 || outstandingDocs.length > 0 ? (

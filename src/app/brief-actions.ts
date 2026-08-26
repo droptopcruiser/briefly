@@ -6,6 +6,7 @@ import { getMatter, saveMatter } from "@/lib/store";
 import { getCurrentAccount, DEFAULT_ACCOUNT_ID, INBOUND_DOMAIN } from "@/lib/metering";
 import { getEffectiveRubrics } from "@/lib/rubric-store";
 import { addEvent } from "@/lib/events";
+import { addMessage } from "@/lib/messages";
 import { recordReview } from "@/lib/reviews";
 import { isEmailConfigured, sendEmail, senderFrom, composeEmailBody } from "@/lib/email";
 import type { SendResult } from "@/app/actions";
@@ -179,10 +180,12 @@ export async function sendBriefMessage(_prev: SendResult, formData: FormData): P
   // subject — so we send exactly what the professional saw.
   const thread = matter.result?.emailThread ?? null;
 
+  const subjectToSend = subject || "Regarding your enquiry";
+
   try {
     await sendEmail({
       to,
-      subject: subject || "Regarding your enquiry",
+      subject: subjectToSend,
       body: finalBody,
       from,
       replyTo,
@@ -193,6 +196,7 @@ export async function sendBriefMessage(_prev: SendResult, formData: FormData): P
     return { ok: false, error: `Send failed: ${err instanceof Error ? err.message : "unknown error"}` };
   }
   await addEvent(matter.accountId, matter.id, "sent", `Message sent to ${to}`);
+  await addMessage(matter.accountId, matter.id, "outbound", finalBody, subjectToSend);
   revalidatePath(`/matters/${id}`);
   return { ok: true };
 }
