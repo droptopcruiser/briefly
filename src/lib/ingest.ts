@@ -8,7 +8,7 @@ import { ensureBriefOnReady, getActiveBrief, isBriefStale } from "./work-brief";
 import { recordReview } from "./reviews";
 import { listMembers } from "./team";
 import { upsertClient, getKnownFacts } from "./clients";
-import { isEmailConfigured, sendMatterReadyEmail } from "./email";
+import { isEmailConfigured, sendMatterReadyEmail, baseSubject } from "./email";
 import {
   getUsage,
   consumeCreditIfOverCap,
@@ -16,7 +16,30 @@ import {
   DEFAULT_ACCOUNT_ID,
   type Account,
 } from "./metering";
-import type { Matter, PipelineResult, Rubric } from "./types";
+import type { Matter, PipelineResult, Rubric, EmailThread } from "./types";
+
+/** Threading headers lifted from an inbound email (see api/inbound). */
+export interface EmailMeta {
+  messageId: string | null;
+  references: string | null;
+  subject: string | null;
+}
+
+/**
+ * Fold an inbound message's headers into the matter's thread state. The client's
+ * reply already carries the whole References chain (including our own earlier
+ * sends), so we grow it from the message itself and never need to store our own
+ * outbound Message-IDs. Keeps the original conversation subject.
+ */
+function threadFromInbound(prev: EmailThread | null, meta?: EmailMeta): EmailThread | null {
+  if (!meta) return prev ?? null;
+  const chain = [meta.references, meta.messageId].filter(Boolean).join(" ").trim();
+  return {
+    subject: prev?.subject ?? baseSubject(meta.subject),
+    messageId: meta.messageId ?? prev?.messageId ?? null,
+    references: chain || prev?.references || null,
+  };
+}
 
 const APP_URL = process.env.APP_URL ?? "https://briefly-psi-lake.vercel.app";
 
@@ -39,6 +62,7 @@ export async function ingestSubmission(opts: {
   account: Account | null;
   clientNameHint?: string | null;
   clientEmailHint?: string | null;
+  emailMeta?: EmailMeta;
 }): Promise<Matter> {
   const submission = opts.submission.trim();
 
@@ -59,6 +83,9 @@ export async function ingestSubmission(opts: {
   // (which reads `result`) and the drafted email agree with the matter record.
   const clientName = result.clientName ?? opts.clientNameHint ?? null;
   const clientEmail = opts.clientEmailHint ?? result.clientEmail ?? null;
+  // Seed the mailbox thread from the enquiry's own headers, so the first follow-up
+  // replies into it instead of starting a fresh conversation.
+  result.emailThread = threadFromInbound(null, opts.emailMeta);
   result.clientName = clientName;
   result.clientEmail = clientEmail;
   if (result.draftEmail && !result.draftEmail.to) {
@@ -116,6 +143,7 @@ export async function ingestReply(opts: {
   account: Account | null;
   matter: Matter;
   message: string;
+  emailMeta?: EmailMeta;
 }): Promise<Matter> {
   const { account, matter } = opts;
   const message = opts.message.trim();
@@ -123,6 +151,8 @@ export async function ingestReply(opts: {
   const prevReadiness = matter.result?.readiness ?? 0;
   const prevStatus = matter.status;
   const wasFinal = prevStatus === "completed";
+  // Capture the thread BEFORE result is replaced, then grow it from this reply.
+  const prevThread = matter.result?.emailThread ?? null;
 
   const rubrics = await getEffectiveRubrics(account?.id ?? matter.accountId);
   const rubric = rubrics.find((r) => r.id === matter.result?.rubricId) ?? rubrics[0];
@@ -136,6 +166,8 @@ export async function ingestReply(opts: {
   result.clientName = matter.clientName ?? result.clientName;
   result.clientEmail = matter.clientEmail ?? result.clientEmail;
   if (result.draftEmail && !result.draftEmail.to) result.draftEmail.to = result.clientEmail;
+  // Grow the mailbox thread with this reply's headers (carried across the re-score).
+  result.emailThread = threadFromInbound(prevThread, opts.emailMeta);
 
   // Carry forward known facts (excluding this matter itself).
   await applyClientMemory(

@@ -125,18 +125,51 @@ export interface SendEmailInput {
   from?: string;
   /** Overrides MAIL_REPLY_TO for this message. */
   replyTo?: string;
+  /** RFC 5322 threading: the Message-ID this message replies to. */
+  inReplyTo?: string;
+  /** RFC 5322 threading: the accumulated References chain. */
+  references?: string;
+}
+
+/** Prefix "Re: " unless the subject already reads as a reply. Null → generic. */
+export function replySubject(base: string | null | undefined): string {
+  const s = (base ?? "").trim();
+  if (!s) return "Regarding your enquiry";
+  return /^re:/i.test(s) ? s : `Re: ${s}`;
+}
+
+/** Strip a leading Re:/Fwd:/Fw: (any repeats) to store a conversation's base subject. */
+export function baseSubject(subject: string | null | undefined): string | null {
+  const s = (subject ?? "").trim();
+  if (!s) return null;
+  return s.replace(/^(\s*(re|fwd?|fw)\s*:\s*)+/i, "").trim() || null;
 }
 
 /**
  * Send one plain-text email through Postmark. Resolves on success; throws with a
- * human-readable message (Postmark's own, when available) on failure.
+ * human-readable message (Postmark's own, when available) on failure. When
+ * inReplyTo/references are supplied, the message threads into the existing mailbox
+ * conversation instead of starting a new one.
  */
-export async function sendEmail({ to, subject, body, from, replyTo }: SendEmailInput): Promise<void> {
+export async function sendEmail({
+  to,
+  subject,
+  body,
+  from,
+  replyTo,
+  inReplyTo,
+  references,
+}: SendEmailInput): Promise<void> {
   const token = process.env.POSTMARK_SERVER_TOKEN;
   const fromLine = from ?? process.env.MAIL_FROM;
   if (!token || !fromLine) {
     throw new Error("Email not configured (POSTMARK_SERVER_TOKEN / MAIL_FROM).");
   }
+
+  // Threading headers — the strong signal mail clients (Gmail, Outlook) group on.
+  const headers: { Name: string; Value: string }[] = [];
+  if (inReplyTo?.trim()) headers.push({ Name: "In-Reply-To", Value: inReplyTo.trim() });
+  if (references?.trim()) headers.push({ Name: "References", Value: references.trim() });
 
   const res = await fetch(POSTMARK_ENDPOINT, {
     method: "POST",
@@ -152,6 +185,7 @@ export async function sendEmail({ to, subject, body, from, replyTo }: SendEmailI
       TextBody: body,
       ReplyTo: replyTo ?? process.env.MAIL_REPLY_TO ?? undefined,
       MessageStream: "outbound",
+      ...(headers.length ? { Headers: headers } : {}),
     }),
   });
 

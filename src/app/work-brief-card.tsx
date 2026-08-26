@@ -205,6 +205,7 @@ export function WorkBriefCard({
   refreshing,
   onApprove,
   onRefresh,
+  threadSubject,
 }: {
   matterId: string;
   clientEmail: string | null;
@@ -217,6 +218,7 @@ export function WorkBriefCard({
   refreshing: boolean;
   onApprove: () => void;
   onRefresh: () => void;
+  threadSubject?: string | null;
 }) {
   const approved = state === "approved";
   const judgmentPending = !!content.judgmentPending;
@@ -315,6 +317,7 @@ export function WorkBriefCard({
               matterId={matterId}
               to={clientEmail}
               initialBody={content.suggestedClientMessage}
+              initialSubject={threadSubject ?? undefined}
               stale={stale}
             />
           </section>

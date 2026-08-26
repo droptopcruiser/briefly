@@ -68,6 +68,36 @@ function parseEmail(f: Record<string, unknown>) {
 }
 
 /**
+ * Threading headers off the inbound message, so our replies land in the SAME
+ * mailbox conversation. Postmark delivers the raw headers as a `Headers` array;
+ * we read the RFC Message-ID + References (the client's reply already carries the
+ * full chain, including our own earlier sends).
+ */
+function parseThreadMeta(f: Record<string, unknown>): {
+  messageId: string | null;
+  references: string | null;
+  subject: string | null;
+} {
+  const headers = Array.isArray(f.Headers)
+    ? (f.Headers as Array<Record<string, unknown>>)
+    : [];
+  const h = (name: string): string | null => {
+    const hit = headers.find((x) => str(x.Name).toLowerCase() === name.toLowerCase());
+    const v = hit ? str(hit.Value).trim() : "";
+    return v || null;
+  };
+  const references = h("References");
+  const inReplyTo = h("In-Reply-To");
+  return {
+    messageId: h("Message-ID"),
+    // Prefer an explicit References chain; fall back to In-Reply-To when that's all
+    // the client sent (still enough to keep the thread linked).
+    references: references || inReplyTo,
+    subject: str(f.Subject || f.subject).trim() || null,
+  };
+}
+
+/**
  * The intake localpart the email was delivered to. Routes to the owning firm and,
  * for replies to a follow-up, carries a `+{matterId}` sub-address so we can thread
  * the reply back to the exact matter. For forwarded mail, Postmark's
@@ -136,9 +166,16 @@ export async function POST(req: Request): Promise<Response> {
     existing = await findOpenMatterByClient(account.id, email.fromEmail);
   }
 
+  const threadMeta = parseThreadMeta(fields);
+
   try {
     if (existing) {
-      const matter = await ingestReply({ account, matter: existing, message: email.body });
+      const matter = await ingestReply({
+        account,
+        matter: existing,
+        message: email.body,
+        emailMeta: threadMeta,
+      });
       return jsonResponse(200, {
         id: matter.id,
         status: matter.status,
@@ -155,6 +192,7 @@ export async function POST(req: Request): Promise<Response> {
       account,
       clientNameHint: email.fromName,
       clientEmailHint: email.fromEmail,
+      emailMeta: threadMeta,
     });
     return jsonResponse(200, {
       id: matter.id,

@@ -174,8 +174,21 @@ export async function sendBriefMessage(_prev: SendResult, formData: FormData): P
         : undefined;
   const finalBody = composeEmailBody(body, { signature: account?.emailSignature, firmName: account?.name });
 
+  // Thread into the client's existing conversation via In-Reply-To / References
+  // (see approveAndSendMatter). Subject is WYSIWYG — its default is the "Re:" thread
+  // subject — so we send exactly what the professional saw.
+  const thread = matter.result?.emailThread ?? null;
+
   try {
-    await sendEmail({ to, subject: subject || "Regarding your enquiry", body: finalBody, from, replyTo });
+    await sendEmail({
+      to,
+      subject: subject || "Regarding your enquiry",
+      body: finalBody,
+      from,
+      replyTo,
+      inReplyTo: thread?.messageId ?? undefined,
+      references: thread?.references ?? undefined,
+    });
   } catch (err) {
     return { ok: false, error: `Send failed: ${err instanceof Error ? err.message : "unknown error"}` };
   }

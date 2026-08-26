@@ -124,6 +124,20 @@ export interface PipelineResult {
   costCents: number;
   /** True when no Anthropic key was configured and mock output was used. */
   mocked: boolean;
+  /** Email-thread continuity so every outbound stays in ONE mailbox conversation
+   *  (In-Reply-To / References). Null for form-originated matters. Carried across
+   *  re-scores; updated from each inbound message's headers. */
+  emailThread?: EmailThread | null;
+}
+
+/** What we need to keep an email conversation threaded in the client's mailbox. */
+export interface EmailThread {
+  /** The base subject of the conversation (leading "Re:"/"Fwd:" stripped). */
+  subject: string | null;
+  /** Message-ID of the latest inbound message — becomes the next reply's In-Reply-To. */
+  messageId: string | null;
+  /** The References header chain to carry on the next outbound (space-separated ids). */
+  references: string | null;
 }
 
 /**

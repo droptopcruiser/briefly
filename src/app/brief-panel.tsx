@@ -32,6 +32,7 @@ export function BriefPanel({
   initialStatus,
   initialStale,
   briefsEnabled,
+  threadSubject,
 }: {
   matterId: string;
   clientEmail: string | null;
@@ -39,6 +40,8 @@ export function BriefPanel({
   initialStatus: MatterStatus;
   initialStale: boolean;
   briefsEnabled: boolean;
+  /** Default outbound subject (the conversation's "Re:" subject), or null. */
+  threadSubject?: string | null;
 }) {
   const router = useRouter();
   const [brief, setBrief] = useState<WorkBrief | null>(initialBrief);
@@ -158,6 +161,7 @@ export function BriefPanel({
         refreshing={refreshing}
         onApprove={handleApprove}
         onRefresh={handleRefresh}
+        threadSubject={threadSubject}
       />
       {status === "in_progress" ? (
         <div className="flex flex-wrap items-center gap-3">

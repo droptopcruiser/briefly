@@ -15,11 +15,15 @@ export function BriefMessageSend({
   matterId,
   to,
   initialBody,
+  initialSubject,
   stale = false,
 }: {
   matterId: string;
   to: string | null;
   initialBody: string;
+  /** Default subject — the conversation's "Re:" subject when threaded; keeps the
+   *  outbound in one mailbox conversation and stays WYSIWYG with what's sent. */
+  initialSubject?: string;
   /** True when the brief this message belongs to is stale — a client update has
    *  arrived since it was written, so sending it as-is would send superseded
    *  details. Sending is held until the brief is refreshed. */
@@ -28,7 +32,7 @@ export function BriefMessageSend({
   const [state, formAction, pending] = useActionState<SendResult, FormData>(sendBriefMessage, {
     ok: false,
   });
-  const [subject, setSubject] = useState("Regarding your enquiry");
+  const [subject, setSubject] = useState(initialSubject?.trim() || "Regarding your enquiry");
   const [body, setBody] = useState(initialBody);
   const [copied, setCopied] = useState(false);
 

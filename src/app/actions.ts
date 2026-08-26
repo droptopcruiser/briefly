@@ -129,6 +129,11 @@ export async function approveAndSendMatter(
   const bodyToSend =
     editedBody || composeEmailBody(draft.body, { signature: account?.emailSignature, firmName: account?.name });
 
+  // Keep the whole matter in ONE mailbox conversation via In-Reply-To / References.
+  // The subject is whatever the professional sees and sends (WYSIWYG — its default
+  // is already the "Re:" thread subject); the headers are the strong threading signal.
+  const thread = matter.result!.emailThread ?? null;
+
   // Send as "Briefly on behalf of {Firm}". Reply-To carries a per-matter tag so
   // the client's reply threads back to THIS matter and re-scores it — unless the
   // firm routes replies to its own inbox.
@@ -141,7 +146,15 @@ export async function approveAndSendMatter(
         : undefined;
 
   try {
-    await sendEmail({ to: draft.to, subject: editedSubject, body: bodyToSend, from, replyTo });
+    await sendEmail({
+      to: draft.to,
+      subject: editedSubject,
+      body: bodyToSend,
+      from,
+      replyTo,
+      inReplyTo: thread?.messageId ?? undefined,
+      references: thread?.references ?? undefined,
+    });
   } catch (err) {
     return { ok: false, error: `Send failed: ${err instanceof Error ? err.message : "unknown error"}` };
   }

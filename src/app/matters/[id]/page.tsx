@@ -35,7 +35,7 @@ import { getBaselineReview, computeMatterChanges } from "@/lib/reviews";
 import { getEffectiveRubrics } from "@/lib/rubric-store";
 import { getClientContext } from "@/lib/clients";
 import { assignMatter, markMatterReviewed } from "@/app/actions";
-import { composeEmailBody } from "@/lib/email";
+import { composeEmailBody, replySubject } from "@/lib/email";
 
 /**
  * Evidence over confidence: show how much of the matter is backed by source
@@ -330,6 +330,9 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
  */
 async function NextStepSection({ matter, account }: { matter: Matter; account: Account }) {
   const r = matter.result!;
+  // The default outbound subject: the conversation's "Re:" subject when this matter
+  // came in by email, so what's shown is what threads (and what gets sent).
+  const threadSubject = r.emailThread?.subject ? replySubject(r.emailThread.subject) : null;
 
   // A chase Briefly drafted for a stuck matter — awaiting_client + a pending nudge.
   const pendingChase = matter.status === "awaiting_client" && !!matter.lastNudgedAt;
@@ -359,7 +362,7 @@ async function NextStepSection({ matter, account }: { matter: Matter; account: A
         <DraftActions
           id={matter.id}
           to={r.draftEmail.to}
-          initialSubject={r.draftEmail.subject}
+          initialSubject={threadSubject ?? r.draftEmail.subject}
           initialBody={body}
           approved={alreadySent}
           action={approveAndSendMatter}
@@ -388,6 +391,7 @@ async function NextStepSection({ matter, account }: { matter: Matter; account: A
         initialStatus={matter.status}
         initialStale={briefStale}
         briefsEnabled={briefsEnabled}
+        threadSubject={threadSubject}
       />
     );
   }
