@@ -446,14 +446,27 @@ async function ConsultationPlanSection({ matter }: { matter: Matter }) {
  */
 async function ConversationSection({ matter }: { matter: Matter }) {
   const logged = await listMessages(matter.id);
-  const thread: { direction: "inbound" | "outbound"; subject: string | null; text: string; date: string | null }[] =
+  const thread: {
+    direction: "inbound" | "outbound";
+    subject: string | null;
+    text: string;
+    date: string | null;
+    attachments: { fileName: string; docId: string }[];
+  }[] =
     logged.length > 0
-      ? logged.map((m) => ({ direction: m.direction, subject: m.subject, text: m.body, date: m.createdAt.slice(0, 10) }))
+      ? logged.map((m) => ({
+          direction: m.direction,
+          subject: m.subject,
+          text: m.body,
+          date: m.createdAt.slice(0, 10),
+          attachments: m.attachments,
+        }))
       : parseConversation(matter.submission).map((m) => ({
           direction: "inbound" as const,
           subject: m.subject,
           text: m.text,
           date: m.date,
+          attachments: [],
         }));
   const clientName = matter.clientName ?? "Client";
 
@@ -505,6 +518,19 @@ async function ConversationSection({ matter }: { matter: Matter }) {
                     <div className="mb-1 text-[11px] text-muted">Subject: {m.subject}</div>
                   ) : null}
                   <p className="whitespace-pre-line">{m.text}</p>
+                  {m.attachments.length > 0 ? (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {m.attachments.map((att) => (
+                        <span
+                          key={att.docId}
+                          className="inline-flex max-w-full items-center gap-1 rounded-md border border-border bg-surface/70 px-2 py-1 text-[11px] font-medium text-foreground/80"
+                        >
+                          <span aria-hidden="true">📎</span>
+                          <span className="truncate">{att.fileName}</span>
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>

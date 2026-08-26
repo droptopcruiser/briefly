@@ -6,6 +6,7 @@ import { getEffectiveRubrics } from "@/lib/rubric-store";
 import { uploadDocument, updateDocument, type MatterDocument } from "@/lib/documents";
 import { readStoredDocument, countPdfPages, AUTO_READ_MAX_PAGES } from "@/lib/document-service";
 import { addEvent } from "@/lib/events";
+import { attachToLatestInbound } from "@/lib/messages";
 import type { Matter } from "@/lib/types";
 
 // The pipeline (~15s) plus a background auto-read (~15-40s) run in one invocation
@@ -273,7 +274,14 @@ export async function POST(req: Request): Promise<Response> {
     // are auto-stored, then small ones (<= 30 pages) are auto-read in the
     // background (larger stay one-click manual); facts land pending for confirmation.
     const stored = await storeInboundPdfAttachments(account.id, matter.id, fields);
-    if (stored.length) await autoReadInboundDocuments(matter, account.id, stored);
+    if (stored.length) {
+      // Link the files to the inbound message so they show on its conversation bubble.
+      await attachToLatestInbound(
+        matter.id,
+        stored.map((d) => ({ fileName: d.fileName, docId: d.id })),
+      );
+      await autoReadInboundDocuments(matter, account.id, stored);
+    }
     const attachments = stored.map((d) => d.fileName);
 
     return jsonResponse(200, {
