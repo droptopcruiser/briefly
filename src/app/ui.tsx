@@ -18,20 +18,24 @@ export function StatsPanel({ stats }: { stats: MonthStats }) {
         const inner = (
           <>
             <div
-              className={`text-2xl font-semibold tabular-nums tracking-tight ${
+              className={`font-serif text-3xl font-semibold tabular-nums tracking-tight ${
                 t.accent ? "text-accent" : ""
               }`}
             >
               {t.num}
             </div>
-            <div className="text-xs text-muted">{t.cap}</div>
+            <div className="mt-1 text-xs text-muted">{t.cap}</div>
           </>
         );
-        const cls = `block rounded-lg border bg-surface px-4 py-3 ${
-          t.accent ? "border-accent" : "border-border"
+        const cls = `glass-card glass-sheen block rounded-2xl px-5 py-4 ${
+          t.accent ? "border-accent/60" : ""
         }`;
         return t.href ? (
-          <Link key={t.cap} href={t.href} className={`${cls} transition-colors hover:bg-inset`}>
+          <Link
+            key={t.cap}
+            href={t.href}
+            className={`${cls} transition-transform hover:-translate-y-0.5`}
+          >
             {inner}
           </Link>
         ) : (
