@@ -110,7 +110,17 @@ export function NeedsAttention({
     [active],
   );
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selectMode, setSelectMode] = useState(false);
   const [undo, setUndo] = useState<{ label: string; run: () => Promise<unknown> } | null>(null);
+
+  // Selection is a MODE, not a permanent fixture: checkboxes stay hidden until you
+  // hover a row, turn on Select, or have something selected — so the queue is calm
+  // at rest. `selectionActive` is what reveals every row's box.
+  const selectionActive = selectMode || selected.size > 0;
+  const exitSelect = () => {
+    setSelectMode(false);
+    setSelected(new Set());
+  };
 
   // Prune selection to rows that still exist after a refresh.
   useEffect(() => {
@@ -146,6 +156,16 @@ export function NeedsAttention({
 
   return (
     <div className="space-y-6 pb-20">
+      {/* Select toggle — opt into bulk selection; the queue stays clean otherwise */}
+      <div className="-mb-3 flex justify-end">
+        <button
+          type="button"
+          onClick={() => (selectionActive ? exitSelect() : setSelectMode(true))}
+          className="text-xs font-medium text-muted transition-colors hover:text-foreground"
+        >
+          {selectionActive ? "Done" : "Select"}
+        </button>
+      </div>
       {active.map((g) => (
         <section key={g.priority} className="space-y-2.5">
           <div className="space-y-0.5">
@@ -168,6 +188,7 @@ export function NeedsAttention({
                     priority={g.priority}
                     members={members}
                     selected={selected.has(row.id)}
+                    selectionActive={selectionActive}
                     onToggle={() => toggle(row.id)}
                   />
                 </li>
@@ -185,7 +206,7 @@ export function NeedsAttention({
           onClear={clear}
           onActed={(u) => {
             setUndo(u);
-            clear();
+            exitSelect();
           }}
         />
       ) : undo ? (
@@ -219,12 +240,14 @@ function Row({
   priority,
   members,
   selected,
+  selectionActive,
   onToggle,
 }: {
   row: QueueRow;
   priority: QueuePriority;
   members: Member[];
   selected: boolean;
+  selectionActive: boolean;
   onToggle: () => void;
 }) {
   const router = useRouter();
@@ -257,15 +280,31 @@ function Row({
   }
 
   return (
-    <div className={`px-4 py-4 transition-opacity ${pending && !justReviewed ? "opacity-50" : ""} ${selected ? "bg-accent-soft/40" : ""}`}>
+    <div className={`group px-4 py-4 transition-colors ${pending && !justReviewed ? "opacity-50" : ""} ${selected ? "bg-accent-soft/40" : ""}`}>
       <div className="flex items-start gap-3">
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={onToggle}
-          aria-label={`Select ${row.clientName}`}
-          className="mt-1 h-4 w-4 shrink-0 accent-[var(--accent)]"
-        />
+        {/* Themed checkbox — hidden at rest, revealed on hover / while selecting */}
+        <label
+          className={`mt-0.5 shrink-0 cursor-pointer transition-opacity focus-within:opacity-100 ${
+            selected || selectionActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          }`}
+        >
+          <span className="relative block h-[18px] w-[18px]">
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={onToggle}
+              aria-label={`Select ${row.clientName}`}
+              className="peer h-[18px] w-[18px] cursor-pointer appearance-none rounded-[5px] border border-border bg-surface/60 transition-colors checked:border-accent checked:bg-accent hover:border-accent/70"
+            />
+            <svg
+              viewBox="0 0 16 16"
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 hidden h-[18px] w-[18px] p-[3px] text-accent-fg peer-checked:block"
+            >
+              <path d="M13 4.5L6.5 12L3 8.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
+        </label>
         <div className="min-w-0 flex-1 space-y-1.5">
           {/* Identity */}
           <div className="truncate">
