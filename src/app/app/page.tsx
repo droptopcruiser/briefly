@@ -2,8 +2,6 @@ import Link from "next/link";
 import { createMatterFromSubmission } from "../actions";
 import { listMatters } from "@/lib/store";
 import type { Matter } from "@/lib/types";
-import { isConfigured } from "@/lib/anthropic";
-import { isSupabaseConfigured } from "@/lib/supabase";
 import { SubmissionForm } from "../submission-form";
 import { Greeting } from "../greeting";
 import { MatterRow, UsageMeter, StatsPanel } from "../ui";
@@ -19,14 +17,10 @@ import { getMonthStats } from "@/lib/stats";
 // ~10-20s). Give the route headroom on Vercel (well under the 300s ceiling).
 export const maxDuration = 60;
 
-const SAMPLE = `Hi, my name is Marcus Feldman and my partner and I have just signed the contract to buy a home at 17 Rosewood Crescent, Hawthorn VIC 3122. We'd like your firm to handle the conveyancing and settlement. I've attached the signed Contract of Sale. You can reach me on 0412 998 771.`;
-
 export default async function Dashboard() {
   const account = await requireAccount();
   await getCurrentMembership();
   const profile = await getCurrentProfile();
-  const live = isConfigured();
-  const db = isSupabaseConfigured();
   const usage = await getUsage(account);
   const stats = await getMonthStats(account.id, account.timezone);
   const members = await listMembers(account.id);
@@ -214,21 +208,8 @@ export default async function Dashboard() {
             </p>
           </div>
         ) : (
-          <SubmissionForm action={createMatterFromSubmission} sample={SAMPLE} />
+          <SubmissionForm action={createMatterFromSubmission} />
         )}
-
-        <div className="flex flex-wrap gap-2 text-xs">
-          <span
-            className={`rounded-full border px-2.5 py-1 ${
-              live ? "border-accent text-accent" : "border-border text-muted"
-            }`}
-          >
-            {live ? "Live extraction (Haiku)" : "Demo mode — no API key (mock extraction)"}
-          </span>
-          <span className="rounded-full border border-border px-2.5 py-1 text-muted">
-            {db ? "Supabase connected" : "In-memory store"}
-          </span>
-        </div>
       </section>
     </div>
   );

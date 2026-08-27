@@ -38,6 +38,45 @@ export function formatWhen(iso: string, opts: { compact?: boolean } = {}): strin
   return `${WEEKDAYS[weekdayIndex(p)]}, ${p.day} ${MONTHS[p.mo]} ${p.y} · ${time}`;
 }
 
+/**
+ * Format a REAL instant (a message sent, an event logged — a true UTC timestamp)
+ * in the firm's own timezone. Unlike formatWhen (which preserves a wall-clock
+ * appointment tz-agnostically), these are moments in time, so a client reply that
+ * landed at 23:40 UTC should read in Melbourne's clock, not the server's. Falls
+ * back to UTC when the account hasn't set a zone. Runs only in server components,
+ * so reading Intl here can't cause a hydration mismatch.
+ *   dateOnly: "27 Aug 2026"
+ *   default:  "27 Aug 2026, 9:15 AM"
+ */
+export function formatInstant(
+  iso: string,
+  timezone: string | null,
+  opts: { dateOnly?: boolean } = {},
+): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const tz = timezone || "UTC";
+  try {
+    const date = new Intl.DateTimeFormat("en-AU", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      timeZone: tz,
+    }).format(d);
+    if (opts.dateOnly) return date;
+    const time = new Intl.DateTimeFormat("en-AU", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: tz,
+    }).format(d);
+    return `${date}, ${time}`;
+  } catch {
+    // Invalid IANA zone → fall back to a UTC render rather than throwing.
+    return formatInstant(iso, null, opts);
+  }
+}
+
 /** The weekday alone, e.g. "Thursday" — for "Prepared for Thursday's consultation". */
 export function weekday(iso: string): string {
   const p = parts(iso);

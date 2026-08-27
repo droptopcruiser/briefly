@@ -17,7 +17,7 @@ import { UsedInInsightTag } from "@/app/used-in-insight-tag";
 import { InsightCallout } from "@/app/insight-callout";
 import { DecisionPane } from "@/app/decision-pane";
 import { workflowStatus, statusTone, firstSentence, factSlug } from "@/lib/matter-status";
-import { formatWhen } from "@/lib/format";
+import { formatWhen, formatInstant } from "@/lib/format";
 import { listDocuments } from "@/lib/documents";
 import {
   DocumentUpload,
@@ -110,6 +110,7 @@ async function SinceReviewSection({ matter, accountId }: { matter: Matter; accou
       needsAttention={needsAttention}
       markReviewedAction={markMatterReviewed}
       auto={baseline.reviewedBy === null}
+      staleBrief={!!(brief && briefStale)}
     />
   );
 }
@@ -444,7 +445,7 @@ async function ConsultationPlanSection({ matter }: { matter: Matter }) {
  * messages left, what the firm sent right. Reads the message log; falls back to
  * the client side parsed from the submission for matters that predate the log.
  */
-async function ConversationSection({ matter }: { matter: Matter }) {
+async function ConversationSection({ matter, account }: { matter: Matter; account: Account }) {
   const logged = await listMessages(matter.id);
   const thread: {
     direction: "inbound" | "outbound";
@@ -458,7 +459,8 @@ async function ConversationSection({ matter }: { matter: Matter }) {
           direction: m.direction,
           subject: m.subject,
           text: m.body,
-          date: m.createdAt.slice(0, 10),
+          // A real send/receive instant → the firm's own clock, not the server's.
+          date: formatInstant(m.createdAt, account.timezone),
           attachments: m.attachments,
         }))
       : parseConversation(matter.submission).map((m) => ({
@@ -665,7 +667,7 @@ function humanizeKey(key: string): string {
  * MATTER RECORD — the single source of truth: source-backed facts, documents,
  * timeline, and gaps. Every other view references these without repeating them.
  */
-async function RecordPanel({ matter }: { matter: Matter }) {
+async function RecordPanel({ matter, timezone }: { matter: Matter; timezone: string | null }) {
   const r = matter.result!;
   const outstandingDocs = r.gaps.filter((g) => g.kind === "document");
 
@@ -804,13 +806,13 @@ async function RecordPanel({ matter }: { matter: Matter }) {
 
       {/* Activity trail — deferred, lowest priority */}
       <Suspense fallback={null}>
-        <ActivitySection matterId={matter.id} />
+        <ActivitySection matterId={matter.id} timezone={timezone} />
       </Suspense>
     </div>
   );
 }
 
-async function ActivitySection({ matterId }: { matterId: string }) {
+async function ActivitySection({ matterId, timezone }: { matterId: string; timezone: string | null }) {
   const t = Date.now();
   const events = await listEvents(matterId);
   console.log(`[matter-timing] listEvents ms=${Date.now() - t}`);
@@ -824,7 +826,7 @@ async function ActivitySection({ matterId }: { matterId: string }) {
             <span className="absolute -left-[1.42rem] top-1.5 h-2 w-2 rounded-full bg-accent" />
             <div className="text-sm">{e.detail ?? e.type}</div>
             <div className="text-xs text-muted tabular-nums">
-              {new Date(e.createdAt).toLocaleString()}
+              {formatInstant(e.createdAt, timezone)}
             </div>
           </li>
         ))}
@@ -876,7 +878,7 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
       label: "Conversation",
       node: (
         <Suspense fallback={<SectionSkeleton label="Loading the conversation" />}>
-          <ConversationSection matter={matter} />
+          <ConversationSection matter={matter} account={account} />
         </Suspense>
       ),
     },
@@ -951,7 +953,7 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
       {/* The matter record — pulled forward as a Liquid Glass evidence drawer. */}
       <EvidenceDrawer>
         <Suspense fallback={<div className="px-1 py-2 text-sm text-muted">Loading the record…</div>}>
-          <RecordPanel matter={matter} />
+          <RecordPanel matter={matter} timezone={account.timezone} />
         </Suspense>
       </EvidenceDrawer>
     </div>

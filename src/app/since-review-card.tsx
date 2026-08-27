@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import type { MatterChanges } from "@/lib/reviews";
+import { refreshBrief } from "@/app/brief-actions";
 
 /**
  * "Since the last review" — a compact, evidence-backed card at the top of the
@@ -40,6 +42,7 @@ export function SinceReviewCard({
   needsAttention,
   markReviewedAction,
   auto = false,
+  staleBrief = false,
 }: {
   id: string;
   changes: MatterChanges;
@@ -48,8 +51,26 @@ export function SinceReviewCard({
   /** True when the baseline was captured automatically (when Briefly prepared the
    *  brief), not by a human review — the heading says so honestly. */
   auto?: boolean;
+  /** True when the attention is a stale brief — makes "refresh" a live action that
+   *  rebuilds the brief in place, here and in the Next step panel. */
+  staleBrief?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const router = useRouter();
+
+  async function handleRefreshBrief() {
+    setRefreshing(true);
+    try {
+      const b = await refreshBrief(id);
+      // Hand the fresh (facts-only) brief to the Next step panel so it updates in
+      // place and kicks off its own judgment fill — no second server round-trip.
+      if (b) window.dispatchEvent(new CustomEvent("matter-brief-updated", { detail: b }));
+    } finally {
+      setRefreshing(false);
+    }
+    router.refresh(); // reconcile the rest of the page (this card then clears)
+  }
 
   const seg: string[] = [];
   if (changes.newMessages > 0)
@@ -95,7 +116,23 @@ export function SinceReviewCard({
 
       {needsAttention ? (
         <div className="border-t border-awaiting bg-awaiting-soft px-5 py-3 text-sm text-awaiting">
-          <span className="font-medium">Needs attention.</span> {needsAttention}
+          <span className="font-medium">Needs attention.</span>{" "}
+          {staleBrief ? (
+            <>
+              A client reply has arrived since the brief was prepared —{" "}
+              <button
+                type="button"
+                onClick={handleRefreshBrief}
+                disabled={refreshing}
+                className="font-semibold underline decoration-2 underline-offset-2 transition-opacity hover:opacity-70 disabled:opacity-60"
+              >
+                {refreshing ? "refreshing…" : "refresh"}
+              </button>{" "}
+              it to include the new information.
+            </>
+          ) : (
+            needsAttention
+          )}
         </div>
       ) : null}
 

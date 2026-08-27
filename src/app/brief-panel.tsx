@@ -70,6 +70,21 @@ export function BriefPanel({
     if (brief?.content.judgmentPending) void runComplete(brief.version);
   }, [brief?.version, brief?.content.judgmentPending, runComplete]);
 
+  // The "refresh" affordance in the since-review card refreshes the brief centrally
+  // and hands us the fresh version — adopt it in place (its judgment then fills via
+  // the effect above) so this panel and that card never disagree about staleness.
+  useEffect(() => {
+    const onUpdated = (e: Event) => {
+      const b = (e as CustomEvent<WorkBrief>).detail;
+      if (!b) return;
+      setBrief(b);
+      setStale(false);
+      setStatus((s) => (s === "in_progress" || s === "completed" ? "ready_for_you" : s));
+    };
+    window.addEventListener("matter-brief-updated", onUpdated);
+    return () => window.removeEventListener("matter-brief-updated", onUpdated);
+  }, []);
+
   async function handlePrepare() {
     setPreparing(true);
     try {

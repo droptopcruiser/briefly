@@ -34,6 +34,11 @@
   --glass-hi: inset 0 1px 0 rgba(255, 255, 255, 0.65);
   --glass-nav-fill: color-mix(in srgb, var(--background) 70%, transparent);
   --glass-sheen: linear-gradient(135deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 42%);
+  /* Content-grade frosted card, tokenised so light and dark can differ. Light
+     leans translucent + saturated (the paper glows through); dark leans more
+     opaque + calmer so it reads as frosted stone, not plastic film. */
+  --glass-card-fill: color-mix(in srgb, var(--surface) 82%, transparent);
+  --glass-card-filter: blur(26px) saturate(150%);
 }
 
 /* Dark tokens live in one place, applied both to the system default (when the
@@ -57,12 +62,14 @@
     --error-soft: #2e211d;
     --shadow: 0 6px 26px rgba(0, 0, 0, 0.35);
     --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-    --glass-fill: color-mix(in srgb, var(--surface) 44%, transparent);
-    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-fill: color-mix(in srgb, var(--surface) 52%, transparent);
+    --glass-border: rgba(228, 230, 220, 0.08);
     --glass-shadow: 0 28px 70px -28px rgba(0, 0, 0, 0.7);
-    --glass-hi: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    --glass-hi: inset 0 1px 0 rgba(255, 255, 255, 0.05);
     --glass-nav-fill: color-mix(in srgb, var(--background) 64%, transparent);
-    --glass-sheen: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 42%);
+    --glass-sheen: linear-gradient(135deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0) 38%);
+    --glass-card-fill: color-mix(in srgb, var(--surface) 92%, transparent);
+    --glass-card-filter: blur(30px) saturate(112%);
   }
 }
 :root[data-theme="dark"] {
@@ -84,12 +91,14 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.25);
   --shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.3), 0 14px 30px -10px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 4px 12px -2px rgba(0, 0, 0, 0.35), 0 30px 60px -16px rgba(0, 0, 0, 0.6);
-  --glass-fill: color-mix(in srgb, var(--surface) 44%, transparent);
-  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-fill: color-mix(in srgb, var(--surface) 52%, transparent);
+  --glass-border: rgba(228, 230, 220, 0.08);
   --glass-shadow: 0 28px 70px -28px rgba(0, 0, 0, 0.7);
-  --glass-hi: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --glass-hi: inset 0 1px 0 rgba(255, 255, 255, 0.05);
   --glass-nav-fill: color-mix(in srgb, var(--background) 64%, transparent);
-  --glass-sheen: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 42%);
+  --glass-sheen: linear-gradient(135deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0) 38%);
+  --glass-card-fill: color-mix(in srgb, var(--surface) 92%, transparent);
+  --glass-card-filter: blur(30px) saturate(112%);
 }
 
 @theme inline {
@@ -153,9 +162,9 @@ h1, h2, h3 {
    More opaque than .glass so legal copy stays crisp, still visibly frosted so the
    ambient ground refracts through. This is the "Frosted", not the "Clear", look. */
 .glass-card {
-  background: color-mix(in srgb, var(--surface) 82%, transparent);
-  -webkit-backdrop-filter: blur(26px) saturate(150%);
-  backdrop-filter: blur(26px) saturate(150%);
+  background: var(--glass-card-fill);
+  -webkit-backdrop-filter: var(--glass-card-filter);
+  backdrop-filter: var(--glass-card-filter);
   border: 1px solid var(--glass-border);
   box-shadow: var(--shadow-lg), var(--glass-hi);
 }

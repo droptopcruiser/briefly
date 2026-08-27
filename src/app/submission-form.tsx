@@ -21,11 +21,9 @@ const STAGES = [
 function Body({
   value,
   setValue,
-  sample,
 }: {
   value: string;
   setValue: (v: string) => void;
-  sample: string;
 }) {
   const { pending } = useFormStatus();
   const [stage, setStage] = useState(0);
@@ -77,15 +75,6 @@ function Body({
             "Run intake"
           )}
         </button>
-        {!pending ? (
-          <button
-            type="button"
-            onClick={() => setValue(sample)}
-            className="text-sm text-muted underline underline-offset-2 hover:text-foreground"
-          >
-            Use sample
-          </button>
-        ) : null}
       </div>
     </>
   );
@@ -93,15 +82,13 @@ function Body({
 
 export function SubmissionForm({
   action,
-  sample,
 }: {
   action: (formData: FormData) => void | Promise<void>;
-  sample: string;
 }) {
   const [value, setValue] = useState("");
   return (
     <form action={action} className="space-y-3">
-      <Body value={value} setValue={setValue} sample={sample} />
+      <Body value={value} setValue={setValue} />
     </form>
   );
 }
