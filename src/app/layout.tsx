@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
-import { Fraunces } from "next/font/google";
+import { Newsreader } from "next/font/google";
 import "./globals.css";
 
-// The editorial signature: a warm, high-contrast text serif for "prepared work" —
-// matter names, the insight, the brief, the client message — so Briefly reads like
-// a prepared desk, not another sans-serif dashboard. Wired into --font-serif.
-const editorial = Fraunces({
+// The editorial signature: a warm, authored text serif for "prepared work" —
+// headlines, the insight, the brief, the client message — so Briefly reads like
+// a considered brief, not another sans-serif dashboard. Wired into --font-serif.
+const editorial = Newsreader({
   subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  style: ["normal", "italic"],
   variable: "--font-editorial",
   display: "swap",
-  axes: ["opsz"],
 });
 import { getAuthUser } from "@/lib/auth";
 import { getNotifications } from "@/lib/notifications";
