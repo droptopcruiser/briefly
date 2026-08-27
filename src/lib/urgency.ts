@@ -21,12 +21,15 @@ export interface Urgency {
   priority: QueuePriority;
   /** Higher = more urgent. Sorts rows within a group and across the flat queue. */
   score: number;
-  /** One-line, plain-English reason shown on the row. */
+  /** One-line, plain-English reason shown on the row — the URGENCY dimension. */
   reason: string;
   /** The signals that produced the ranking — shown under "Why is this here?". */
   signals: string[];
   /** A compact date chip when a real date is known (today only: consultation). */
   when: string | null;
+  /** The ONE dominant next action for this state — the row's primary button label.
+   *  The NEXT-ACTION dimension, kept distinct from urgency and readiness. */
+  actionLabel: string;
 }
 
 export const PRIORITY_ORDER: QueuePriority[] = [
@@ -211,7 +214,45 @@ export function computeUrgency(
   const when =
     consultDays !== null && status !== "completed" ? `Consultation ${relDays(consultDays)}` : null;
 
-  return { priority, score, reason, signals, when };
+  const actionLabel = actionFor(status, {
+    newDocs,
+    newMsgs,
+    drop: !!drop,
+    pendingChase: status === "awaiting_client" && !!matter.lastNudgedAt,
+  });
+
+  return { priority, score, reason, signals, when, actionLabel };
+}
+
+/**
+ * The single dominant next action for a matter's state — a specific verb, never a
+ * bare "Open". New activity wins over the resting state (a reply on a ready matter
+ * is "Review reply", not "Open brief"). This is the NEXT-ACTION dimension the row
+ * leads with; the rest of the controls sit behind "More".
+ */
+function actionFor(
+  status: Matter["status"],
+  ctx: { newDocs: number; newMsgs: number; drop: boolean; pendingChase: boolean },
+): string {
+  if (ctx.newDocs > 0) return ctx.newDocs === 1 ? "Review document" : "Review documents";
+  if (ctx.newMsgs > 0) return "Review reply";
+  if (ctx.drop) return "Review changes";
+  switch (status) {
+    case "ready_for_review":
+      return "Review & send draft";
+    case "ready_for_you":
+      return "Open brief";
+    case "in_progress":
+      return "Continue matter";
+    case "awaiting_client":
+      return ctx.pendingChase ? "Review follow-up" : "Open matter";
+    case "preparing":
+      return "Open matter";
+    case "completed":
+      return "Open matter";
+    default:
+      return "Open matter";
+  }
 }
 
 function headlineFor(

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAccount } from "@/lib/metering";
 import { setMatterSnooze, setMatterPriority } from "@/lib/store";
 import { addEvent } from "@/lib/events";
+import { deleteLatestReview } from "@/lib/reviews";
 import type { QueuePriority } from "@/lib/types";
 
 /**
@@ -31,6 +32,18 @@ export async function unsnoozeMatter(matterId: string): Promise<{ ok: boolean }>
   await setMatterSnooze(account.id, matterId, null);
   await addEvent(account.id, matterId, "unsnoozed", "Returned to the queue");
   revalidatePath("/app");
+  return { ok: true };
+}
+
+/** Undo the last "Confirm review" — restores the prior baseline so the matter
+ *  returns to the queue with its since-review diff intact. */
+export async function undoReview(matterId: string): Promise<{ ok: boolean }> {
+  const account = await requireAccount();
+  if (!matterId) return { ok: false };
+  await deleteLatestReview(account.id, matterId);
+  await addEvent(account.id, matterId, "review_undone", "Review undone");
+  revalidatePath("/app");
+  revalidatePath(`/matters/${matterId}`);
   return { ok: true };
 }
 

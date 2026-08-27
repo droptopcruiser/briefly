@@ -275,6 +275,26 @@ export async function getChangesMap(
   return map;
 }
 
+/**
+ * A SPECIFIC one-line change detail for the queue — not "4 replies", but WHAT
+ * changed, so a conveyancer can decide whether to open the matter without reading
+ * the thread: "Signed Contract of Sale attached · settlement date updated · photo
+ * ID still missing". Returns null when nothing material changed.
+ */
+export function describeChanges(c: MatterChanges): string | null {
+  const parts: string[] = [];
+  for (const d of c.newDocuments.slice(0, 2)) parts.push(`${d.label} attached`);
+  for (const f of c.changedFacts.slice(0, 2)) parts.push(`${f.label} updated`);
+  for (const f of c.newFacts.slice(0, 2)) parts.push(`${f.label} added`);
+  if (parts.length < 3 && c.stillOutstanding.length > 0) {
+    const missing = c.stillOutstanding.slice(0, 2).map((g) => g.label);
+    const join = missing.length <= 1 ? missing[0] : `${missing.slice(0, -1).join(", ")} and ${missing[missing.length - 1]}`;
+    parts.push(`${join} still missing`);
+  }
+  const shown = parts.slice(0, 3);
+  return shown.length ? shown.join(" · ") : null;
+}
+
 /** Compact one-line summary of a matter's changes (for the dashboard rollup). */
 export function summariseChanges(c: MatterChanges): string {
   const seg: string[] = [];
@@ -284,6 +304,36 @@ export function summariseChanges(c: MatterChanges): string {
   if (c.newDocuments.length) seg.push(`${c.newDocuments.length} ${c.newDocuments.length === 1 ? "document" : "documents"}`);
   if (c.resolved.length) seg.push(`${c.resolved.length} resolved`);
   return seg.join(" · ") || "updated";
+}
+
+/**
+ * Undo the most recent review baseline for a matter (the "Undo" after Confirm
+ * review). Removes only the latest snapshot, so the previous baseline — and thus
+ * the "since your last review" diff it produced — is restored. Account-scoped and
+ * best-effort.
+ */
+export async function deleteLatestReview(accountId: string, matterId: string): Promise<void> {
+  const db = getSupabase();
+  if (!db) {
+    const latest = [...memory.values()]
+      .filter((r) => r.accountId === accountId && r.matterId === matterId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+    if (latest) memory.delete(latest.id);
+    return;
+  }
+  try {
+    const { data } = await db
+      .from("matter_reviews")
+      .select("id")
+      .eq("account_id", accountId)
+      .eq("matter_id", matterId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data?.id) await db.from("matter_reviews").delete().eq("id", data.id);
+  } catch (err) {
+    console.error("deleteLatestReview failed:", err);
+  }
 }
 
 /**

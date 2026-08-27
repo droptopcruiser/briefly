@@ -8,7 +8,7 @@ import { NeedsAttention } from "../needs-attention";
 import { requireAccount, getUsage, getCurrentMembership } from "@/lib/metering";
 import { getCurrentProfile } from "@/lib/profile";
 import { getAccountRubrics } from "@/lib/rubric-store";
-import { getChangesMap } from "@/lib/reviews";
+import { getChangesMap, describeChanges } from "@/lib/reviews";
 import { computeUrgency, isSnoozed, PRIORITY_ORDER, PRIORITY_META } from "@/lib/urgency";
 import { listMembers } from "@/lib/team";
 import { getMonthStats } from "@/lib/stats";
@@ -67,19 +67,25 @@ export default async function Dashboard() {
     items: activeScored
       .filter(({ u }) => u.priority === p)
       .sort((a, b) => b.u.score - a.u.score)
-      .map(({ m, u }) => ({
-        id: m.id,
-        href: `/matters/${m.id}`,
-        clientName: m.clientName ?? "Unnamed client",
-        rubricName: m.result?.rubricName ?? null,
-        status: m.status,
-        readiness: typeof m.result?.readiness === "number" ? m.result.readiness : null,
-        reason: u.reason,
-        signals: u.signals,
-        when: u.when,
-        assignee: labelFor(m.assignedTo),
-        priorityOverride: m.priorityOverride ?? null,
-      })),
+      .map(({ m, u }) => {
+        const c = changesMap.get(m.id);
+        return {
+          id: m.id,
+          href: `/matters/${m.id}`,
+          clientName: m.clientName ?? "Unnamed client",
+          rubricName: m.result?.rubricName ?? null,
+          status: m.status,
+          readiness: typeof m.result?.readiness === "number" ? m.result.readiness : null,
+          gapsCount: m.result?.gaps.length ?? 0,
+          reason: u.reason,
+          detail: c ? describeChanges(c) : null,
+          actionLabel: u.actionLabel,
+          signals: u.signals,
+          when: u.when,
+          assignee: labelFor(m.assignedTo),
+          priorityOverride: m.priorityOverride ?? null,
+        };
+      }),
   }));
 
   // The greeting number is what needs a DECISION now — critical + needs-review —

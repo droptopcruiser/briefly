@@ -1,19 +1,23 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { MatterStatus, QueuePriority } from "@/lib/types";
 import { markMatterReviewed, assignMatter } from "@/app/actions";
-import { snoozeMatter, unsnoozeMatter, setQueuePriority } from "@/app/queue-actions";
+import { snoozeMatter, unsnoozeMatter, setQueuePriority, undoReview } from "@/app/queue-actions";
 
 /**
- * The Needs Attention queue — the dashboard's command centre. Matters are grouped
- * by URGENCY (Critical · Needs review · Waiting · Ready · Parked), each row carries
- * a plain-English reason, an expandable "Why is this here?" that shows the signals
- * behind the ranking, and inline controls: open, mark reviewed, assign, snooze,
- * change priority. The ranking is computed server-side (src/lib/urgency.ts); this
- * component renders it and turns Briefly's read into one-click action.
+ * The Needs Attention queue — the dashboard's command centre. Each row keeps three
+ * things VISIBLY SEPARATE, because they answer different questions:
+ *   · URGENCY   — why it's here now (the reason, coloured by bucket)
+ *   · READINESS — how prepared the file is (a labelled "Prep" meter, never a bare
+ *                 % that reads as "done")
+ *   · ACTION    — the one dominant next step (a state-specific primary button)
+ * Everything else — assign, snooze, change priority, confirm review — sits behind
+ * "More actions" so a row reads as a task, not a control panel. The ranking is
+ * computed server-side (src/lib/urgency.ts); this renders it and turns Briefly's
+ * read into one-click action, human gate intact.
  */
 
 export interface QueueRow {
@@ -23,7 +27,10 @@ export interface QueueRow {
   rubricName: string | null;
   status: MatterStatus;
   readiness: number | null;
+  gapsCount: number;
   reason: string;
+  detail: string | null;
+  actionLabel: string;
   signals: string[];
   when: string | null;
   assignee: string | null;
@@ -66,9 +73,6 @@ const PRIORITY_OPTS: { value: string; label: string }[] = [
   { value: "parked", label: "No action today" },
 ];
 
-const READY_TONE = (v: number) =>
-  v >= 100 ? "bg-accent text-accent-fg" : v >= 60 ? "bg-awaiting-soft text-awaiting" : "bg-error-soft text-error";
-
 export function NeedsAttention({
   groups,
   members,
@@ -110,7 +114,7 @@ export function NeedsAttention({
             <ul className="divide-y divide-border/60">
               {g.items.map((row) => (
                 <li key={row.id}>
-                  <Row row={row} members={members} />
+                  <Row row={row} priority={g.priority} members={members} />
                 </li>
               ))}
             </ul>
@@ -122,10 +126,40 @@ export function NeedsAttention({
   );
 }
 
-function Row({ row, members }: { row: QueueRow; members: { userId: string; label: string }[] }) {
+/** READINESS dimension — a labelled meter, explicitly "Prep", so 100% reads as
+ *  "fully prepared" and never gets confused with "nothing left to do". */
+function Prep({ readiness, gaps }: { readiness: number; gaps: number }) {
+  const done = readiness >= 100;
+  const bar = done ? "bg-accent" : readiness >= 60 ? "bg-awaiting" : "bg-error";
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">Prep</span>
+      <span className="h-1 w-12 overflow-hidden rounded-full bg-inset">
+        <span className={`block h-full rounded-full ${bar}`} style={{ width: `${readiness}%` }} />
+      </span>
+      <span className="tabular-nums text-foreground/70">{readiness}%</span>
+      <span className="text-muted">
+        {done ? "· ready" : gaps > 0 ? `· ${gaps} ${gaps === 1 ? "item" : "items"} missing` : ""}
+      </span>
+    </span>
+  );
+}
+
+function Row({
+  row,
+  priority,
+  members,
+}: {
+  row: QueueRow;
+  priority: QueuePriority;
+  members: { userId: string; label: string }[];
+}) {
   const router = useRouter();
   const [why, setWhy] = useState(false);
+  const [more, setMore] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [justReviewed, setJustReviewed] = useState(false);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const run = (fn: () => Promise<unknown>) =>
     startTransition(async () => {
@@ -133,10 +167,28 @@ function Row({ row, members }: { row: QueueRow; members: { userId: string; label
       router.refresh();
     });
 
+  // Confirm review — records a baseline, then leaves a 6s Undo window before the
+  // queue re-ranks (so it never feels like the matter silently vanished).
+  function confirmReview() {
+    const fd = new FormData();
+    fd.set("id", row.id);
+    setJustReviewed(true);
+    startTransition(async () => {
+      await markMatterReviewed(fd);
+    });
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    undoTimer.current = setTimeout(() => router.refresh(), 6000);
+  }
+  function undo() {
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    setJustReviewed(false);
+    run(() => undoReview(row.id));
+  }
+
   return (
-    <div className={`px-4 py-3.5 transition-opacity ${pending ? "opacity-50" : ""}`}>
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
+    <div className={`px-4 py-4 transition-opacity ${pending && !justReviewed ? "opacity-50" : ""}`}>
+      <div className="flex items-start gap-4">
+        <div className="min-w-0 flex-1 space-y-1.5">
           {/* Identity */}
           <div className="truncate">
             <Link href={row.href} className="font-serif text-[15px] font-medium tracking-tight hover:underline">
@@ -144,42 +196,65 @@ function Row({ row, members }: { row: QueueRow; members: { userId: string; label
             </Link>
             {row.rubricName ? <span className="text-sm text-muted"> · {row.rubricName}</span> : null}
           </div>
-          {/* Reason — the one-line decision cue */}
-          <div className="mt-0.5 text-sm text-foreground/80">{row.reason}</div>
-          {/* Quiet meta */}
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted">
-            {row.when ? <span>{row.when}</span> : null}
-            {row.when && row.assignee ? <span aria-hidden="true">·</span> : null}
+
+          {/* URGENCY — why it's here now */}
+          <div className="flex items-start gap-2 text-sm">
+            <span aria-hidden="true" className={`mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full ${DOT[priority]}`} />
+            <span className="font-medium text-foreground">{row.reason}</span>
+          </div>
+
+          {/* The exact change (review rows) */}
+          {row.detail ? <div className="pl-4 text-xs text-muted">{row.detail}</div> : null}
+
+          {/* READINESS + owner — a separate, labelled dimension */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pl-4 text-xs text-muted">
+            {typeof row.readiness === "number" ? <Prep readiness={row.readiness} gaps={row.gapsCount} /> : null}
+            {typeof row.readiness === "number" ? <span aria-hidden="true">·</span> : null}
             <span>{row.assignee ? row.assignee : "Unassigned"}</span>
-            <button
-              type="button"
-              onClick={() => setWhy((v) => !v)}
-              aria-expanded={why}
-              className="text-accent underline decoration-dotted underline-offset-2 hover:text-accent-h"
-            >
-              {why ? "Hide why" : "Why is this here?"}
-            </button>
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
-          {typeof row.readiness === "number" ? (
-            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${READY_TONE(row.readiness)}`}>
-              {row.readiness}%
-            </span>
-          ) : null}
-          <Link
-            href={row.href}
-            className="btn-control inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium"
+        {/* NEXT ACTION — the one dominant, state-specific button */}
+        <Link
+          href={row.href}
+          className="btn-primary inline-flex shrink-0 items-center gap-1 rounded-md px-3.5 py-2 text-sm font-medium"
+        >
+          {row.actionLabel} →
+        </Link>
+      </div>
+
+      {/* Secondary line: explainability + more actions + the review audit note */}
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 pl-4 text-xs">
+        <button
+          type="button"
+          onClick={() => setWhy((v) => !v)}
+          aria-expanded={why}
+          className="text-accent underline decoration-dotted underline-offset-2 hover:text-accent-h"
+        >
+          {why ? "Hide why" : "Why is this here?"}
+        </button>
+        {justReviewed ? (
+          <span className="text-muted">
+            Reviewed just now ·{" "}
+            <button type="button" onClick={undo} className="font-medium text-accent hover:text-accent-h">
+              Undo
+            </button>
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setMore((v) => !v)}
+            aria-expanded={more}
+            className="text-muted hover:text-foreground"
           >
-            Open →
-          </Link>
-        </div>
+            {more ? "Fewer actions" : "More actions"}
+          </button>
+        )}
       </div>
 
       {/* Why is this here? — the signals behind the ranking */}
       {why ? (
-        <ul className="mt-2.5 space-y-1 rounded-lg border border-border bg-inset/60 px-3.5 py-2.5">
+        <ul className="ml-4 mt-2.5 space-y-1 rounded-lg border border-border bg-inset/60 px-3.5 py-2.5">
           {row.signals.map((s, i) => (
             <li key={i} className="flex gap-2 text-xs text-foreground/80">
               <span aria-hidden="true" className="text-muted">•</span>
@@ -189,68 +264,63 @@ function Row({ row, members }: { row: QueueRow; members: { userId: string; label
         </ul>
       ) : null}
 
-      {/* Controls — insight to action in one click, human gate intact */}
-      <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => {
-            const fd = new FormData();
-            fd.set("id", row.id);
-            run(() => markMatterReviewed(fd));
-          }}
-          className="rounded-md border border-border px-2.5 py-1 font-medium hover:bg-inset disabled:opacity-60"
-        >
-          Mark reviewed
-        </button>
-
-        <select
-          aria-label="Assign"
-          disabled={pending}
-          value={members.find((m) => m.label === row.assignee)?.userId ?? ""}
-          onChange={(e) => run(() => assignMatter(row.id, e.target.value || null))}
-          className="rounded-md border border-border bg-raise px-2 py-1 text-muted hover:text-foreground disabled:opacity-60"
-        >
-          <option value="">Unassigned</option>
-          {members.map((m) => (
-            <option key={m.userId} value={m.userId}>
-              {m.label}
-            </option>
-          ))}
-        </select>
-
-        <select
-          aria-label="Snooze"
-          disabled={pending}
-          value=""
-          onChange={(e) => {
-            const d = Number(e.target.value);
-            if (d > 0) run(() => snoozeMatter(row.id, d));
-          }}
-          className="rounded-md border border-border bg-raise px-2 py-1 text-muted hover:text-foreground disabled:opacity-60"
-        >
-          <option value="">Snooze…</option>
-          <option value="1">1 day</option>
-          <option value="3">3 days</option>
-          <option value="7">1 week</option>
-        </select>
-
-        <select
-          aria-label="Change priority"
-          disabled={pending}
-          value={row.priorityOverride ?? "auto"}
-          onChange={(e) =>
-            run(() => setQueuePriority(row.id, e.target.value === "auto" ? null : (e.target.value as QueuePriority)))
-          }
-          className="rounded-md border border-border bg-raise px-2 py-1 text-muted hover:text-foreground disabled:opacity-60"
-        >
-          {PRIORITY_OPTS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* More actions — secondary controls, out of the row's default reading path */}
+      {more && !justReviewed ? (
+        <div className="ml-4 mt-2.5 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-inset/60 px-3.5 py-2.5 text-xs">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={confirmReview}
+            className="rounded-md border border-border bg-surface px-2.5 py-1 font-medium hover:bg-inset disabled:opacity-60"
+          >
+            Confirm review
+          </button>
+          <select
+            aria-label="Assign"
+            disabled={pending}
+            value={members.find((m) => m.label === row.assignee)?.userId ?? ""}
+            onChange={(e) => run(() => assignMatter(row.id, e.target.value || null))}
+            className="rounded-md border border-border bg-raise px-2 py-1 text-muted hover:text-foreground disabled:opacity-60"
+          >
+            <option value="">Assign…</option>
+            {members.map((m) => (
+              <option key={m.userId} value={m.userId}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="Snooze"
+            disabled={pending}
+            value=""
+            onChange={(e) => {
+              const d = Number(e.target.value);
+              if (d > 0) run(() => snoozeMatter(row.id, d));
+            }}
+            className="rounded-md border border-border bg-raise px-2 py-1 text-muted hover:text-foreground disabled:opacity-60"
+          >
+            <option value="">Snooze…</option>
+            <option value="1">1 day</option>
+            <option value="3">3 days</option>
+            <option value="7">1 week</option>
+          </select>
+          <select
+            aria-label="Change priority"
+            disabled={pending}
+            value={row.priorityOverride ?? "auto"}
+            onChange={(e) =>
+              run(() => setQueuePriority(row.id, e.target.value === "auto" ? null : (e.target.value as QueuePriority)))
+            }
+            className="rounded-md border border-border bg-raise px-2 py-1 text-muted hover:text-foreground disabled:opacity-60"
+          >
+            {PRIORITY_OPTS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -31,6 +31,7 @@ export type MatterEventType =
   | "snoozed"
   | "unsnoozed"
   | "priority_set"
+  | "review_undone"
   | "completed";
 
 export interface MatterEvent {
