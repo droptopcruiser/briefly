@@ -336,6 +336,14 @@ function AppChrome({
 
   return (
     <div className="min-h-screen lg:flex">
+      {/* Ambient ground — soft, on-brand colour glows so the frosted-glass panels
+          have something to refract. Fixed, decorative, well behind all content. */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute -top-32 right-[8%] h-[520px] w-[520px] rounded-full bg-accent/[0.10] blur-[120px]" />
+        <div className="absolute top-1/3 -left-24 h-[440px] w-[440px] rounded-full bg-awaiting/[0.08] blur-[120px]" />
+        <div className="absolute bottom-[-10%] left-1/2 h-[480px] w-[520px] -translate-x-1/2 rounded-full bg-accent/[0.07] blur-[130px]" />
+      </div>
+
       {/* Persistent rail ≥1024px (hidden when collapsed) */}
       <aside
         className={`sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-border bg-surface ${

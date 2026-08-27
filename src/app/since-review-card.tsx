@@ -66,7 +66,7 @@ export function SinceReviewCard({
     seg.push(`${changes.stillOutstanding.length} still outstanding`);
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-accent/60 bg-surface shadow-[var(--shadow)]">
+    <section className="glass-card glass-sheen overflow-hidden rounded-2xl border-accent/50">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">

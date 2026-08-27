@@ -149,6 +149,16 @@ h1, h2, h3 {
   backdrop-filter: blur(16px) saturate(160%);
   border-bottom: 1px solid var(--border);
 }
+/* Content-grade frosted glass — for panels that HOLD text (the brief, cards).
+   More opaque than .glass so legal copy stays crisp, still visibly frosted so the
+   ambient ground refracts through. This is the "Frosted", not the "Clear", look. */
+.glass-card {
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  -webkit-backdrop-filter: blur(26px) saturate(150%);
+  backdrop-filter: blur(26px) saturate(150%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-lg), var(--glass-hi);
+}
 /* faint diagonal sheen across a glass panel — the "wet" catch of light */
 .glass-sheen {
   position: relative;
