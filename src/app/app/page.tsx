@@ -10,6 +10,7 @@ import { getCurrentProfile } from "@/lib/profile";
 import { getAccountRubrics } from "@/lib/rubric-store";
 import { getChangesMap, describeChanges } from "@/lib/reviews";
 import { computeUrgency, isSnoozed, PRIORITY_ORDER, PRIORITY_META } from "@/lib/urgency";
+import { getDateDecisionsMap, resolveSettlement } from "@/lib/critical-dates";
 import { listMembers } from "@/lib/team";
 import { getMonthStats } from "@/lib/stats";
 
@@ -30,7 +31,10 @@ export default async function Dashboard() {
   // powers the "since your last review" signals. The urgency scorer does the rest
   // in memory — no per-matter round trips.
   const matters = await listMatters(account.id, { limit: 100 });
-  const changesMap = await getChangesMap(account.id, matters);
+  const [changesMap, dateDecisions] = await Promise.all([
+    getChangesMap(account.id, matters),
+    getDateDecisionsMap(account.id),
+  ]);
   const hasOwnRubric = (await getAccountRubrics(account.id)).length > 0;
   const firstName = profile?.name?.split(/\s+/)[0] ?? null;
 
@@ -48,7 +52,13 @@ export default async function Dashboard() {
   // Completed matters live in the Completed list, not the daily queue.
   const scored = matters
     .filter((m) => m.status !== "completed")
-    .map((m) => ({ m, u: computeUrgency(m, changesMap.get(m.id) ?? null, now) }));
+    .map((m) => {
+      const eff = resolveSettlement(m.result, dateDecisions.get(m.id) ?? null);
+      const settlement = eff
+        ? { value: eff.value, iso: eff.iso, confidence: eff.confidence, source: eff.source }
+        : null;
+      return { m, u: computeUrgency(m, changesMap.get(m.id) ?? null, now, settlement) };
+    });
 
   const snoozed = scored
     .filter(({ m }) => isSnoozed(m, now))

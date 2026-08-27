@@ -40,6 +40,8 @@ import { assignMatter, markMatterReviewed } from "@/app/actions";
 import { composeEmailBody, replySubject } from "@/lib/email";
 import { parseConversation } from "@/lib/conversation";
 import { listMessages } from "@/lib/messages";
+import { getDateDecision, resolveSettlement } from "@/lib/critical-dates";
+import { CriticalDatesStrip } from "@/app/critical-dates-strip";
 
 /**
  * Evidence over confidence: show how much of the matter is backed by source
@@ -113,6 +115,13 @@ async function SinceReviewSection({ matter, accountId }: { matter: Matter; accou
       staleBrief={!!(brief && briefStale)}
     />
   );
+}
+
+async function CriticalDatesSection({ matter }: { matter: Matter }) {
+  const decision = await getDateDecision(matter.id, "settlement");
+  const settlement = resolveSettlement(matter.result, decision);
+  if (!settlement) return null;
+  return <CriticalDatesStrip matterId={matter.id} date={settlement} />;
 }
 
 async function ReturningClientSection({ matter }: { matter: Matter }) {
@@ -934,6 +943,11 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
           {r.clientEmail ? <span>{r.clientEmail}</span> : null}
         </div>
       </header>
+
+      {/* Critical dates (settlement) — deferred; only a confirmed date drives urgency */}
+      <Suspense fallback={null}>
+        <CriticalDatesSection matter={matter} />
+      </Suspense>
 
       {/* Returning client — deferred */}
       <Suspense fallback={null}>
