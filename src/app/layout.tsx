@@ -24,9 +24,9 @@ import {
 import { Shell } from "./shell";
 
 export const metadata: Metadata = {
-  title: "Briefly — your work, ready when you are",
+  title: "Briefly — the work before the work, done before you open it",
   description:
-    "Briefly prepares your work before you get to it — the way your firm works. Client emails arrive as structured, review-ready matters, waiting the moment you sit down.",
+    "Whatever your client actually sends — a note, PDFs, a photo of the contract — Briefly reads it, checks it against your checklist, chases what's missing, and hands you a ready file. Keep working the way you do.",
 };
 
 const ROLE_LABELS: Record<string, string> = {

@@ -175,23 +175,23 @@ export function PreparedDesk() {
         <div className="glass glass-sheen rounded-3xl p-5">
           <div className="flex items-center gap-3 border-b border-border pb-3">
             <span className="grid h-9 w-9 place-items-center rounded-full bg-accent-soft text-xs font-semibold text-accent">
-              AD
+              TN
             </span>
             <div className="min-w-0">
-              <div className="text-sm font-medium">Amara Diallo</div>
-              <div className="truncate text-xs text-muted">amara.diallo@gmail.com</div>
+              <div className="text-sm font-medium">Tomas Nowak</div>
+              <div className="truncate text-xs text-muted">tomas.nowak@gmail.com</div>
             </div>
             <span className="ml-auto text-[11px] text-muted">New enquiry</span>
           </div>
           <div className="pt-3">
-            <div className="text-sm font-medium">Spousal visa — application</div>
+            <div className="text-sm font-medium">Buying at 8 Ellery Lane</div>
             <p className="mt-2 text-sm leading-relaxed text-muted">
-              Hi, I&apos;d like to apply for a spousal visa to join my husband James. We{" "}
-              <mark className="rounded bg-accent-soft px-1 text-foreground">married on 17 June 2023</mark>{" "}
-              and have lived together since. I&apos;ve attached our certificate.
+              Hi, we&apos;re buying a place at 8 Ellery Lane, Fitzroy North. Settlement&apos;s{" "}
+              <mark className="rounded bg-accent-soft px-1 text-foreground">5 June</mark> — contract&apos;s
+              attached. I&apos;ll send the signed transfer once I have it.
             </p>
             <div className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-border bg-raise px-2 py-1 text-[11px]">
-              <MiniDoc /> marriage_certificate.pdf
+              <MiniDoc /> Contract-of-Sale.pdf
             </div>
           </div>
         </div>
@@ -211,27 +211,32 @@ export function PreparedDesk() {
         <div className="glass glass-sheen rounded-3xl p-4 sm:p-5">
           <div className="flex items-center justify-between gap-3 px-1 pb-3">
             <div>
-              <div className="text-sm font-semibold">Amara Diallo · Spousal visa</div>
-              <div className="text-xs text-muted">Prepared from her email</div>
+              <div className="text-sm font-semibold">Tomas Nowak · Property purchase</div>
+              <div className="text-xs text-muted">Prepared from his email</div>
             </div>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-3 py-1 text-sm font-medium text-accent">
-              <Check /> 100%
+              <Check /> Ready to review
             </span>
           </div>
           <div className="space-y-3 rounded-2xl border border-border bg-surface p-4">
             <div>
-              <div className="text-[11px] uppercase tracking-wide text-muted">Marriage date</div>
-              <div className="text-sm font-medium">17 Jun 2023</div>
-              <div className="text-xs italic text-muted">“married on 17 June 2023”</div>
+              <div className="text-[11px] uppercase tracking-wide text-muted">Settlement date</div>
+              <div className="text-sm font-medium">5 June 2027</div>
+              <div className="text-xs italic text-muted">“settlement&apos;s 5 June”</div>
             </div>
             <div className="flex items-center gap-2 border-t border-border pt-3 text-sm">
-              <Check /> marriage_certificate.pdf
-              <span className="text-xs text-muted">— certificate recognised</span>
+              <Check /> Contract-of-Sale.pdf
+              <span className="text-xs text-muted">— read · p.1</span>
+            </div>
+            <div className="flex items-center gap-2 border-t border-border pt-3 text-sm">
+              <span aria-hidden="true" className="text-awaiting">○</span>
+              <span className="font-medium">Signed transfer</span>
+              <span className="ml-auto text-xs font-medium text-awaiting">missing</span>
             </div>
           </div>
           <div className="mt-3 rounded-2xl border border-accent/40 bg-accent-soft p-3.5">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-accent">
-              <MiniDoc /> Drafted · Consultation confirmation
+              <MiniDoc /> Drafted · request for the signed transfer
             </div>
             <div className="mt-2 flex items-center gap-2 border-t border-accent/20 pt-2 text-xs font-medium text-accent">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -1193,10 +1198,12 @@ function PathCard({
           {a ? "Drafted request" : "Drafted initial work"}
         </div>
         <p className="mt-1.5 text-sm font-medium">
-          {a ? "“Please attach the marriage certificate.”" : "“Confirmation, next steps & consultation link.”"}
+          {a
+            ? "“Please send the signed transfer and confirm the settlement date.”"
+            : "“Confirmation, next steps & the settlement timeline.”"}
         </p>
         <p className="mt-1 text-xs text-muted">
-          {a ? "Then: Awaiting information" : "Or: engagement email · case brief"}
+          {a ? "Then: Awaiting the client" : "Or: costs disclosure · matter opening"}
         </p>
       </div>
     </div>
@@ -1216,15 +1223,15 @@ export function TwoPathTriage() {
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
             <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-            The two-path triage
+            Missing, or ready — the two paths
           </div>
-          <h2 className="mt-4 font-serif text-4xl font-semibold leading-[1.05] tracking-tight text-balance sm:text-5xl">
-            Every intake reaches <span className="italic text-accent">a clear fork.</span>
+          <h2 className="mt-4 font-serif text-2xl font-semibold leading-[1.1] tracking-tight text-balance sm:text-3xl">
+            Every enquiry reaches <span className="italic text-accent">a clear fork.</span>
           </h2>
         </div>
         <p className="text-muted lg:pb-2">
-          Briefly checks the email against your rubric, scores readiness, then drafts the right first
-          move — whether facts are missing or the file is complete.
+          Briefly checks the email against your checklist, scores how ready the file is, then drafts
+          the right first move — whether something&apos;s missing or the file is complete.
         </p>
       </div>
 
@@ -1237,7 +1244,7 @@ export function TwoPathTriage() {
               <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
                 Inbound client email
               </div>
-              <div className="font-semibold">Extract facts &amp; check rubric</div>
+              <div className="font-semibold">Read it &amp; check your checklist</div>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -1278,17 +1285,14 @@ export function TwoPathTriage() {
       </div>
 
       {/* Professional review */}
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-inset px-5 py-4">
+      <div className="mt-6 rounded-xl border border-border bg-inset px-5 py-4">
         <p className="text-sm">
-          <span className="font-medium">Professional review.</span>{" "}
+          <span className="font-medium">You keep the call.</span>{" "}
           <span className="text-muted">
             Whichever path, Briefly stops at your desk — review, adjust if needed, then approve and
             send.
           </span>
         </p>
-        <div className="shrink-0">
-          <ExploreIntake variant="link" label="See the review state" />
-        </div>
       </div>
     </div>
   );

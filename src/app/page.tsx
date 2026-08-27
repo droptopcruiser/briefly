@@ -4,14 +4,7 @@ import { getAuthUser } from "@/lib/auth";
 import { PLANS, CREDIT_PACK } from "@/lib/plans";
 import { WaitlistForm } from "@/app/waitlist-form";
 import { joinWaitlist } from "@/app/waitlist-actions";
-import {
-  Reveal,
-  PreparedDesk,
-  ExploreIntake,
-  TwoPathTriage,
-  SummaryVsWorkflow,
-  RubricWorkspace,
-} from "@/app/landing";
+import { Reveal, PreparedDesk, TwoPathTriage } from "@/app/landing";
 import { ThemeToggle } from "@/app/theme-toggle";
 
 const PRICING = [PLANS.solo, PLANS.practice, PLANS.firm];
@@ -24,18 +17,18 @@ function Nav() {
           Briefly
         </Link>
         <nav className="hidden items-center gap-7 text-sm text-muted sm:flex">
-          <a href="#how" className="hover:text-foreground">How it works</a>
+          <a href="#position" className="hover:text-foreground">How it works</a>
           <a href="#pricing" className="hover:text-foreground">Pricing</a>
           <Link href="/login" className="hover:text-foreground">Sign in</Link>
         </nav>
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <Link
-            href="/login"
+          <a
+            href="#waitlist"
             className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90"
           >
-            Start free
-          </Link>
+            Request early access
+          </a>
         </div>
       </div>
     </header>
@@ -53,7 +46,7 @@ function Section({ id, children }: { id?: string; children: React.ReactNode }) {
 function Heading({ title, sub }: { title: string; sub?: string }) {
   return (
     <Reveal className="mx-auto max-w-2xl space-y-3 text-center">
-      <h2 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">{title}</h2>
+      <h2 className="font-serif text-3xl font-semibold tracking-tight text-balance sm:text-4xl">{title}</h2>
       {sub ? <p className="text-muted">{sub}</p> : null}
     </Reveal>
   );
@@ -68,7 +61,7 @@ export default async function Landing() {
       <Nav />
 
       <main>
-        {/* ── Hero: arrive to a prepared desk ───────────────────────────── */}
+        {/* ── 1 · Hero — the universal pain (form-havers AND no-form solos) ── */}
         <section className="relative overflow-hidden">
           <div aria-hidden className="pointer-events-none absolute inset-0">
             <div className="absolute -top-24 right-[6%] h-[420px] w-[420px] rounded-full bg-accent/10 blur-3xl" />
@@ -79,32 +72,33 @@ export default async function Landing() {
             <div className="anim-rise">
               <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.14em] text-muted">
                 <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-                Prepared before you open it
+                For conveyancers and property firms
               </div>
-              <h1 className="mt-6 font-serif text-5xl font-semibold leading-[1.02] tracking-tight text-balance sm:text-6xl lg:text-7xl">
-                Work arrives ready.
+              <h1 className="mt-6 font-serif text-4xl font-semibold leading-[1.05] tracking-tight text-balance sm:text-5xl lg:text-6xl">
+                Your client&apos;s messy email, turned into a checked, ready file.
               </h1>
               <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted">
-                While you were away, Briefly turned a night of client email into short, prepared
-                matters — checked against how <em>your</em> firm works.
-              </p>
-              <p className="mt-3 max-w-xl text-lg leading-relaxed text-muted">
-                It <strong className="font-medium text-foreground">reads the documents</strong>,
-                follows the conversation, and prepares the next move — so you open work that&apos;s
-                ready to review, not an inbox.
+                Whatever your client actually sends — a rushed note, three PDFs, a photo of the
+                contract — Briefly reads it, checks it against your checklist, chases what&apos;s
+                missing, and hands you a file that&apos;s ready to open.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-4">
-                <Link
-                  href="/login"
+                <a
+                  href="#waitlist"
                   className="rounded-lg bg-accent px-6 py-3 text-sm font-medium text-accent-fg shadow-sm transition-opacity hover:opacity-90"
                 >
-                  Start free
-                </Link>
-                <ExploreIntake variant="button" />
+                  Request early access
+                </a>
+                <a
+                  href="#leak"
+                  className="text-sm font-medium text-accent underline decoration-dotted underline-offset-4 hover:text-accent-h"
+                >
+                  Watch a real enquiry become a ready file →
+                </a>
               </div>
               <p className="mt-8 max-w-md text-sm leading-relaxed text-muted">
-                One matter is one new client intake. Every follow-up and reply threads back into the
-                same matter — never a new one.
+                Keep working the way you do. Just forward your enquiries — nothing to switch, nothing
+                to migrate.
               </p>
             </div>
 
@@ -112,47 +106,144 @@ export default async function Landing() {
           </div>
         </section>
 
-        {/* ── The core mechanic: two-path triage ────────────────────────── */}
-        <Section id="triage">
-          <TwoPathTriage />
+        {/* ── 2 · The leak, made visible ────────────────────────────────── */}
+        <Section id="leak">
+          <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
+            <Reveal className="space-y-4">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+                <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+                The work before the work
+              </div>
+              <h2 className="font-serif text-3xl font-semibold leading-[1.08] tracking-tight text-balance sm:text-4xl">
+                Your intake form only catches the tidy clients.
+              </h2>
+              <p className="max-w-xl text-muted">
+                The rest email a messy note with the contract attached — and you end up doing the prep
+                by hand anyway.{" "}
+                <span className="text-foreground/80">(No intake form? Then every enquiry is that messy note.)</span>{" "}
+                Briefly reads whatever actually lands and turns it into a checked file — so someone
+                doesn&apos;t have to do it by hand. Right now that someone is you.
+              </p>
+            </Reveal>
+
+            <Reveal className="grid gap-3">
+              {/* What your form expected — tidy, empty */}
+              <div className="rounded-xl border border-dashed border-border bg-inset/50 p-4">
+                <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted">
+                  What your form expected
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {["Property address", "Parties", "Purchase price", "Settlement date"].map((f) => (
+                    <div key={f} className="rounded-md border border-border bg-surface px-2.5 py-1.5">
+                      <div className="text-[10px] text-muted">{f}</div>
+                      <div className="mt-1 h-1.5 w-2/3 rounded bg-border/70" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* What actually landed — the mess */}
+              <div className="rounded-xl border border-border bg-surface p-4 shadow-[var(--shadow-sm)]">
+                <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-awaiting">
+                  What actually landed in your inbox
+                </div>
+                <p className="text-sm leading-relaxed text-foreground/85">
+                  &ldquo;Hi, buying at 8 Ellery Lane, settlement&apos;s 5 June — contract attached, and a
+                  photo of the page you wanted. Signed transfer to come.&rdquo;
+                </p>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {["📎 Contract-of-Sale.pdf", "📷 IMG_4471.jpg", "📎 Section-32.pdf"].map((a) => (
+                    <span
+                      key={a}
+                      className="rounded-md border border-border bg-raise px-2 py-1 text-[11px] font-medium text-foreground/75"
+                    >
+                      {a}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </Reveal>
+          </div>
         </Section>
 
-        {/* ── Flagship: it reads the documents (page-cited, confirmation-gated) ─ */}
-        <Section id="reads">
+        {/* ── 3 · The position — in front of, not on top of ─────────────── */}
+        <Section id="position">
+          <div className="grid items-center gap-10 lg:grid-cols-2">
+            <Reveal className="space-y-4">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+                <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+                Where Briefly sits
+              </div>
+              <h2 className="font-serif text-3xl font-semibold leading-[1.08] tracking-tight text-balance sm:text-4xl">
+                In front of your practice system, not on top of it.
+              </h2>
+              <p className="max-w-xl text-muted">
+                Your software starts once a file&apos;s in it. Briefly does the messy part before that —
+                the inbox, the chasing, the missing documents — and hands you a file ready to drop
+                straight in. It sits alongside whatever you already run, because it feeds your system
+                rather than replacing it.
+              </p>
+              <p className="text-sm text-muted">
+                Forward an email, review the ready file, drop it into whatever you already run. No
+                integration to set up. No migration. Briefly only ever sees what&apos;s forwarded to it —
+                never the rest of your inbox.
+              </p>
+            </Reveal>
+
+            <Reveal className="space-y-3">
+              <div className="glass glass-sheen rounded-3xl p-6 sm:p-8">
+                <ol className="space-y-3">
+                  {[
+                    { k: "1", t: "The messy inbox", d: "Whatever the client actually emailed — note, PDFs, a photo." },
+                    { k: "2", t: "Briefly", d: "Reads · checks against your checklist · chases what's missing · readies the file.", accent: true },
+                    { k: "3", t: "Your system", d: "Drop the ready file into Smokeball, LEAP, triConvey — or a shared drive." },
+                  ].map((s, i) => (
+                    <li key={s.k}>
+                      <div className="flex items-start gap-3">
+                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-accent-soft text-xs font-semibold text-accent">
+                          {s.k}
+                        </span>
+                        <div className="min-w-0">
+                          <div className={`text-sm font-medium ${s.accent ? "text-accent" : ""}`}>{s.t}</div>
+                          <div className="text-xs text-muted">{s.d}</div>
+                        </div>
+                      </div>
+                      {i < 2 ? <div className="ml-3.5 h-4 w-px bg-border" /> : null}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+              <p className="text-center text-xs text-muted">
+                Works alongside <span className="font-medium text-foreground/80">Smokeball, LEAP,
+                triConvey</span> — or a shared drive.
+              </p>
+            </Reveal>
+          </div>
+        </Section>
+
+        {/* ── 4 · Proof — page-cited traceability (the trust engine) ─────── */}
+        <Section id="proof">
           <div className="grid items-start gap-10 lg:grid-cols-2 lg:gap-14">
             <Reveal className="space-y-4 lg:pt-6">
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
                 <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-                Reads the source, not just the text
+                It evidences, it doesn&apos;t assert
               </div>
               <h2 className="font-serif text-3xl font-semibold leading-[1.08] tracking-tight text-balance sm:text-4xl">
-                It reads the documents, not just the email.
+                Every fact traces back to the page it came from.
               </h2>
               <p className="max-w-xl text-muted">
-                When a client attaches a contract, a rates notice, an ID — Briefly opens the file and
-                pulls the facts that matter, each one <strong className="font-medium text-foreground">traceable
-                to the page it came from</strong>. Nothing is added to the matter until you confirm it.
+                The fear with any tool like this is a quietly wrong settlement date you don&apos;t catch.
+                So Briefly never asserts — it <strong className="font-medium text-foreground">evidences</strong>.
+                Every fact it pulls carries its source page, one click to verify against the original.
+                Nothing touches the file until you confirm it.
               </p>
               <div className="rounded-xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm">
-                <span className="font-medium text-accent">A client replies with the signed contract?</span>{" "}
-                <span className="text-foreground/80">Briefly reads it the moment it lands.</span>
+                <span className="font-medium text-accent">Briefly would rather flag a gap than guess.</span>{" "}
+                <span className="text-foreground/80">A detail it can&apos;t find is marked missing — never filled in.</span>
               </div>
-              <ul className="space-y-1.5 pt-1 text-sm text-muted">
-                {[
-                  "Every fact carries its page — verify it against the source in one click.",
-                  "Scanned or photographed? It reads those too, and flags what it can't verify.",
-                  "Findings wait as evidence; you confirm what goes on the matter.",
-                ].map((t) => (
-                  <li key={t} className="flex items-start gap-2">
-                    <span aria-hidden="true" className="mt-0.5 shrink-0 font-semibold text-accent">✓</span>
-                    <span>{t}</span>
-                  </li>
-                ))}
-              </ul>
             </Reveal>
 
             <Reveal className="grid gap-4 sm:grid-cols-[0.9fr_1.1fr] sm:items-start">
-              {/* The source document */}
               <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-[var(--shadow-sm)]">
                 <div className="border-b border-border bg-inset px-4 py-2 text-[10px] font-medium uppercase tracking-wide text-muted">
                   Contract of Sale · PDF · p.1
@@ -163,28 +254,25 @@ export default async function Landing() {
                   </div>
                   <div className="h-1.5 w-full rounded bg-border/70" />
                   <div className="h-1.5 w-4/5 rounded bg-border/70" />
-                  {[
-                    "Vendor: Rafael & Marisol Delgado",
-                    "Purchase Price: $980,000",
-                    "Settlement Date: 5 June 2027",
-                  ].map((line) => (
-                    <div key={line} className="rounded bg-accent-soft px-1.5 py-1 text-[10.5px] font-medium text-foreground/85">
-                      {line}
-                    </div>
-                  ))}
+                  {["Vendor: Rafael & Marisol Delgado", "Purchase Price: $980,000", "Settlement Date: 5 June 2027"].map(
+                    (line) => (
+                      <div key={line} className="rounded bg-accent-soft px-1.5 py-1 text-[10.5px] font-medium text-foreground/85">
+                        {line}
+                      </div>
+                    ),
+                  )}
                   <div className="h-1.5 w-3/4 rounded bg-border/70" />
                   <div className="h-1.5 w-2/3 rounded bg-border/70" />
                 </div>
               </div>
 
-              {/* The extracted, page-cited evidence */}
               <div className="overflow-hidden rounded-xl border border-accent/40 bg-surface">
                 <div className="border-b border-border bg-inset px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
-                  Document evidence — awaiting your confirmation
+                  Read from the contract — awaiting your confirmation
                 </div>
                 <ul className="divide-y divide-border">
                   {[
-                    { label: "Vendor name", value: "Rafael & Marisol Delgado" },
+                    { label: "Vendor", value: "Rafael & Marisol Delgado" },
                     { label: "Purchase price", value: "$980,000" },
                     { label: "Settlement date", value: "5 June 2027" },
                   ].map((f) => (
@@ -210,94 +298,29 @@ export default async function Landing() {
           </div>
         </Section>
 
-        {/* ── How it connects: the truthful plumbing ────────────────────── */}
-        <Section id="connect">
-          <div className="grid items-center gap-10 lg:grid-cols-2">
-            <Reveal className="space-y-4">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
-                <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-                How it connects
-              </div>
-              <h2 className="font-serif text-3xl font-semibold leading-[1.08] tracking-tight text-balance sm:text-4xl">
-                No inbox access. Just an address.
-              </h2>
-              <p className="max-w-xl text-muted">
-                Briefly gives your firm a private intake address. Forward client enquiries to it — or
-                point your website enquiry form or shared inbox at it — and each one becomes a
-                prepared matter. Briefly only ever sees what&apos;s sent to that address, never the
-                rest of your inbox.
-              </p>
-              <p className="text-sm text-muted">
-                Replies thread straight back to the same matter, so the whole conversation stays in
-                one place.
-              </p>
-            </Reveal>
+        {/* ── Reserved slot: reference customer (drop in the first happy firm) ──
+            Leave the empty frame; do NOT fabricate a testimonial. Sits between
+            Proof and the wedge, ready for a named conveyancer + one-line quote. */}
 
-            <Reveal>
-              <div className="glass glass-sheen rounded-3xl p-6 sm:p-8">
-                <ol className="space-y-3">
-                  {[
-                    { k: "1", t: "A client emails you", d: "Or your website form / shared inbox forwards it on." },
-                    { k: "2", t: "yourfirm@inbound.brieflyhub.app", d: "Your private Briefly intake address.", mono: true },
-                    { k: "3", t: "A prepared matter", d: "Classified, extracted, and checked — waiting for your review." },
-                  ].map((s, i) => (
-                    <li key={s.k}>
-                      <div className="flex items-start gap-3">
-                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-accent-soft text-xs font-semibold text-accent">
-                          {s.k}
-                        </span>
-                        <div className="min-w-0">
-                          <div className={`text-sm font-medium ${s.mono ? "break-all font-mono text-accent" : ""}`}>
-                            {s.t}
-                          </div>
-                          <div className="text-xs text-muted">{s.d}</div>
-                        </div>
-                      </div>
-                      {i < 2 ? <div className="ml-3.5 h-4 w-px bg-border" /> : null}
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            </Reveal>
-          </div>
-        </Section>
-
-        {/* ── The differentiation: a summary is not a workflow ──────────── */}
-        <Section>
-          <Reveal className="mx-auto max-w-3xl space-y-4 text-center">
-            <div className="flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
-              <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-              A summary is not a workflow
-            </div>
-            <h2 className="font-serif text-3xl font-semibold leading-[1.08] tracking-tight text-balance sm:text-4xl lg:text-5xl">
-              A summary tells you what it read.{" "}
-              <span className="italic text-accent">Briefly prepares what happens next.</span>
-            </h2>
-          </Reveal>
+        {/* ── 5 · The wedge — reads what the client actually sent ────────── */}
+        <Section id="wedge">
+          <Heading
+            title="When the client ignores the form, Briefly reads what they sent instead."
+            sub="Structured forms work — for the clients who fill them in. For everyone else, Briefly works out what's missing against your checklist, drafts the exact request for what's outstanding, and reads each reply the moment it lands. You approve every chase before it sends."
+          />
           <Reveal>
-            <SummaryVsWorkflow />
+            <TwoPathTriage />
           </Reveal>
 
-          {/* The prepared artifact, made tangible — its three real parts. */}
-          <Reveal className="mt-12 grid gap-4 sm:grid-cols-3">
+          {/* What lands on your desk — the prepared file, its three real parts. */}
+          <Reveal className="mt-4 grid gap-4 sm:grid-cols-3">
             {[
-              {
-                t: "Briefly noticed",
-                d: "The facts it connected — each tied to a client quote or the document page it came from.",
-              },
-              {
-                t: "Decision now",
-                d: "What this matter needs from you, and whether it's ready, still incomplete, or blocked.",
-              },
-              {
-                t: "Prepared response",
-                d: "A client-facing draft, grounded in the matter — yours to edit, approve, and send.",
-              },
-            ].map((c, i) => (
+              { v: "Understand", t: "What Briefly noticed", d: "The facts it connected — each tied to a client quote or the document page it came from." },
+              { v: "Decide", t: "What's outstanding", d: "Exactly what's still missing against your checklist, and whether the file is ready." },
+              { v: "Act", t: "The chase, drafted", d: "The precise request for what's outstanding — yours to edit, approve, and send." },
+            ].map((c) => (
               <div key={c.t} className="rounded-2xl border border-border bg-surface p-5">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
-                  {i === 0 ? "Understand" : i === 1 ? "Decide" : "Act"}
-                </div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">{c.v}</div>
                 <h3 className="mt-2 font-serif text-lg font-semibold tracking-tight">{c.t}</h3>
                 <p className="mt-1.5 text-sm text-muted">{c.d}</p>
               </div>
@@ -305,166 +328,28 @@ export default async function Landing() {
           </Reveal>
         </Section>
 
-        {/* ── The fit: one living rubric workspace (the interactive "how") ─ */}
-        <Section id="how">
-          <Heading
-            title="Teach Briefly how your business works."
-            sub="Pick your business line and watch a real enquiry become a prepared file — the same engine following a different rulebook, right down to the deliverable it drafts."
-          />
-          <Reveal>
-            <RubricWorkspace />
-          </Reveal>
-          <p className="text-center text-base font-medium">
-            Same engine. Different rulebook. <span className="text-accent">No code.</span>
-          </p>
-          <Reveal className="mx-auto max-w-2xl space-y-4 text-center">
-            <p className="text-sm text-muted">
-              Purpose-built for legal, property, and accounting — and, because it follows your own
-              rules, at home in any practice that works from client intake.
-            </p>
-            <div className="flex flex-wrap justify-center gap-2">
-              {["Migration", "Insurance", "Recruitment", "Consulting", "Wealth advisory", "Veterinary"].map(
-                (x) => (
-                  <span
-                    key={x}
-                    className="rounded-full border border-border px-3 py-1 text-xs text-muted"
-                  >
-                    {x}
-                  </span>
-                ),
-              )}
-            </div>
-          </Reveal>
-        </Section>
-
-        {/* ── Thread stays together ─────────────────────────────────────── */}
-        {/* ── Flagship: the conversation, worked in one place ───────────── */}
-        <Section id="conversation">
-          <Heading
-            title="The whole conversation, in one place."
-            sub="Read the back-and-forth, see what's still outstanding, and reply without leaving the matter. Briefly drafts from the conversation and what's missing; you edit and send — one email thread, both ways."
-          />
-          <Reveal className="mx-auto max-w-2xl">
-            <div className="glass glass-sheen space-y-4 rounded-3xl p-5 sm:p-7">
-              {/* client → */}
-              <div className="flex justify-start">
-                <div className="max-w-[82%] space-y-1">
-                  <div className="px-1 text-[11px] text-muted">Tomas · client</div>
-                  <div className="rounded-2xl rounded-bl-md border border-border bg-surface px-3.5 py-2.5 text-sm">
-                    Done — I&apos;ve signed the Contract of Sale and attached it here.
-                    <span className="mt-2 flex w-fit items-center gap-1 rounded-md border border-border bg-surface/70 px-2 py-1 text-[11px] font-medium text-foreground/80">
-                      📎 Contract-of-Sale.pdf
-                    </span>
-                  </div>
-                </div>
-              </div>
-              {/* you → */}
-              <div className="flex justify-end">
-                <div className="max-w-[82%] space-y-1">
-                  <div className="px-1 text-right text-[11px] text-muted">You</div>
-                  <div className="rounded-2xl rounded-br-md bg-accent-soft px-3.5 py-2.5 text-sm text-foreground">
-                    Perfect — that&apos;s everything we need. We&apos;ll review the contract and begin
-                    the searches, then confirm your settlement.
-                  </div>
-                </div>
-              </div>
-              {/* composer */}
-              <div className="overflow-hidden rounded-xl border border-border bg-surface">
-                <div className="px-3.5 py-3 text-sm text-muted">Reply to Tomas…</div>
-                <div className="flex items-center justify-between gap-3 border-t border-border bg-inset px-3 py-2">
-                  <span className="text-xs font-medium text-accent">✦ Draft with Briefly</span>
-                  <span className="rounded-md bg-accent px-4 py-1.5 text-sm font-semibold text-accent-fg">Send</span>
-                </div>
-              </div>
-              <p className="text-center text-[11px] text-muted">
-                Every reply threads into the same client conversation — never a new one. Nothing sends
-                until you approve.
-              </p>
-            </div>
-          </Reveal>
-        </Section>
-
-        {/* ── It keeps the work moving: reminders · team · gate ─────────── */}
+        {/* ── 6 · You keep the call — human-gated trust ─────────────────── */}
         <Section>
-          <Heading
-            title="It keeps the work moving."
-            sub="Preparing the first draft is only the start. Briefly follows through — and holds the line at your approval."
-          />
-          <Reveal className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              {
-                t: "Follow-ups, ready to send",
-                d: "When a client goes quiet, Briefly notices, drafts the follow-up, and flags it for you — you review and send. Nothing goes out on its own.",
-                icon: (
-                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" />
-                ),
-              },
-              {
-                t: "Prepared for the meeting",
-                d: "Set a consultation date and Briefly compiles the pre-meeting packet — the facts, the open questions, and an agenda — so you walk in ready.",
-                icon: (
-                  <>
-                    <path d="M8 2v4M16 2v4M3 10h18" />
-                    <path d="M5 4h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
-                  </>
-                ),
-              },
-              {
-                t: "Since your last review",
-                d: "Come back to exactly what changed — new facts, documents received, replies folded in — each one sourced, so nothing slips past you.",
-                icon: (
-                  <>
-                    <path d="M3 3v5h5" />
-                    <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
-                    <path d="M12 8v4l3 2" />
-                  </>
-                ),
-              },
-              {
-                t: "Remembers your clients",
-                d: "A returning client's known facts carry forward across their matters — so you're never re-asking for what they already told you.",
-                icon: (
-                  <>
-                    <path d="M20 21a8 8 0 0 0-16 0" />
-                    <circle cx="12" cy="7" r="4" />
-                  </>
-                ),
-              },
-              {
-                t: "Shared across your firm",
-                d: "Assign matters and hand them over as work moves. Managers see the whole firm; each person gets their own focused list.",
-                icon: (
-                  <>
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                    <circle cx="9" cy="7" r="4" />
-                    <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13A4 4 0 0 1 16 11" />
-                  </>
-                ),
-              },
-              {
-                t: "Always your call",
-                d: "Nothing sends and no decision is made until you approve. Briefly prepares the work; the professional owns the decision and the send.",
-                icon: <path d="M12 3l7 4v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V7l7-4Z" />,
-              },
-            ].map((c) => (
-              <div key={c.t} className="rounded-2xl border border-border bg-surface p-6">
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-accent-soft text-accent">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    {c.icon}
-                  </svg>
-                </div>
-                <h3 className="mt-4 font-serif text-lg font-semibold tracking-tight">{c.t}</h3>
-                <p className="mt-1.5 text-sm text-muted">{c.d}</p>
-              </div>
-            ))}
+          <Reveal className="mx-auto max-w-2xl space-y-4 rounded-3xl border border-border bg-surface p-8 text-center sm:p-10">
+            <div className="flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+              <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+              Your control, not our limitation
+            </div>
+            <h2 className="font-serif text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+              You approve every fact and every send.
+            </h2>
+            <p className="mx-auto max-w-xl text-muted">
+              Briefly prepares; you decide. Nothing is sent to a client, and nothing goes on a file,
+              until you approve it. Briefly never contacts your client without you.
+            </p>
           </Reveal>
         </Section>
 
-        {/* ── The decision: pricing ─────────────────────────────────────── */}
+        {/* ── 7 · Pricing ───────────────────────────────────────────────── */}
         <Section id="pricing">
           <Heading
             title="Simple, metered pricing"
-            sub="Every plan includes a set number of matters each month. A matter is one new client intake — replies and follow-ups are included. Credit packs cover overage; no surprise bills."
+            sub="A matter costs less than the time you'd spend preparing it by hand. Priced per matter, not per seat — one busy solo shouldn't pay like a team."
           />
           <Reveal className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-3">
             {PRICING.map((plan) => {
@@ -480,14 +365,10 @@ export default async function Landing() {
                     <div className="flex items-center justify-between">
                       <span className="font-medium">{plan.name}</span>
                       {featured ? (
-                        <span className="rounded-full bg-accent px-2 py-0.5 text-xs text-accent-fg">
-                          Popular
-                        </span>
+                        <span className="rounded-full bg-accent px-2 py-0.5 text-xs text-accent-fg">Popular</span>
                       ) : null}
                     </div>
-                    <div className="text-2xl font-semibold tabular-nums tracking-tight">
-                      {plan.priceLabel}
-                    </div>
+                    <div className="text-2xl font-semibold tabular-nums tracking-tight">{plan.priceLabel}</div>
                   </div>
                   <div className="text-sm text-muted">
                     <span className="font-medium tabular-nums text-foreground">
@@ -495,55 +376,58 @@ export default async function Landing() {
                     </span>{" "}
                     matters / month
                   </div>
-                  <Link
-                    href="/login"
+                  {plan.id === "solo" ? (
+                    <p className="rounded-lg bg-inset px-3 py-2 text-xs text-muted">
+                      Busy month? Add 50 matters for {CREDIT_PACK.priceLabel}, any time — no forced
+                      upgrade, no surprise bills.
+                    </p>
+                  ) : null}
+                  <a
+                    href="#waitlist"
                     className={`mt-auto rounded-lg px-4 py-2 text-center text-sm font-medium ${
-                      featured
-                        ? "bg-accent text-accent-fg hover:opacity-90"
-                        : "border border-border hover:bg-inset"
+                      featured ? "bg-accent text-accent-fg hover:opacity-90" : "border border-border hover:bg-inset"
                     }`}
                   >
-                    Start free
-                  </Link>
+                    Request early access
+                  </a>
                 </div>
               );
             })}
           </Reveal>
           <p className="text-center text-xs text-muted">
-            Every plan starts with a 7-day free trial — no charge until it ends. Overage is sold as
-            credit packs ({CREDIT_PACK.priceLabel} for {CREDIT_PACK.credits}). Prices may change
-            before general availability.
+            At launch, every plan starts with a 7-day free trial — no charge until it ends. Need more
+            than your plan includes? Top up with credit packs ({CREDIT_PACK.priceLabel} for{" "}
+            {CREDIT_PACK.credits} matters). Prices in AUD and may change before general availability.
           </p>
         </Section>
 
-        {/* ── Waitlist ──────────────────────────────────────────────────── */}
+        {/* ── 8 · Waitlist / invite ─────────────────────────────────────── */}
         <Section id="waitlist">
           <Reveal className="mx-auto max-w-4xl space-y-4 rounded-3xl border border-border bg-surface p-8 text-center sm:p-12">
-            <h2 className="text-3xl font-semibold tracking-tight text-balance">
-              Don&apos;t have an invite yet?
+            <h2 className="font-serif text-3xl font-semibold tracking-tight text-balance">
+              Request early access.
             </h2>
             <p className="mx-auto max-w-xl text-muted">
-              Briefly is invite-only during early access. Leave your email and we&apos;ll reach out
-              as spots open up.
+              Briefly is invite-only while we work with a first handful of conveyancing firms. Leave
+              your email and we&apos;ll reach out as spots open up.
             </p>
             <WaitlistForm action={joinWaitlist} />
           </Reveal>
         </Section>
 
-        {/* ── Closing ───────────────────────────────────────────────────── */}
+        {/* ── Closing — the payoff line, now that the mechanism is understood ─ */}
         <section className="mx-auto max-w-6xl px-6 pb-28 pt-4 text-center">
           <Reveal>
-            <h2 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-              Arrive to work that&apos;s already prepared.
+            <h2 className="font-serif text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+              Work arrives ready.
             </h2>
             <div className="mt-7 flex flex-wrap justify-center gap-4">
-              <Link
-                href="/login"
+              <a
+                href="#waitlist"
                 className="rounded-lg bg-accent px-6 py-3 text-sm font-medium text-accent-fg shadow-sm transition-opacity hover:opacity-90"
               >
-                Start free
-              </Link>
-              <ExploreIntake variant="button" />
+                Request early access
+              </a>
             </div>
           </Reveal>
         </section>
@@ -554,10 +438,10 @@ export default async function Landing() {
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 text-sm text-muted sm:flex-row">
           <div className="flex items-center gap-3">
             <span className="font-serif text-base font-semibold text-foreground">Briefly</span>
-            <span className="hidden sm:inline">· Prepared before you open it</span>
+            <span className="hidden sm:inline">· The work before the work</span>
           </div>
           <div className="flex items-center gap-6">
-            <a href="#how" className="hover:text-foreground">How it works</a>
+            <a href="#position" className="hover:text-foreground">How it works</a>
             <a href="#pricing" className="hover:text-foreground">Pricing</a>
             <Link href="/login" className="hover:text-foreground">Sign in</Link>
           </div>
