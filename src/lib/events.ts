@@ -28,6 +28,9 @@ export type MatterEventType =
   | "document_attached"
   | "document_read"
   | "document_fact_confirmed"
+  | "snoozed"
+  | "unsnoozed"
+  | "priority_set"
   | "completed";
 
 export interface MatterEvent {

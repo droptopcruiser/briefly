@@ -255,6 +255,26 @@ export async function getReviewRollup(
   return { items: items.slice(0, limit), total: items.length };
 }
 
+/**
+ * Changes-since-baseline for a whole set of matters, in ONE query (the account's
+ * latest baselines) + an in-memory diff — no per-matter round trips. Matters with
+ * no recorded baseline are simply absent from the map (nothing to diff against).
+ * Feeds the Needs Attention urgency scorer.
+ */
+export async function getChangesMap(
+  accountId: string,
+  matters: Matter[],
+): Promise<Map<string, MatterChanges>> {
+  const map = new Map<string, MatterChanges>();
+  const baselines = await latestBaselines(accountId);
+  if (baselines.size === 0) return map;
+  for (const m of matters) {
+    const snap = baselines.get(m.id);
+    if (snap) map.set(m.id, computeMatterChanges(m, snap));
+  }
+  return map;
+}
+
 /** Compact one-line summary of a matter's changes (for the dashboard rollup). */
 export function summariseChanges(c: MatterChanges): string {
   const seg: string[] = [];

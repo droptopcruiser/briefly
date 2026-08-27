@@ -1,15 +1,15 @@
 import Link from "next/link";
 import { createMatterFromSubmission } from "../actions";
 import { listMatters } from "@/lib/store";
-import type { Matter } from "@/lib/types";
 import { SubmissionForm } from "../submission-form";
 import { Greeting } from "../greeting";
-import { MatterRow, UsageMeter, StatsPanel } from "../ui";
-import { DashboardTabs } from "../dashboard-tabs";
+import { UsageMeter, StatsPanel } from "../ui";
+import { NeedsAttention } from "../needs-attention";
 import { requireAccount, getUsage, getCurrentMembership } from "@/lib/metering";
 import { getCurrentProfile } from "@/lib/profile";
 import { getAccountRubrics } from "@/lib/rubric-store";
-import { getReviewRollup, summariseChanges } from "@/lib/reviews";
+import { getChangesMap } from "@/lib/reviews";
+import { computeUrgency, isSnoozed, PRIORITY_ORDER, PRIORITY_META } from "@/lib/urgency";
 import { listMembers } from "@/lib/team";
 import { getMonthStats } from "@/lib/stats";
 
@@ -26,13 +26,12 @@ export default async function Dashboard() {
   const members = await listMembers(account.id);
   const blocked = usage.blocked;
 
-  const [needsYou, awaiting, everything] = await Promise.all([
-    listMatters(account.id, { status: ["ready_for_review", "ready_for_you"], limit: 50 }),
-    listMatters(account.id, { status: ["awaiting_client"], limit: 50 }),
-    listMatters(account.id, { limit: 50 }),
-  ]);
+  // Whole active picture in two queries: the matters + one baselines lookup that
+  // powers the "since your last review" signals. The urgency scorer does the rest
+  // in memory — no per-matter round trips.
+  const matters = await listMatters(account.id, { limit: 100 });
+  const changesMap = await getChangesMap(account.id, matters);
   const hasOwnRubric = (await getAccountRubrics(account.id)).length > 0;
-  const rollup = await getReviewRollup(account.id, 6);
   const firstName = profile?.name?.split(/\s+/)[0] ?? null;
 
   const labelFor = (uid: string | null) => {
@@ -40,21 +39,63 @@ export default async function Dashboard() {
     const m = members.find((x) => x.userId === uid);
     return m ? m.name || m.email || "Teammate" : "Teammate";
   };
+  const memberOpts = members.map((m) => ({
+    userId: m.userId,
+    label: m.name || m.email || "Teammate",
+  }));
 
-  const rows = (items: Matter[]) => (
-    <div className="glass-card glass-sheen overflow-hidden rounded-2xl">
-      <ul className="divide-y divide-border/60">
-        {items.map((m) => (
-          <li key={m.id}>
-            <MatterRow matter={m} assignee={labelFor(m.assignedTo)} href={`/matters/${m.id}`} />
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-  const empty = (msg: string) => (
-    <div className="glass-card rounded-2xl px-4 py-12 text-center text-sm text-muted">{msg}</div>
-  );
+  const now = Date.now();
+  // Completed matters live in the Completed list, not the daily queue.
+  const scored = matters
+    .filter((m) => m.status !== "completed")
+    .map((m) => ({ m, u: computeUrgency(m, changesMap.get(m.id) ?? null, now) }));
+
+  const snoozed = scored
+    .filter(({ m }) => isSnoozed(m, now))
+    .map(({ m }) => ({
+      id: m.id,
+      href: `/matters/${m.id}`,
+      clientName: m.clientName ?? "Unnamed client",
+      rubricName: m.result?.rubricName ?? null,
+    }));
+  const activeScored = scored.filter(({ m }) => !isSnoozed(m, now));
+
+  const groups = PRIORITY_ORDER.map((p) => ({
+    priority: p,
+    label: PRIORITY_META[p].label,
+    blurb: PRIORITY_META[p].blurb,
+    items: activeScored
+      .filter(({ u }) => u.priority === p)
+      .sort((a, b) => b.u.score - a.u.score)
+      .map(({ m, u }) => ({
+        id: m.id,
+        href: `/matters/${m.id}`,
+        clientName: m.clientName ?? "Unnamed client",
+        rubricName: m.result?.rubricName ?? null,
+        status: m.status,
+        readiness: typeof m.result?.readiness === "number" ? m.result.readiness : null,
+        reason: u.reason,
+        signals: u.signals,
+        when: u.when,
+        assignee: labelFor(m.assignedTo),
+        priorityOverride: m.priorityOverride ?? null,
+      })),
+  }));
+
+  // The greeting number is what needs a DECISION now — critical + needs-review —
+  // not everything on the desk.
+  const attention = groups
+    .filter((g) => g.priority === "critical" || g.priority === "review")
+    .reduce((n, g) => n + g.items.length, 0);
+  const activeTotal = activeScored.length;
+  const subline =
+    activeTotal === 0
+      ? "Nothing needs you right now. Briefly is watching the inbox."
+      : attention === 0
+        ? "Nothing urgent — everything is either waiting on a client or ready when you are."
+        : attention === 1
+          ? "1 matter needs your attention."
+          : `${attention} matters need your attention.`;
 
   return (
     <div className="space-y-8">
@@ -63,13 +104,7 @@ export default async function Dashboard() {
         <h1 className="font-serif text-3xl font-semibold tracking-tight">
           <Greeting name={firstName} />
         </h1>
-        <p className="mt-1 text-muted">
-          {needsYou.length === 0
-            ? "Nothing needs you right now. Briefly is watching the inbox."
-            : needsYou.length === 1
-              ? "One matter is ready for you."
-              : `${needsYou.length} matters are ready for you.`}
-        </p>
+        <p className="mt-1 text-muted">{subline}</p>
       </header>
 
       {!hasOwnRubric ? (
@@ -99,94 +134,18 @@ export default async function Dashboard() {
         </section>
       ) : null}
 
-      {/* Matters — tabbed, with the readiness line on every row */}
+      {/* Needs Attention — the daily command centre: urgency first, then readiness */}
       <section className="space-y-4">
         <div className="flex items-baseline justify-between gap-4">
-          <h2 className="font-serif text-xl font-semibold tracking-tight">Your matters</h2>
+          <h2 className="font-serif text-xl font-semibold tracking-tight">Needs attention</h2>
           <Link href="/app/matters" className="text-sm text-accent hover:text-accent-h">
             Open all →
           </Link>
         </div>
-        <DashboardTabs
-          tabs={[
-            {
-              id: "needs",
-              label: "Needs you",
-              count: needsYou.length,
-              node: needsYou.length
-                ? rows(needsYou.slice(0, 10))
-                : empty("You're all caught up — new intake surfaces here the moment it's ready."),
-            },
-            {
-              id: "awaiting",
-              label: "Awaiting client",
-              count: awaiting.length,
-              node: awaiting.length
-                ? rows(awaiting.slice(0, 10))
-                : empty("Nothing waiting on a client right now."),
-            },
-            {
-              id: "all",
-              label: "Everything",
-              count: everything.length,
-              node: everything.length
-                ? rows(everything.slice(0, 12))
-                : empty("No matters yet — forward a client enquiry to your intake address to begin."),
-            },
-          ]}
-        />
+        <NeedsAttention groups={groups} members={memberOpts} snoozed={snoozed} />
       </section>
 
-      {/* Recent activity — what changed across matters since you last looked */}
-      {rollup.items.length > 0 ? (
-        <section className="space-y-3">
-          <div className="flex items-baseline justify-between gap-4">
-            <h2 className="font-serif text-xl font-semibold tracking-tight">Recent activity</h2>
-            <span className="text-sm text-muted tabular-nums">
-              {rollup.total} {rollup.total === 1 ? "matter" : "matters"} updated
-            </span>
-          </div>
-          <div className="glass-card glass-sheen overflow-hidden rounded-2xl">
-            <ul className="divide-y divide-border/60">
-              {rollup.items.map(({ matter, changes }) => (
-                <li key={matter.id}>
-                  <Link
-                    href={`/matters/${matter.id}`}
-                    className="group flex items-center gap-4 px-4 py-3.5 transition-colors hover:bg-inset/60"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate">
-                        <span className="font-serif text-[15px] font-medium tracking-tight">
-                          {matter.clientName ?? "Unnamed client"}
-                        </span>
-                        {matter.result ? (
-                          <span className="text-sm text-muted"> · {matter.result.rubricName}</span>
-                        ) : null}
-                      </div>
-                      <div className="mt-0.5 truncate text-xs text-accent">
-                        {summariseChanges(changes)}
-                        {changes.readinessDelta ? (
-                          <span className="text-muted">
-                            {" · "}readiness {changes.readinessDelta.from}% → {changes.readinessDelta.to}%
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                    <span
-                      aria-hidden="true"
-                      className="shrink-0 text-muted opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100"
-                    >
-                      →
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-      ) : null}
-
-      {/* New matter — quieter than the list; most intake arrives by email */}
+      {/* New matter — quieter than the queue; most intake arrives by email */}
       <section className="space-y-4 border-t border-border pt-8">
         <div className="space-y-1">
           <h2 className="font-serif text-xl font-semibold tracking-tight">New matter by hand</h2>

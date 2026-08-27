@@ -160,6 +160,19 @@ export type MatterStatus =
   | "in_progress"
   | "completed";
 
+/**
+ * Where a matter sits in the professional's DAILY work queue — urgency, not
+ * readiness. Derived by the urgency scorer (src/lib/urgency.ts) from dates, new
+ * activity since the last review, chase age, and readiness; a firm can also pin a
+ * matter to a bucket manually (priorityOverride).
+ *   critical — time-sensitive or slipping: act first
+ *   review   — new activity landed that hasn't been looked at
+ *   waiting  — the next move is the client's
+ *   ready    — prepared, awaiting the professional's action
+ *   parked   — complete or safely set aside (no action today)
+ */
+export type QueuePriority = "critical" | "review" | "waiting" | "ready" | "parked";
+
 export interface Matter {
   id: string;
   createdAt: string;
@@ -183,4 +196,10 @@ export interface Matter {
   /** When the professional has booked the client consultation (field-based trigger
    *  for the Pre-Consultation Packet). Null until set. */
   consultationAt: string | null;
+  /** Queue: hide from the Needs Attention queue until this time (a manual snooze).
+   *  Null/absent = not snoozed. Backed by matters.snoozed_until (queue.sql). */
+  snoozedUntil?: string | null;
+  /** Queue: pin this matter to a priority bucket, overriding the computed one.
+   *  Null/absent = automatic. Backed by matters.priority_override (queue.sql). */
+  priorityOverride?: QueuePriority | null;
 }

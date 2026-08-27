@@ -47,6 +47,11 @@ function rowToMatter(r: MatterRow): Matter {
     lastNudgedAt: r.last_nudged_at ?? null,
     nudgeCount: r.nudge_count ?? 0,
     consultationAt: r.consultation_at ?? null,
+    // Queue state — read via a loose cast so a pre-migration DB (no snoozed_until /
+    // priority_override columns) simply reads as null instead of erroring.
+    snoozedUntil: (r as { snoozed_until?: string | null }).snoozed_until ?? null,
+    priorityOverride:
+      ((r as { priority_override?: Matter["priorityOverride"] }).priority_override ?? null) || null,
   };
 }
 
@@ -77,6 +82,52 @@ export async function saveMatter(m: Matter): Promise<void> {
   }
   const { error } = await db.from("matters").upsert(matterToRow(m));
   if (error) throw new Error(`saveMatter: ${error.message}`);
+}
+
+/**
+ * Queue-state writers — targeted single-column updates (NOT via matterToRow), so
+ * they don't rewrite the whole row and a full save never touches these columns.
+ * Best-effort + account-scoped: if the migration (queue.sql) hasn't been run yet
+ * the update errors and we degrade quietly rather than breaking the action.
+ */
+export async function setMatterSnooze(
+  accountId: string,
+  id: string,
+  until: string | null,
+): Promise<void> {
+  const db = getSupabase();
+  if (!db) {
+    const m = memory.get(id);
+    if (m && m.accountId === accountId) m.snoozedUntil = until;
+    return;
+  }
+  try {
+    await db.from("matters").update({ snoozed_until: until }).eq("id", id).eq("account_id", accountId);
+  } catch (err) {
+    console.error("setMatterSnooze failed (run queue.sql?):", err);
+  }
+}
+
+export async function setMatterPriority(
+  accountId: string,
+  id: string,
+  priority: Matter["priorityOverride"],
+): Promise<void> {
+  const db = getSupabase();
+  if (!db) {
+    const m = memory.get(id);
+    if (m && m.accountId === accountId) m.priorityOverride = priority ?? null;
+    return;
+  }
+  try {
+    await db
+      .from("matters")
+      .update({ priority_override: priority ?? null })
+      .eq("id", id)
+      .eq("account_id", accountId);
+  } catch (err) {
+    console.error("setMatterPriority failed (run queue.sql?):", err);
+  }
 }
 
 /**
