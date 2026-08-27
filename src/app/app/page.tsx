@@ -79,6 +79,16 @@ export default async function Dashboard() {
       .sort((a, b) => b.u.score - a.u.score)
       .map(({ m, u }) => {
         const c = changesMap.get(m.id);
+        // A confirmed settlement close enough that snoozing it should warn.
+        const eff = resolveSettlement(m.result, dateDecisions.get(m.id) ?? null);
+        let settlementWarning: string | null = null;
+        if (eff?.confidence === "confirmed" && eff.iso) {
+          const days = Math.ceil((new Date(eff.iso).getTime() - now) / 86_400_000);
+          if (days >= 0 && days <= 21) {
+            const rel = days === 0 ? "today" : days === 1 ? "tomorrow" : `in ${days} days`;
+            settlementWarning = `confirmed settlement ${eff.value} (${rel})`;
+          }
+        }
         return {
           id: m.id,
           href: `/matters/${m.id}`,
@@ -93,7 +103,9 @@ export default async function Dashboard() {
           signals: u.signals,
           when: u.when,
           assignee: labelFor(m.assignedTo),
+          assigneeId: m.assignedTo ?? null,
           priorityOverride: m.priorityOverride ?? null,
+          settlementWarning,
         };
       }),
   }));
