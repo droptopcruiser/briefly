@@ -1,6 +1,7 @@
 import type { Matter, QueuePriority } from "./types";
 import type { MatterChanges } from "./reviews";
 import { formatWhen } from "./format";
+import { kindCriticalWindow, type CriticalDateKind, type DateConfidence } from "./critical-dates";
 
 /**
  * The urgency scorer — the brain of the Needs Attention queue.
@@ -102,44 +103,80 @@ const BASE: Record<QueuePriority, number> = {
   parked: 100,
 };
 
-/** The effective settlement date fed into scoring — only a CONFIRMED one may drive
- *  Critical (the safety rule: an unconfirmed extracted date never alarms). */
-export interface SettlementInput {
+/** A typed critical date fed into scoring — only a CONFIRMED one may drive Critical
+ *  (the safety rule: an unconfirmed extracted date never alarms). */
+export interface CriticalDateInput {
+  kind: CriticalDateKind;
   value: string;
   iso: string | null;
-  confidence: "confirmed" | "suggested" | "review";
+  confidence: DateConfidence;
   source?: string | null;
+}
+
+/** The urgency headline for a confirmed date of a kind (its own language). */
+function dateReason(kind: CriticalDateKind, rel: string, blocker: string | null): string {
+  const base = kind === "finance" ? `Finance approval due ${rel}` : `Settlement ${rel}`;
+  return blocker ? `${base} — ${blocker} still missing` : base;
+}
+/** The review-bucket prompt when a date is extracted but not yet confirmed. */
+function confirmPrompt(d: CriticalDateInput): string {
+  const noun = d.kind === "finance" ? "finance date" : "settlement date";
+  return d.confidence === "suggested"
+    ? `Confirm ${noun} — ${d.value}`
+    : `Possible ${noun}: ${d.value} — review source`;
+}
+/** The confirmed date's meta chip, e.g. "Settlement in 30 days". */
+function dateChip(kind: CriticalDateKind, rel: string): string {
+  return kind === "finance" ? `Finance approval ${rel}` : `Settlement ${rel}`;
 }
 
 export function computeUrgency(
   matter: Matter,
   changes: MatterChanges | null,
   now: number = Date.now(),
-  settlement: SettlementInput | null = null,
+  dates: CriticalDateInput[] = [],
 ): Urgency {
   const r = matter.result;
   const status = matter.status;
   const readiness = r?.readiness ?? 0;
   const gaps = r?.gaps ?? [];
   const gapLabels = gaps.map((g) => g.label);
+  const blocker = gapLabels[0] ? gapLabels[0].toLowerCase() : null;
 
-  // --- Date signals: booked consultation + (confirmed) settlement deadline -------
+  // --- Consultation (a wall-clock appointment) ---------------------------------
   const consultDays = matter.consultationAt ? daysUntil(matter.consultationAt, now) : null;
   const consultSoon =
     consultDays !== null && consultDays >= 0 && consultDays <= 3 && status !== "completed";
   const consultUpcoming =
     consultDays !== null && consultDays > 3 && consultDays <= 14 && status !== "completed";
 
-  // Settlement: ONLY a confirmed date drives urgency. suggested/review are prompts.
-  const settleDays = settlement?.iso ? daysUntil(settlement.iso, now) : null;
-  const settleConfirmed = settlement?.confidence === "confirmed";
-  const settleSoon =
-    settleConfirmed && settleDays !== null && settleDays >= 0 && settleDays <= 10 && status !== "completed";
-  const settleUnconfirmed = !!settlement && settlement.confidence !== "confirmed";
-  const blocker = gapLabels[0] ? gapLabels[0].toLowerCase() : null;
-  const settlementLabel = settleSoon
-    ? `Settlement ${relDays(settleDays!)}${blocker ? ` — ${blocker} still missing` : ""}`
-    : null;
+  // --- Typed critical dates: ONLY confirmed dates drive urgency ----------------
+  const confirmedDated = dates
+    .filter((d) => d.confidence === "confirmed" && d.iso)
+    .map((d) => ({ d, days: daysUntil(d.iso!, now) }));
+  // The soonest confirmed date inside its kind's critical window (settlement 10d,
+  // finance 7d) — the deadline that makes this matter Critical.
+  const topCrit =
+    status === "completed"
+      ? null
+      : confirmedDated
+          .filter((x) => x.days >= 0 && x.days <= kindCriticalWindow(x.d.kind))
+          .sort((a, b) => a.days - b.days)[0] ?? null;
+  // A confirmed date further out (or a different kind) → shown as a meta chip.
+  const farConfirmed =
+    confirmedDated
+      .filter((x) => x.days >= 0 && (!topCrit || x.d.kind !== topCrit.d.kind))
+      .sort((a, b) => a.days - b.days)[0] ?? null;
+  // The most relevant UNCONFIRMED date → a "confirm this" prompt (never alarms).
+  const topUnconfirmed =
+    dates
+      .filter((d) => d.confidence !== "confirmed")
+      .sort((a, b) => {
+        const rank = (c: DateConfidence) => (c === "suggested" ? 0 : 1);
+        if (rank(a.confidence) !== rank(b.confidence)) return rank(a.confidence) - rank(b.confidence);
+        return (a.iso ?? "9999").localeCompare(b.iso ?? "9999");
+      })[0] ?? null;
+  const critDateLabel = topCrit ? dateReason(topCrit.d.kind, relDays(topCrit.days), blocker) : null;
 
   // --- New-since-last-review signals -------------------------------------------
   const newDocs = changes?.newDocuments.length ?? 0;
@@ -160,9 +197,9 @@ export function computeUrgency(
   let priority: QueuePriority;
   if (status === "completed" || status === "preparing") {
     priority = "parked";
-  } else if (settleSoon || consultSoon || drop || overdueWaiting) {
+  } else if (topCrit || consultSoon || drop || overdueWaiting) {
     priority = "critical";
-  } else if (status === "ready_for_review" || hasNew || settleUnconfirmed) {
+  } else if (status === "ready_for_review" || hasNew || topUnconfirmed) {
     priority = "review";
   } else if (status === "awaiting_client") {
     priority = "waiting";
@@ -179,13 +216,11 @@ export function computeUrgency(
   // --- Explainable signals (most-urgent first) ---------------------------------
   const signals: string[] = [];
   if (overridden) signals.push("Priority set manually by you");
-  if (settlement) {
-    if (settleConfirmed && settleDays !== null)
-      signals.push(`Settlement ${relDays(settleDays)} (${settlement.value}) — confirmed`);
-    else if (settlement.confidence === "suggested")
-      signals.push(`Settlement date suggested: ${settlement.value} — confirm it to track the deadline`);
-    else signals.push(`Possible settlement date: ${settlement.value} — review the source`);
-    if (settlement.source) signals.push(`Date source: “${settlement.source}”`);
+  for (const d of dates) {
+    const rel = d.iso ? relDays(daysUntil(d.iso, now)) : "";
+    if (d.confidence === "confirmed") signals.push(`${dateReason(d.kind, rel, null)} (${d.value}) — confirmed`);
+    else signals.push(confirmPrompt(d));
+    if (d.source) signals.push(`Date source: “${d.source}”`);
   }
   if (consultSoon || consultUpcoming)
     signals.push(`Consultation ${relDays(consultDays!)}`);
@@ -225,19 +260,13 @@ export function computeUrgency(
     consultLabel = `Consultation ${relDays(consultDays)}${timePart ? ` · ${timePart}` : ""}`;
   }
 
-  // The review-bucket prompt when a settlement date is extracted but not confirmed.
-  const settleConfirmPrompt =
-    settlement?.confidence === "suggested"
-      ? `Confirm settlement date — ${settlement.value}`
-      : settlement?.confidence === "review"
-        ? `Possible settlement date: ${settlement.value} — review source`
-        : null;
+  // The review-bucket prompt when a date is extracted but not confirmed.
+  const dateConfirmPrompt = topUnconfirmed ? confirmPrompt(topUnconfirmed) : null;
 
   // --- Headline reason for the row ---------------------------------------------
   const reason = headlineFor(priority, {
-    settleSoon,
-    settlementLabel,
-    settleConfirmPrompt,
+    critDateLabel,
+    dateConfirmPrompt,
     consultSoon,
     consultLabel,
     drop,
@@ -256,14 +285,14 @@ export function computeUrgency(
   if (overridden) {
     score += 95; // pin near the top of the chosen bucket
   } else if (priority === "critical") {
-    if (settleSoon) score += 100 - settleDays! * 8; // the sharpest conveyancing deadline
+    if (topCrit) score += 100 - topCrit.days * 8; // the sharpest conveyancing deadline
     if (consultSoon) score += 80 - consultDays! * 15;
     if (drop) score += Math.min(60, drop.from - drop.to);
     if (overdueWaiting) score += Math.min(60, waitingDays);
   } else if (priority === "review") {
     score += newDocs * 20 + newMsgs * 10 + newFactsN * 3;
     if (status === "ready_for_review") score += 15;
-    if (settleUnconfirmed) score += settlement?.confidence === "suggested" ? 12 : 6;
+    if (topUnconfirmed) score += topUnconfirmed.confidence === "suggested" ? 12 : 6;
   } else if (priority === "waiting") {
     score += Math.min(90, waitingDays * 3);
   } else if (priority === "ready") {
@@ -271,11 +300,11 @@ export function computeUrgency(
     if (consultUpcoming) score += 20;
   }
 
-  // The meta date chip — a confirmed settlement (not already the reason) leads,
+  // The meta date chip — a confirmed date that isn't already the reason leads,
   // else the consultation. Never duplicates the reason.
   let when: string | null = null;
-  if (settleConfirmed && settleDays !== null && !settleSoon) {
-    when = `Settlement ${relDays(settleDays)}`;
+  if (farConfirmed) {
+    when = dateChip(farConfirmed.d.kind, relDays(farConfirmed.days));
   } else if (consultLabel && !(priority === "critical" && consultSoon)) {
     when = consultLabel;
   }
@@ -285,7 +314,9 @@ export function computeUrgency(
     newMsgs,
     drop: !!drop,
     pendingChase: status === "awaiting_client" && !!matter.lastNudgedAt,
-    settleUnconfirmed,
+    // A confirmed critical date drives the row → keep its state action; only prompt
+    // "Review <kind> date" when the unconfirmed date is the actual reason it's here.
+    unconfirmedKind: topCrit ? null : topUnconfirmed?.kind ?? null,
   });
 
   return { priority, score, reason, signals, when, actionLabel };
@@ -299,11 +330,17 @@ export function computeUrgency(
  */
 function actionFor(
   status: Matter["status"],
-  ctx: { newDocs: number; newMsgs: number; drop: boolean; pendingChase: boolean; settleUnconfirmed: boolean },
+  ctx: {
+    newDocs: number;
+    newMsgs: number;
+    drop: boolean;
+    pendingChase: boolean;
+    unconfirmedKind: CriticalDateKind | null;
+  },
 ): string {
   if (ctx.newDocs > 0) return ctx.newDocs === 1 ? "Review document" : "Review documents";
   if (ctx.newMsgs > 0) return "Review reply";
-  if (ctx.settleUnconfirmed) return "Review settlement date";
+  if (ctx.unconfirmedKind) return `Review ${ctx.unconfirmedKind === "finance" ? "finance" : "settlement"} date`;
   if (ctx.drop) return "Review changes";
   switch (status) {
     case "ready_for_review":
@@ -326,9 +363,8 @@ function actionFor(
 function headlineFor(
   priority: QueuePriority,
   ctx: {
-    settleSoon: boolean;
-    settlementLabel: string | null;
-    settleConfirmPrompt: string | null;
+    critDateLabel: string | null;
+    dateConfirmPrompt: string | null;
     consultSoon: boolean;
     consultLabel: string | null;
     drop: { from: number; to: number } | null;
@@ -344,7 +380,7 @@ function headlineFor(
 ): string {
   switch (priority) {
     case "critical":
-      if (ctx.settleSoon) return ctx.settlementLabel ?? "Settlement approaching";
+      if (ctx.critDateLabel) return ctx.critDateLabel;
       if (ctx.consultSoon) return ctx.consultLabel ?? "Consultation soon — prepare now";
       if (ctx.drop) return `Readiness dropped ${ctx.drop.from}% → ${ctx.drop.to}% since last review`;
       if (ctx.overdueWaiting) return `Waiting ${ctx.waitingDays} days — follow-up overdue`;
@@ -357,7 +393,7 @@ function headlineFor(
       if (ctx.status === "ready_for_review") return "Follow-up drafted — review & send";
       if (ctx.newFactsN > 0)
         return `${ctx.newFactsN} new ${ctx.newFactsN === 1 ? "fact" : "facts"} since you last looked`;
-      if (ctx.settleConfirmPrompt) return ctx.settleConfirmPrompt;
+      if (ctx.dateConfirmPrompt) return ctx.dateConfirmPrompt;
       return "New activity to review";
     case "waiting": {
       const items = ctx.gapLabels.length ? joinItems(ctx.gapLabels) : "the client's response";

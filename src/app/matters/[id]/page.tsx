@@ -40,7 +40,7 @@ import { assignMatter, markMatterReviewed } from "@/app/actions";
 import { composeEmailBody, replySubject } from "@/lib/email";
 import { parseConversation } from "@/lib/conversation";
 import { listMessages } from "@/lib/messages";
-import { getDateDecision, resolveSettlement } from "@/lib/critical-dates";
+import { getMatterDateDecisions, resolveMatterDates } from "@/lib/critical-dates";
 import { CriticalDatesStrip } from "@/app/critical-dates-strip";
 
 /**
@@ -118,10 +118,10 @@ async function SinceReviewSection({ matter, accountId }: { matter: Matter; accou
 }
 
 async function CriticalDatesSection({ matter }: { matter: Matter }) {
-  const decision = await getDateDecision(matter.id, "settlement");
-  const settlement = resolveSettlement(matter.result, decision);
-  if (!settlement) return null;
-  return <CriticalDatesStrip matterId={matter.id} date={settlement} />;
+  const decisions = await getMatterDateDecisions(matter.id);
+  const dates = resolveMatterDates(matter.result, decisions);
+  if (dates.length === 0) return null;
+  return <CriticalDatesStrip matterId={matter.id} dates={dates} />;
 }
 
 async function ReturningClientSection({ matter }: { matter: Matter }) {

@@ -10,7 +10,7 @@ import { getCurrentProfile } from "@/lib/profile";
 import { getAccountRubrics } from "@/lib/rubric-store";
 import { getChangesMap, describeChanges } from "@/lib/reviews";
 import { computeUrgency, isSnoozed, PRIORITY_ORDER, PRIORITY_META } from "@/lib/urgency";
-import { getDateDecisionsMap, resolveSettlement } from "@/lib/critical-dates";
+import { getAccountDateDecisions, resolveMatterDates } from "@/lib/critical-dates";
 import { listMembers } from "@/lib/team";
 import { getMonthStats } from "@/lib/stats";
 
@@ -33,7 +33,7 @@ export default async function Dashboard() {
   const matters = await listMatters(account.id, { limit: 100 });
   const [changesMap, dateDecisions] = await Promise.all([
     getChangesMap(account.id, matters),
-    getDateDecisionsMap(account.id),
+    getAccountDateDecisions(account.id),
   ]);
   const hasOwnRubric = (await getAccountRubrics(account.id)).length > 0;
   const firstName = profile?.name?.split(/\s+/)[0] ?? null;
@@ -53,11 +53,15 @@ export default async function Dashboard() {
   const scored = matters
     .filter((m) => m.status !== "completed")
     .map((m) => {
-      const eff = resolveSettlement(m.result, dateDecisions.get(m.id) ?? null);
-      const settlement = eff
-        ? { value: eff.value, iso: eff.iso, confidence: eff.confidence, source: eff.source }
-        : null;
-      return { m, u: computeUrgency(m, changesMap.get(m.id) ?? null, now, settlement) };
+      const effDates = resolveMatterDates(m.result, dateDecisions.get(m.id) ?? {});
+      const dateInputs = effDates.map((d) => ({
+        kind: d.kind,
+        value: d.value,
+        iso: d.iso,
+        confidence: d.confidence,
+        source: d.source,
+      }));
+      return { m, u: computeUrgency(m, changesMap.get(m.id) ?? null, now, dateInputs), effDates };
     });
 
   const snoozed = scored
@@ -77,17 +81,18 @@ export default async function Dashboard() {
     items: activeScored
       .filter(({ u }) => u.priority === p)
       .sort((a, b) => b.u.score - a.u.score)
-      .map(({ m, u }) => {
+      .map(({ m, u, effDates }) => {
         const c = changesMap.get(m.id);
-        // A confirmed settlement close enough that snoozing it should warn.
-        const eff = resolveSettlement(m.result, dateDecisions.get(m.id) ?? null);
+        // A confirmed date close enough that snoozing it should warn (any kind).
         let settlementWarning: string | null = null;
-        if (eff?.confidence === "confirmed" && eff.iso) {
-          const days = Math.ceil((new Date(eff.iso).getTime() - now) / 86_400_000);
-          if (days >= 0 && days <= 21) {
-            const rel = days === 0 ? "today" : days === 1 ? "tomorrow" : `in ${days} days`;
-            settlementWarning = `confirmed settlement ${eff.value} (${rel})`;
-          }
+        for (const d of effDates) {
+          if (d.confidence !== "confirmed" || !d.iso) continue;
+          const days = Math.ceil((new Date(d.iso).getTime() - now) / 86_400_000);
+          if (days < 0 || days > 21) continue;
+          const rel = days === 0 ? "today" : days === 1 ? "tomorrow" : `in ${days} days`;
+          const noun = d.kind === "finance" ? "finance approval" : "settlement";
+          settlementWarning = `confirmed ${noun} ${d.value} (${rel})`;
+          break;
         }
         return {
           id: m.id,

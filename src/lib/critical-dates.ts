@@ -3,25 +3,64 @@ import { getSupabase } from "./supabase";
 import type { PipelineResult } from "./types";
 
 /**
- * Typed critical dates — settlement first.
+ * Typed critical dates — settlement first, finance/unconditional second.
  *
- * A conveyance turns on its dates, so the queue should know "settlement in 3 days
- * — signed authority still missing", not just "how ready is this file?". The hard
+ * A conveyance turns on its dates, so the queue should know "settlement in 3 days"
+ * / "finance approval due tomorrow", not just "how ready is this file?". The hard
  * safety rule (Luke's, explicit): an UNCONFIRMED extracted date must never silently
- * drive a Critical alert as if it were fact. So there are three confidence states —
+ * drive a Critical alert as if it were fact. So every date has three confidence
+ * states —
  *   · confirmed  — a human confirmed it → it CAN drive Critical urgency
  *   · suggested  — a clear date was extracted, awaiting confirmation → prompts, never alarms
  *   · review     — a low-confidence/partial mention → "review the source", never alarms
  *
- * Extraction is LAZY and GROUNDED: the candidate is derived on read from the facts
+ * Extraction is LAZY and GROUNDED: candidates are derived on read from the facts
  * and timeline Briefly already extracted (with their source quotes) — no extra model
  * call, no write on ingest. Only the human's DECISION (confirm / edit / reject) is
- * stored, in matter_critical_dates. The "effective" date a matter shows is that
- * decision if present, else the derived candidate.
+ * stored, in matter_critical_dates. Each KIND carries its own keywords, label, and
+ * display language; adding cooling-off / contract later is one config entry.
  */
 
-export type CriticalDateKind = "settlement";
+export type CriticalDateKind = "settlement" | "finance";
 export type DateConfidence = "confirmed" | "suggested" | "review";
+
+interface KindConfig {
+  /** Words that identify this date in a fact label/key or timeline event. */
+  keywords: RegExp;
+  /** Full label for the on-matter strip. */
+  label: string;
+  /** Noun used in queue language, e.g. "Settlement", "Finance approval". */
+  noun: string;
+  /** How many days out a CONFIRMED date of this kind counts as Critical. */
+  criticalWithinDays: number;
+}
+
+const KIND: Record<CriticalDateKind, KindConfig> = {
+  settlement: {
+    keywords: /settle(ment|s|d)?/i,
+    label: "Settlement date",
+    noun: "Settlement",
+    criticalWithinDays: 10,
+  },
+  finance: {
+    // "finance approval", "finance clause", "subject to finance", "unconditional".
+    keywords: /\b(finance|unconditional)\b/i,
+    label: "Finance / unconditional date",
+    noun: "Finance approval",
+    criticalWithinDays: 7,
+  },
+};
+
+export const DATE_KINDS: CriticalDateKind[] = ["settlement", "finance"];
+export function kindLabel(kind: CriticalDateKind): string {
+  return KIND[kind].label;
+}
+export function kindNoun(kind: CriticalDateKind): string {
+  return KIND[kind].noun;
+}
+export function kindCriticalWindow(kind: CriticalDateKind): number {
+  return KIND[kind].criticalWithinDays;
+}
 
 /** The date a matter effectively has for a kind, after resolving decision vs derived. */
 export interface CriticalDate {
@@ -65,14 +104,13 @@ const MONTH_KEYS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep
 /**
  * Parse a full calendar date to ISO YYYY-MM-DD; null for partial/relative/unclear.
  * Components are read directly (never through `new Date(str)`, which parses non-ISO
- * strings in LOCAL time and can shift the day) so a settlement date is exact.
+ * strings in LOCAL time and can shift the day) so a critical date is exact.
  */
 function parseFullDate(raw: string): string | null {
   const s = (raw ?? "").trim();
   const isoM = s.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
   if (isoM) return `${isoM[1]}-${isoM[2]}-${isoM[3]}`;
 
-  // "13 March 2027" / "13 Mar 2027" / "March 13, 2027" — need day, month name, year.
   const yearM = s.match(/\b(\d{4})\b/);
   if (!yearM) return null;
   const rest = s.replace(yearM[0], " ");
@@ -85,24 +123,22 @@ function parseFullDate(raw: string): string | null {
   return `${yearM[1]}-${String(mi + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-const SETTLEMENT_RE = /settle(ment|s|d)?/i;
-
 /**
- * Derive a settlement-date CANDIDATE from what Briefly already extracted — never
- * stored, always recomputed. Prefers a settlement-labelled fact (most structured),
- * then a settlement timeline event. A clean full date → "suggested"; a partial or
- * keyword-only mention → "review". Returns null when nothing references settlement.
+ * Derive a CANDIDATE date of a kind from what Briefly already extracted — never
+ * stored, always recomputed. Prefers a matching fact (most structured), then a
+ * matching timeline event. A clean full date → "suggested"; a partial or
+ * keyword-only mention → "review". Returns null when nothing references the kind.
  */
-export function deriveSettlement(result: PipelineResult | null): CriticalDate | null {
+export function deriveDate(result: PipelineResult | null, kind: CriticalDateKind): CriticalDate | null {
   if (!result) return null;
+  const re = KIND[kind].keywords;
 
-  // 1) A fact whose label/key names settlement.
   for (const f of result.fields) {
     if (!f.present || !f.value) continue;
-    if (!SETTLEMENT_RE.test(f.label) && !SETTLEMENT_RE.test(f.key)) continue;
+    if (!re.test(f.label) && !re.test(f.key)) continue;
     const iso = parseFullDate(f.value);
     return {
-      kind: "settlement",
+      kind,
       value: iso ? formatDate(iso) : f.value,
       iso,
       confidence: iso ? "suggested" : "review",
@@ -111,13 +147,12 @@ export function deriveSettlement(result: PipelineResult | null): CriticalDate | 
     };
   }
 
-  // 2) A timeline event that mentions settlement and carries a date.
   for (const e of result.timeline) {
-    if (!SETTLEMENT_RE.test(e.description) && !(e.source && SETTLEMENT_RE.test(e.source))) continue;
+    if (!re.test(e.description) && !(e.source && re.test(e.source))) continue;
     const iso = e.date ? parseFullDate(e.date) : null;
     if (!iso && !e.date) continue;
     return {
-      kind: "settlement",
+      kind,
       value: iso ? formatDate(iso) : e.date!,
       iso,
       confidence: iso ? "suggested" : "review",
@@ -128,15 +163,16 @@ export function deriveSettlement(result: PipelineResult | null): CriticalDate | 
   return null;
 }
 
-/** Resolve the date a matter effectively has: the human decision wins, else derived. */
-export function resolveSettlement(
+/** Resolve the date a matter effectively has for a kind: decision wins, else derived. */
+export function resolveDate(
   result: PipelineResult | null,
   decision: DateDecision | null,
+  kind: CriticalDateKind,
 ): CriticalDate | null {
   if (decision?.status === "rejected") return null;
   if (decision?.status === "confirmed") {
     return {
-      kind: "settlement",
+      kind,
       value: decision.value,
       iso: decision.iso,
       confidence: "confirmed",
@@ -145,7 +181,25 @@ export function resolveSettlement(
       confirmedAt: decision.confirmedAt,
     };
   }
-  return deriveSettlement(result);
+  return deriveDate(result, kind);
+}
+
+/** All of a matter's effective critical dates, soonest first. */
+export function resolveMatterDates(
+  result: PipelineResult | null,
+  decisions: Partial<Record<CriticalDateKind, DateDecision>>,
+): CriticalDate[] {
+  const out: CriticalDate[] = [];
+  for (const k of DATE_KINDS) {
+    const d = resolveDate(result, decisions[k] ?? null, k);
+    if (d) out.push(d);
+  }
+  return out.sort((a, b) => {
+    if (a.iso && b.iso) return a.iso.localeCompare(b.iso);
+    if (a.iso) return -1;
+    if (b.iso) return 1;
+    return 0;
+  });
 }
 
 // --- Persistence (Supabase when configured; process-memory fallback) ----------
@@ -180,57 +234,52 @@ function rowToDecision(r: DecisionRow): DateDecision {
   };
 }
 
-/** The stored decision for one matter's date kind, or null. */
-export async function getDateDecision(
+/** All stored date decisions for one matter, keyed by kind. */
+export async function getMatterDateDecisions(
   matterId: string,
-  kind: CriticalDateKind = "settlement",
-): Promise<DateDecision | null> {
-  const db = getSupabase();
-  if (!db) return memory.get(memKey(matterId, kind)) ?? null;
-  try {
-    const { data } = await db
-      .from("matter_critical_dates")
-      .select("*")
-      .eq("matter_id", matterId)
-      .eq("kind", kind)
-      .maybeSingle();
-    return data ? rowToDecision(data as DecisionRow) : null;
-  } catch (err) {
-    console.error("getDateDecision failed (run critical-dates.sql?):", err);
-    return null;
-  }
-}
-
-/** Stored decisions for many matters, keyed by matterId — one query for the queue. */
-export async function getDateDecisionsMap(
-  accountId: string,
-  kind: CriticalDateKind = "settlement",
-): Promise<Map<string, DateDecision>> {
-  const map = new Map<string, DateDecision>();
+): Promise<Partial<Record<CriticalDateKind, DateDecision>>> {
+  const out: Partial<Record<CriticalDateKind, DateDecision>> = {};
   const db = getSupabase();
   if (!db) {
-    for (const d of memory.values()) if (d.kind === kind) map.set(d.matterId, d);
+    for (const d of memory.values()) if (d.matterId === matterId) out[d.kind] = d;
+    return out;
+  }
+  try {
+    const { data } = await db.from("matter_critical_dates").select("*").eq("matter_id", matterId);
+    for (const r of (data ?? []) as DecisionRow[]) out[r.kind] = rowToDecision(r);
+  } catch (err) {
+    console.error("getMatterDateDecisions failed (run critical-dates.sql?):", err);
+  }
+  return out;
+}
+
+/** Stored decisions for a whole account, keyed by matterId then kind — one query. */
+export async function getAccountDateDecisions(
+  accountId: string,
+): Promise<Map<string, Partial<Record<CriticalDateKind, DateDecision>>>> {
+  const map = new Map<string, Partial<Record<CriticalDateKind, DateDecision>>>();
+  const put = (d: DateDecision) => {
+    const cur = map.get(d.matterId) ?? {};
+    cur[d.kind] = d;
+    map.set(d.matterId, cur);
+  };
+  const db = getSupabase();
+  if (!db) {
+    for (const d of memory.values()) put(d);
     return map;
   }
   try {
-    const { data } = await db
-      .from("matter_critical_dates")
-      .select("*")
-      .eq("account_id", accountId)
-      .eq("kind", kind);
-    for (const r of (data ?? []) as DecisionRow[]) map.set(r.matter_id, rowToDecision(r));
+    const { data } = await db.from("matter_critical_dates").select("*").eq("account_id", accountId);
+    for (const r of (data ?? []) as DecisionRow[]) put(rowToDecision(r));
   } catch (err) {
-    console.error("getDateDecisionsMap failed (run critical-dates.sql?):", err);
+    console.error("getAccountDateDecisions failed (run critical-dates.sql?):", err);
   }
   return map;
 }
 
 /** Persist a human decision (confirm or reject) about a matter's date. Upsert on
- *  (matter_id, kind) so a matter has at most one settlement decision. */
-export async function saveDateDecision(
-  accountId: string,
-  d: DateDecision,
-): Promise<void> {
+ *  (matter_id, kind) so a matter has at most one decision per kind. */
+export async function saveDateDecision(accountId: string, d: DateDecision): Promise<void> {
   const db = getSupabase();
   if (!db) {
     memory.set(memKey(d.matterId, d.kind), d);
@@ -262,7 +311,7 @@ export async function saveDateDecision(
 export async function clearDateDecision(
   accountId: string,
   matterId: string,
-  kind: CriticalDateKind = "settlement",
+  kind: CriticalDateKind,
 ): Promise<void> {
   const db = getSupabase();
   if (!db) {
