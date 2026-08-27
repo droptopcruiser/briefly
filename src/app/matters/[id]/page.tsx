@@ -222,11 +222,22 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
 
   return (
     <StickyNow bar={compactBar}>
-    <section className="relative space-y-5">
-      {/* A soft depth field so the floating surfaces have something to sit in. */}
-      <div aria-hidden="true" className="pointer-events-none absolute -inset-x-8 -top-6 -z-10 h-56 overflow-hidden">
-        <div className="absolute left-1/3 top-0 h-48 w-2/3 rounded-full bg-accent/10 blur-3xl" />
+    <section className="relative">
+      {/* Ambient light — a soft, centred wash so the brief sits in depth, not on a
+          flat tinted band. */}
+      <div aria-hidden="true" className="pointer-events-none absolute -inset-x-4 -top-10 -z-10 h-64 overflow-hidden">
+        <div className="absolute left-1/2 top-2 h-52 w-3/4 -translate-x-1/2 rounded-[999px] bg-accent/[0.06] blur-[70px]" />
       </div>
+
+      {/* The prepared brief as one floating vessel on the paper — the Now reads as a
+          single considered object, not scattered cards. Content stays crisp/opaque. */}
+      <div
+        className="relative space-y-5 rounded-3xl border border-border p-6 shadow-[var(--shadow-lg)] sm:p-8"
+        style={{
+          background:
+            "linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 94%, var(--inset)) 100%)",
+        }}
+      >
 
       {/* ONE current state — not four competing "ready" labels. */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
@@ -322,6 +333,7 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
       ) : preparedLine ? (
         <p className="text-xs text-muted">{preparedLine}</p>
       ) : null}
+      </div>
     </section>
     </StickyNow>
   );
