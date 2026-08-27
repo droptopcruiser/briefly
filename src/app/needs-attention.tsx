@@ -102,13 +102,16 @@ export function NeedsAttention({
     <div className="space-y-6">
       {active.map((g) => (
         <section key={g.priority} className="space-y-2.5">
-          <div className="flex items-baseline gap-2.5">
-            <span className={`h-2 w-2 shrink-0 translate-y-[3px] rounded-full ${DOT[g.priority]}`} />
-            <h3 className={`text-sm font-semibold uppercase tracking-wide ${LABEL_TONE[g.priority]}`}>
-              {g.label}
-            </h3>
-            <span className="text-xs text-muted tabular-nums">{g.items.length}</span>
-            <span className="hidden text-xs text-muted sm:inline">· {g.blurb}</span>
+          <div className="space-y-0.5">
+            <div className="flex items-baseline gap-2.5">
+              <span className={`h-2 w-2 shrink-0 translate-y-[3px] rounded-full ${DOT[g.priority]}`} />
+              <h3 className={`text-sm font-semibold uppercase tracking-wide ${LABEL_TONE[g.priority]}`}>
+                {g.label}
+              </h3>
+              <span className="text-xs text-muted tabular-nums">{g.items.length}</span>
+            </div>
+            {/* Define the category so the user never has to guess what qualifies. */}
+            <p className="pl-[18px] text-xs text-muted">{g.blurb}</p>
           </div>
           <div className="glass-card glass-sheen overflow-hidden rounded-2xl">
             <ul className="divide-y divide-border/60">
@@ -206,8 +209,14 @@ function Row({
           {/* The exact change (review rows) */}
           {row.detail ? <div className="pl-4 text-xs text-muted">{row.detail}</div> : null}
 
-          {/* READINESS + owner — a separate, labelled dimension */}
+          {/* DATE (when known) + READINESS + owner — separate, labelled dimensions */}
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pl-4 text-xs text-muted">
+            {row.when ? (
+              <>
+                <span className="font-medium text-foreground/75">{row.when}</span>
+                <span aria-hidden="true">·</span>
+              </>
+            ) : null}
             {typeof row.readiness === "number" ? <Prep readiness={row.readiness} gaps={row.gapsCount} /> : null}
             {typeof row.readiness === "number" ? <span aria-hidden="true">·</span> : null}
             <span>{row.assignee ? row.assignee : "Unassigned"}</span>
@@ -271,6 +280,7 @@ function Row({
             type="button"
             disabled={pending}
             onClick={confirmReview}
+            title="Marks this queue item as seen — it does NOT confirm the extracted facts (confirm those inside the matter)."
             className="rounded-md border border-border bg-surface px-2.5 py-1 font-medium hover:bg-inset disabled:opacity-60"
           >
             Confirm review
@@ -319,6 +329,10 @@ function Row({
               </option>
             ))}
           </select>
+          <p className="w-full text-[11px] leading-snug text-muted">
+            <span className="font-medium">Confirm review</span> marks this item as seen — it doesn&apos;t
+            confirm the extracted facts. Confirm those inside the matter.
+          </p>
         </div>
       ) : null}
     </div>

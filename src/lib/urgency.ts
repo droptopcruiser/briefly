@@ -1,5 +1,6 @@
 import type { Matter, QueuePriority } from "./types";
 import type { MatterChanges } from "./reviews";
+import { formatWhen } from "./format";
 
 /**
  * The urgency scorer — the brain of the Needs Attention queue.
@@ -44,8 +45,14 @@ export const PRIORITY_META: Record<
   QueuePriority,
   { label: string; blurb: string }
 > = {
-  critical: { label: "Critical", blurb: "Time-sensitive or slipping — handle these first." },
-  review: { label: "Needs your review", blurb: "New activity landed that you haven't looked at." },
+  critical: {
+    label: "Critical",
+    blurb: "A consultation or date is close, or an action is overdue — handle first.",
+  },
+  review: {
+    label: "Needs your review",
+    blurb: "New information arrived that you haven't looked at yet.",
+  },
   waiting: { label: "Waiting on client", blurb: "The next move is the client's." },
   ready: { label: "Ready to proceed", blurb: "Prepared — waiting on your action." },
   parked: { label: "No action today", blurb: "Complete or safely set aside." },
@@ -178,10 +185,21 @@ export function computeUrgency(
     );
   if (signals.length === 0) signals.push(status === "completed" ? "Matter complete" : "No open actions");
 
+  // A human "Consultation today · 2:00 PM" — the date AND time we already know,
+  // shown before the full typed-critical-dates system exists. consultationAt is a
+  // wall-clock appointment, so it's formatted tz-agnostically (formatWhen), never
+  // shifted by the server's zone.
+  let consultLabel: string | null = null;
+  if (consultDays !== null && status !== "completed") {
+    const full = formatWhen(matter.consultationAt!, { compact: true }); // "27 Aug · 2:00 PM" | ""
+    const timePart = full.includes("·") ? full.split("·").pop()!.trim() : "";
+    consultLabel = `Consultation ${relDays(consultDays)}${timePart ? ` · ${timePart}` : ""}`;
+  }
+
   // --- Headline reason for the row ---------------------------------------------
   const reason = headlineFor(priority, {
     consultSoon,
-    consultDays,
+    consultLabel,
     drop,
     overdueWaiting,
     waitingDays,
@@ -211,8 +229,9 @@ export function computeUrgency(
     if (consultUpcoming) score += 20;
   }
 
-  const when =
-    consultDays !== null && status !== "completed" ? `Consultation ${relDays(consultDays)}` : null;
+  // Show the date/time as a meta chip only when it isn't already the reason
+  // (a critical-by-consultation row leads with it), so it never reads twice.
+  const when = consultLabel && !(priority === "critical" && consultSoon) ? consultLabel : null;
 
   const actionLabel = actionFor(status, {
     newDocs,
@@ -259,7 +278,7 @@ function headlineFor(
   priority: QueuePriority,
   ctx: {
     consultSoon: boolean;
-    consultDays: number | null;
+    consultLabel: string | null;
     drop: { from: number; to: number } | null;
     overdueWaiting: boolean;
     waitingDays: number;
@@ -273,7 +292,7 @@ function headlineFor(
 ): string {
   switch (priority) {
     case "critical":
-      if (ctx.consultSoon) return `Consultation ${relDays(ctx.consultDays!)} — prepare now`;
+      if (ctx.consultSoon) return ctx.consultLabel ?? "Consultation soon — prepare now";
       if (ctx.drop) return `Readiness dropped ${ctx.drop.from}% → ${ctx.drop.to}% since last review`;
       if (ctx.overdueWaiting) return `Waiting ${ctx.waitingDays} days — follow-up overdue`;
       return "Needs attention now";
