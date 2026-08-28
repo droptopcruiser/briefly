@@ -23,27 +23,34 @@ const KEYWORDS: Record<CriticalDateKind, RegExp> = {
 };
 
 const MONTH_KEYS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+const MONTH_RE =
+  "jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?";
+
+function isoFrom(year: string, monthName: string, day: string): string | null {
+  const mi = MONTH_KEYS.findIndex((k) => monthName.toLowerCase().startsWith(k));
+  const d = Number(day);
+  if (mi < 0 || d < 1 || d > 31) return null;
+  return `${year}-${String(mi + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
 
 /**
- * Parse a full calendar date to ISO YYYY-MM-DD; null for partial/relative/unclear.
+ * Find a full calendar date ANYWHERE in a string — ISO, "6 March 2027", or
+ * "March 6, 2027" — so a date stated inside an otherwise-undated timeline event's
+ * text is still detected (the case that made a real 6-vs-9 March discrepancy show
+ * as a single suggestion instead of a conflict). Null for partial/relative/none.
  * Components are read directly (never through `new Date(str)`, which parses non-ISO
  * strings in LOCAL time and can shift the day) so a critical date is exact.
  */
 function parseFullDate(raw: string): string | null {
   const s = (raw ?? "").trim();
-  const isoM = s.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
-  if (isoM) return `${isoM[1]}-${isoM[2]}-${isoM[3]}`;
-
-  const yearM = s.match(/\b(\d{4})\b/);
-  if (!yearM) return null;
-  const rest = s.replace(yearM[0], " ");
-  const monthM = rest.match(/[A-Za-z]{3,}/);
-  const dayM = rest.match(/\b(\d{1,2})\b/);
-  if (!monthM || !dayM) return null;
-  const mi = MONTH_KEYS.findIndex((k) => monthM[0].toLowerCase().startsWith(k));
-  const day = Number(dayM[1]);
-  if (mi < 0 || day < 1 || day > 31) return null;
-  return `${yearM[1]}-${String(mi + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  if (!s) return null;
+  const iso = s.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  let m = s.match(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MONTH_RE})\\.?,?\\s+(\\d{4})\\b`, "i"));
+  if (m) return isoFrom(m[3], m[2], m[1]);
+  m = s.match(new RegExp(`\\b(${MONTH_RE})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?,?\\s+(\\d{4})\\b`, "i"));
+  if (m) return isoFrom(m[3], m[1], m[2]);
+  return null;
 }
 
 /** Every date candidate that mentions a kind, from facts (first) then timeline. */
@@ -58,7 +65,9 @@ function gatherCandidates(result: PipelineResult, kind: CriticalDateKind): DateC
   }
   for (const e of result.timeline) {
     if (!re.test(e.description) && !(e.source && re.test(e.source))) continue;
-    const iso = e.date ? parseFullDate(e.date) : null;
+    // The event's own date, or a full date stated in its description/source text —
+    // some extractions leave the event "undated" but name the date in the text.
+    const iso = parseFullDate(e.date ?? "") ?? parseFullDate(e.description) ?? parseFullDate(e.source ?? "");
     if (!iso && !e.date) continue;
     cands.push({ value: iso ? formatDate(iso) : e.date!, iso, source: e.source ?? e.description ?? null });
   }
