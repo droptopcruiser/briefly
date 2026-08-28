@@ -13,6 +13,82 @@ import type { ReactNode } from "react";
 
 const EASE = "cubic-bezier(0.16,1,0.3,1)";
 
+/**
+ * The dark hero's decorative layer — sage/cream circles, contour lines, dotted
+ * grid — with light scroll PARALLAX: the shapes drift at different rates as the
+ * page moves, so the hero feels alive. Disabled under reduced-motion.
+ */
+export function HeroBackdrop() {
+  const reduced = useReducedMotion();
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (reduced) return;
+    const el = ref.current;
+    if (!el) return;
+    let raf = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const y = window.scrollY;
+        el.style.setProperty("--pa", `${y * 0.18}px`);
+        el.style.setProperty("--pb", `${y * -0.12}px`);
+        el.style.setProperty("--pc", `${y * 0.06}px`);
+      });
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(raf);
+    };
+  }, [reduced]);
+
+  return (
+    <div ref={ref} aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div
+        className="absolute -left-48 -top-52 h-[300px] w-[300px] rounded-full will-change-transform"
+        style={{ background: "#8aa87f", opacity: 0.85, transform: "translateY(var(--pa,0px))" }}
+      />
+      <div
+        className="absolute left-24 top-40 hidden h-[260px] w-[260px] rounded-full border sm:block will-change-transform"
+        style={{ borderColor: "rgba(232,237,222,0.16)", transform: "translateY(var(--pc,0px))" }}
+      />
+      <div
+        className="absolute bottom-12 left-12 hidden h-40 w-64 sm:block will-change-transform"
+        style={{
+          backgroundImage: "radial-gradient(circle, rgba(163,178,150,0.55) 1.1px, transparent 1.3px)",
+          backgroundSize: "16px 16px",
+          maskImage: "radial-gradient(circle at 32% 45%, #000, transparent 72%)",
+          WebkitMaskImage: "radial-gradient(circle at 32% 45%, #000, transparent 72%)",
+          transform: "translateY(var(--pb,0px))",
+        }}
+      />
+      <div
+        className="absolute -bottom-44 -right-36 h-[440px] w-[440px] rounded-full will-change-transform"
+        style={{ background: "#e8eae0", opacity: 0.96, transform: "translateY(var(--pb,0px))" }}
+      />
+      <svg
+        className="absolute right-0 top-0 h-full w-[300px] will-change-transform sm:w-[420px]"
+        viewBox="0 0 300 700"
+        preserveAspectRatio="xMaxYMid slice"
+        fill="none"
+        style={{ transform: "translateY(var(--pc,0px))" }}
+      >
+        {Array.from({ length: 9 }).map((_, i) => (
+          <path
+            key={i}
+            d="M150 -40 C 96 110, 214 210, 150 340 S 92 560, 150 720 S 214 900, 150 1060"
+            transform={`translate(${i * 17 - 46} 0)`}
+            stroke="#5f7054"
+            strokeWidth="1"
+            opacity={0.55 - i * 0.045}
+          />
+        ))}
+      </svg>
+    </div>
+  );
+}
+
 function useReducedMotion() {
   const [rm, setRm] = useState(false);
   useEffect(() => {

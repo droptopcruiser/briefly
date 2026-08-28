@@ -4,7 +4,7 @@ import { getAuthUser } from "@/lib/auth";
 import { PLANS, CREDIT_PACK } from "@/lib/plans";
 import { WaitlistForm } from "@/app/waitlist-form";
 import { joinWaitlist } from "@/app/waitlist-actions";
-import { Reveal, PreparedDesk, TwoPathTriage } from "@/app/landing";
+import { Reveal, PreparedDesk, TwoPathTriage, HeroBackdrop } from "@/app/landing";
 import { ThemeToggle } from "@/app/theme-toggle";
 
 const PRICING = [PLANS.solo, PLANS.practice, PLANS.firm];
@@ -71,103 +71,77 @@ export default async function Landing() {
             color: "#f4f5ef",
           }}
         >
-          {/* decorative layer — sage/cream circles, contour lines, dotted grid */}
-          <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-            <div
-              className="absolute -left-40 -top-28 h-[380px] w-[380px] rounded-full"
-              style={{ background: "#8aa87f", opacity: 0.92 }}
-            />
-            <div
-              className="absolute left-24 top-40 hidden h-[260px] w-[260px] rounded-full border sm:block"
-              style={{ borderColor: "rgba(232,237,222,0.16)" }}
-            />
-            <div
-              className="absolute bottom-12 left-12 hidden h-40 w-64 sm:block"
-              style={{
-                backgroundImage:
-                  "radial-gradient(circle, rgba(163,178,150,0.55) 1.1px, transparent 1.3px)",
-                backgroundSize: "16px 16px",
-                maskImage: "radial-gradient(circle at 32% 45%, #000, transparent 72%)",
-                WebkitMaskImage: "radial-gradient(circle at 32% 45%, #000, transparent 72%)",
-              }}
-            />
-            <div
-              className="absolute -bottom-44 -right-36 h-[440px] w-[440px] rounded-full"
-              style={{ background: "#e8eae0", opacity: 0.96 }}
-            />
-            <svg
-              className="absolute right-0 top-0 h-full w-[300px] sm:w-[420px]"
-              viewBox="0 0 300 700"
-              preserveAspectRatio="xMaxYMid slice"
-              fill="none"
-            >
-              {Array.from({ length: 9 }).map((_, i) => (
-                <path
-                  key={i}
-                  d="M150 -40 C 96 110, 214 210, 150 340 S 92 560, 150 720 S 214 900, 150 1060"
-                  transform={`translate(${i * 17 - 46} 0)`}
-                  stroke="#5f7054"
-                  strokeWidth="1"
-                  opacity={0.55 - i * 0.045}
-                />
-              ))}
-            </svg>
-          </div>
+          {/* decorative layer — sage/cream circles, contour lines, dotted grid, w/ parallax */}
+          <HeroBackdrop />
 
-          {/* content */}
-          <div className="anim-rise relative mx-auto max-w-3xl px-6 py-24 text-center sm:py-32">
-            <div
-              className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em]"
-              style={{ color: "#9aa48f" }}
-            >
-              <span className="h-1.5 w-1.5 rounded-full" style={{ background: "#7fb086" }} />
-              For conveyancers and property firms
-            </div>
-            <h1
-              className="mt-6 font-serif text-4xl font-semibold leading-[1.06] tracking-tight text-balance sm:text-5xl lg:text-[3.4rem]"
-              style={{ color: "#f4f5ef" }}
-            >
-              Your client&apos;s messy email, turned into a checked, ready file
-              <span style={{ color: "#7fb086" }}>.</span>
-            </h1>
-            <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed" style={{ color: "#a7ae9f" }}>
-              Whatever your client actually sends — a rushed note, three PDFs, a photo of the
-              contract — Briefly reads it, checks it against your checklist, chases what&apos;s
-              missing, and hands you a file that&apos;s ready to open.
-            </p>
-            <div className="mt-9 flex flex-wrap items-center justify-center gap-4">
-              <a
-                href="#waitlist"
-                className="rounded-lg px-6 py-3 text-sm font-semibold shadow-sm transition-transform hover:-translate-y-0.5"
-                style={{ background: "#7fb086", color: "#12160f" }}
+          {/* content — message left, live demo floating right */}
+          <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-6 py-16 lg:grid-cols-[1fr_1.05fr] lg:gap-14 lg:py-24">
+            <div className="anim-rise">
+              <div
+                className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em]"
+                style={{ color: "#9aa48f" }}
               >
-                Request early access
-              </a>
-              <a
-                href="#see"
-                className="text-sm font-medium underline decoration-dotted underline-offset-4"
-                style={{ color: "#cdd4c6" }}
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: "#7fb086" }} />
+                For conveyancers and property firms
+              </div>
+              <h1
+                className="mt-6 font-serif text-4xl font-semibold leading-[1.06] tracking-tight text-balance sm:text-5xl lg:text-[3.3rem]"
+                style={{ color: "#f4f5ef" }}
               >
-                Watch a real enquiry become a ready file →
-              </a>
+                Your client&apos;s messy email, turned into a checked, ready file
+                <span style={{ color: "#7fb086" }}>.</span>
+              </h1>
+              <p className="mt-6 max-w-xl text-lg leading-relaxed" style={{ color: "#a7ae9f" }}>
+                Whatever your client actually sends — a rushed note, three PDFs, a photo of the
+                contract — Briefly reads it, checks it against your checklist, chases what&apos;s
+                missing, and hands you a file that&apos;s ready to open.
+              </p>
+              <div className="mt-9 flex flex-wrap items-center gap-4">
+                <a
+                  href="#waitlist"
+                  className="rounded-lg px-6 py-3 text-sm font-semibold shadow-sm transition-transform hover:-translate-y-0.5"
+                  style={{ background: "#7fb086", color: "#12160f" }}
+                >
+                  Request early access
+                </a>
+                <a
+                  href="#position"
+                  className="text-sm font-medium underline decoration-dotted underline-offset-4"
+                  style={{ color: "#cdd4c6" }}
+                >
+                  See how it works →
+                </a>
+              </div>
+              <p className="mt-8 max-w-md text-sm leading-relaxed" style={{ color: "#828b78" }}>
+                Keep working the way you do. Just forward your enquiries — nothing to switch, nothing
+                to migrate.
+              </p>
             </div>
-            <p className="mx-auto mt-8 max-w-md text-sm leading-relaxed" style={{ color: "#828b78" }}>
-              Keep working the way you do. Just forward your enquiries — nothing to switch, nothing
-              to migrate.
-            </p>
+
+            {/* The live demo, framed as a light app window floating on the dark hero */}
+            <div className="anim-rise" style={{ animationDelay: "120ms" }}>
+              <div
+                className="overflow-hidden rounded-2xl ring-1 ring-white/10"
+                style={{ background: "#f3f4ef", boxShadow: "0 50px 120px -30px rgba(0,0,0,0.75)" }}
+              >
+                <div
+                  className="flex items-center gap-1.5 px-4 py-3"
+                  style={{ background: "#eaeee4", borderBottom: "1px solid rgba(29,38,33,0.06)" }}
+                >
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#d7b3aa" }} />
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#e6d3a0" }} />
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#b6c9ad" }} />
+                  <span className="ml-3 text-[11px]" style={{ color: "#8b9188" }}>
+                    Briefly — matter prepared
+                  </span>
+                </div>
+                <div className="px-5 pb-4 pt-2">
+                  <PreparedDesk />
+                </div>
+              </div>
+            </div>
           </div>
         </section>
-
-        {/* ── 1b · See it — the product demo, on light paper ────────────────── */}
-        <Section id="see">
-          <Heading
-            title="Watch a real enquiry become a ready file"
-            sub="A rushed email in. A checked, review-ready matter out."
-          />
-          <div className="mx-auto max-w-xl">
-            <PreparedDesk />
-          </div>
-        </Section>
 
         {/* ── 2 · The leak, made visible ────────────────────────────────── */}
         <Section id="leak">
