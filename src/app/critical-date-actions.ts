@@ -5,15 +5,9 @@ import { requireUser } from "@/lib/auth";
 import { getCurrentAccount, DEFAULT_ACCOUNT_ID } from "@/lib/metering";
 import { getMatter } from "@/lib/store";
 import { addEvent } from "@/lib/events";
-import {
-  deriveDate,
-  candidateIsos,
-  saveDateDecision,
-  clearDateDecision,
-  formatDate,
-  kindNoun,
-  type CriticalDateKind,
-} from "@/lib/critical-dates";
+import { deriveDate, candidateIsos } from "@/lib/critical-date-derive";
+import { saveDateDecision, clearDateDecision } from "@/lib/critical-dates";
+import { formatDate, kindNoun, type CriticalDateKind } from "@/lib/critical-date-types";
 
 /**
  * Confirm / edit / reject a matter's critical date (settlement, finance, …). The

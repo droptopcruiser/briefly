@@ -40,7 +40,8 @@ import { assignMatter, markMatterReviewed } from "@/app/actions";
 import { composeEmailBody, replySubject } from "@/lib/email";
 import { parseConversation } from "@/lib/conversation";
 import { listMessages } from "@/lib/messages";
-import { getMatterDateDecisions, resolveMatterDates } from "@/lib/critical-dates";
+import { getMatterDateDecisions } from "@/lib/critical-dates";
+import { resolveMatterDates } from "@/lib/critical-date-derive";
 import { CriticalDatesStrip } from "@/app/critical-dates-strip";
 
 /**

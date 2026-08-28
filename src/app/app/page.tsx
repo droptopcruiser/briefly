@@ -10,7 +10,8 @@ import { getCurrentProfile } from "@/lib/profile";
 import { getAccountRubrics } from "@/lib/rubric-store";
 import { getChangesMap, describeChanges } from "@/lib/reviews";
 import { computeUrgency, isSnoozed, PRIORITY_ORDER, PRIORITY_META } from "@/lib/urgency";
-import { getAccountDateDecisions, resolveMatterDates } from "@/lib/critical-dates";
+import { getAccountDateDecisions } from "@/lib/critical-dates";
+import { resolveMatterDates } from "@/lib/critical-date-derive";
 import { listMembers } from "@/lib/team";
 import { getMonthStats } from "@/lib/stats";
 

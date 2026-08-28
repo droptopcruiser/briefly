@@ -1,7 +1,7 @@
 import type { Matter, QueuePriority } from "./types";
 import type { MatterChanges } from "./reviews";
 import { formatWhen } from "./format";
-import { kindCriticalWindow, type CriticalDateKind, type DateConfidence } from "./critical-dates";
+import { kindCriticalWindow, type CriticalDateKind, type DateConfidence } from "./critical-date-types";
 
 /**
  * The urgency scorer — the brain of the Needs Attention queue.

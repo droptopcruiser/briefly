@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { CriticalDate, DateCandidate } from "@/lib/critical-dates";
-import { kindLabel, kindNoun } from "@/lib/critical-dates";
+import type { CriticalDate, DateCandidate } from "@/lib/critical-date-types";
+import { kindLabel, kindNoun } from "@/lib/critical-date-types";
 import { confirmDate, rejectDate, clearDate } from "@/app/critical-date-actions";
 
 /**
