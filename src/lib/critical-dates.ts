@@ -24,6 +24,22 @@ export function staleDatesEnabled(): boolean {
   return process.env.CRITICAL_DATE_STALE === "1";
 }
 
+// Columns that DEFINITELY exist (Release A). known_isos is appended ONLY when the
+// flag is on (Release B, after its migration) — so a Release-A read never names a
+// column that may not have been migrated.
+const BASE_COLS = "matter_id,kind,status,value,iso,source,from_document,confirmed_by,confirmed_at";
+function selectCols(): string {
+  return staleDatesEnabled() ? `${BASE_COLS},known_isos` : BASE_COLS;
+}
+
+// Internal diagnostic — logged once per server process so the deployment state is
+// visible in logs when stale is later enabled.
+const diag = globalThis as unknown as { __brieflyStaleLogged?: boolean };
+if (!diag.__brieflyStaleLogged) {
+  diag.__brieflyStaleLogged = true;
+  console.log(`[critical-dates] stale_dates: ${staleDatesEnabled() ? "ENABLED — Release B" : "disabled — Release A"}`);
+}
+
 const globalStore = globalThis as unknown as { __brieflyDates?: Map<string, DateDecision> };
 const memory: Map<string, DateDecision> = (globalStore.__brieflyDates ??= new Map());
 const memKey = (matterId: string, kind: CriticalDateKind) => `${matterId}:${kind}`;
@@ -67,8 +83,8 @@ export async function getMatterDateDecisions(
     return out;
   }
   try {
-    const { data } = await db.from("matter_critical_dates").select("*").eq("matter_id", matterId);
-    for (const r of (data ?? []) as DecisionRow[]) out[r.kind] = rowToDecision(r);
+    const { data } = await db.from("matter_critical_dates").select(selectCols()).eq("matter_id", matterId);
+    for (const r of (data ?? []) as unknown as DecisionRow[]) out[r.kind] = rowToDecision(r);
   } catch (err) {
     console.error("getMatterDateDecisions failed (run critical-dates.sql?):", err);
   }
@@ -91,8 +107,8 @@ export async function getAccountDateDecisions(
     return map;
   }
   try {
-    const { data } = await db.from("matter_critical_dates").select("*").eq("account_id", accountId);
-    for (const r of (data ?? []) as DecisionRow[]) put(rowToDecision(r));
+    const { data } = await db.from("matter_critical_dates").select(selectCols()).eq("account_id", accountId);
+    for (const r of (data ?? []) as unknown as DecisionRow[]) put(rowToDecision(r));
   } catch (err) {
     console.error("getAccountDateDecisions failed (run critical-dates.sql?):", err);
   }
@@ -146,14 +162,12 @@ export async function clearDateDecision(
     memory.delete(memKey(matterId, kind));
     return;
   }
-  try {
-    await db
-      .from("matter_critical_dates")
-      .delete()
-      .eq("account_id", accountId)
-      .eq("matter_id", matterId)
-      .eq("kind", kind);
-  } catch (err) {
-    console.error("clearDateDecision failed:", err);
-  }
+  // A decision write — fail loudly (like saveDateDecision) rather than silently.
+  const { error } = await db
+    .from("matter_critical_dates")
+    .delete()
+    .eq("account_id", accountId)
+    .eq("matter_id", matterId)
+    .eq("kind", kind);
+  if (error) throw new Error(`clearDateDecision: ${error.message}`);
 }
