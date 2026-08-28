@@ -10,7 +10,7 @@ import { getCurrentProfile } from "@/lib/profile";
 import { getAccountRubrics } from "@/lib/rubric-store";
 import { getChangesMap, describeChanges } from "@/lib/reviews";
 import { computeUrgency, isSnoozed, PRIORITY_ORDER, PRIORITY_META } from "@/lib/urgency";
-import { getAccountDateDecisions } from "@/lib/critical-dates";
+import { getAccountDateDecisions, staleDatesEnabled } from "@/lib/critical-dates";
 import { resolveMatterDates } from "@/lib/critical-date-derive";
 import { listMembers } from "@/lib/team";
 import { getMonthStats } from "@/lib/stats";
@@ -50,11 +50,12 @@ export default async function Dashboard() {
   }));
 
   const now = Date.now();
+  const staleEnabled = staleDatesEnabled();
   // Completed matters live in the Completed list, not the daily queue.
   const scored = matters
     .filter((m) => m.status !== "completed")
     .map((m) => {
-      const effDates = resolveMatterDates(m.result, dateDecisions.get(m.id) ?? {});
+      const effDates = resolveMatterDates(m.result, dateDecisions.get(m.id) ?? {}, { staleEnabled });
       const dateInputs = effDates.map((d) => ({
         kind: d.kind,
         value: d.value,

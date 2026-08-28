@@ -10,10 +10,19 @@ import type { CriticalDateKind, DateDecision } from "./critical-date-types";
  * pure derivation in critical-date-derive.ts, which the client may import freely.
  *
  * Only the human DECISION (confirm / reject) is stored, in matter_critical_dates.
- * `known_isos` (the candidates seen at confirmation, for stale detection) is written
- * SEPARATELY and best-effort, so confirming a date never depends on that column
- * existing — the conflict resolver works before the known_isos migration is run.
+ *
+ * Stale/third-date detection (Release B) is gated by an explicit feature flag,
+ * `staleDatesEnabled()`. When OFF (the default), `known_isos` is NOT written at all
+ * and stale is never computed — so basic confirmation works with or without that
+ * column, and Briefly never behaves as though it's watching for new conflicting
+ * evidence when the persistence isn't guaranteed. Turn the flag on ONLY after the
+ * date-known-isos.sql migration has run and been tested against real persistence.
  */
+
+/** Release-B gate: stale/third-date detection is active only when this is true. */
+export function staleDatesEnabled(): boolean {
+  return process.env.CRITICAL_DATE_STALE === "1";
+}
 
 const globalStore = globalThis as unknown as { __brieflyDates?: Map<string, DateDecision> };
 const memory: Map<string, DateDecision> = (globalStore.__brieflyDates ??= new Map());
@@ -91,10 +100,10 @@ export async function getAccountDateDecisions(
 }
 
 /**
- * Persist a human decision (confirm or reject). The CORE row (value/iso/source/
- * provenance/audit) upserts first so the decision always saves. `known_isos` is then
- * set best-effort in a separate update — a missing column can't break confirmation,
- * it just leaves stale-detection dormant until the migration runs.
+ * Persist a human decision (confirm or reject). ONE atomic upsert. `known_isos` is
+ * included ONLY when stale detection is enabled (Release B) — never as a separate
+ * best-effort write. With the flag off, the column is not touched, so basic
+ * confirmation works whether or not the column exists.
  */
 export async function saveDateDecision(accountId: string, d: DateDecision): Promise<void> {
   const db = getSupabase();
@@ -102,37 +111,28 @@ export async function saveDateDecision(accountId: string, d: DateDecision): Prom
     memory.set(memKey(d.matterId, d.kind), d);
     return;
   }
-  try {
-    await db.from("matter_critical_dates").upsert(
-      {
-        id: randomUUID(),
-        account_id: accountId,
-        matter_id: d.matterId,
-        kind: d.kind,
-        status: d.status,
-        value: d.value || null,
-        iso: d.iso,
-        source: d.source,
-        from_document: d.fromDocument,
-        confirmed_by: d.confirmedBy,
-        confirmed_at: d.confirmedAt,
-      },
-      { onConflict: "matter_id,kind" },
-    );
-  } catch (err) {
-    console.error("saveDateDecision failed (run critical-dates.sql?):", err);
-    return;
-  }
-  // Optional stale-detection metadata — never blocks the decision above.
-  try {
-    await db
-      .from("matter_critical_dates")
-      .update({ known_isos: d.knownIsos })
-      .eq("matter_id", d.matterId)
-      .eq("kind", d.kind);
-  } catch (err) {
-    console.error("saveDateDecision known_isos update skipped (run date-known-isos.sql):", err);
-  }
+  const row: Record<string, unknown> = {
+    id: randomUUID(),
+    account_id: accountId,
+    matter_id: d.matterId,
+    kind: d.kind,
+    status: d.status,
+    value: d.value || null,
+    iso: d.iso,
+    source: d.source,
+    from_document: d.fromDocument,
+    confirmed_by: d.confirmedBy,
+    confirmed_at: d.confirmedAt,
+  };
+  // Release B only: this write is REQUIRED (not best-effort) when the flag is on.
+  // If it fails (e.g. the migration hasn't run), the whole decision fails and is
+  // surfaced — Briefly never records a confirmation while pretending stale is armed.
+  if (staleDatesEnabled()) row.known_isos = d.knownIsos;
+
+  const { error } = await db
+    .from("matter_critical_dates")
+    .upsert(row, { onConflict: "matter_id,kind" });
+  if (error) throw new Error(`saveDateDecision: ${error.message}`);
 }
 
 /** Remove a decision entirely, so the matter falls back to the derived candidate. */

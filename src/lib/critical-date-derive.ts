@@ -106,11 +106,19 @@ export function deriveDate(result: PipelineResult | null, kind: CriticalDateKind
   };
 }
 
-/** Resolve the date a matter effectively has for a kind: decision wins, else derived. */
+/**
+ * Resolve the date a matter effectively has for a kind: decision wins, else derived.
+ *
+ * `staleEnabled` gates stale/third-date detection EXPLICITLY (Release B). It must be
+ * passed true ONLY when the known_isos persistence is guaranteed (migration run +
+ * feature flag on). When false, stale is never computed — Briefly does not claim to
+ * be watching for new conflicting evidence when the mechanism isn't guaranteed.
+ */
 export function resolveDate(
   result: PipelineResult | null,
   decision: DateDecision | null,
   kind: CriticalDateKind,
+  staleEnabled = false,
 ): CriticalDate | null {
   if (decision?.status === "rejected") return null;
   if (decision?.status === "confirmed") {
@@ -123,11 +131,11 @@ export function resolveDate(
       fromDocument: decision.fromDocument,
       confirmedAt: decision.confirmedAt,
     };
-    // Reopen (mark stale) only when we RECORDED the candidates known at confirmation
-    // (knownIsos non-empty) AND a later source has a DIFFERENT date not among them —
-    // so the losing candidate the user already saw never re-triggers a false stale.
-    // With no knownIsos (e.g. before the known_isos column exists) stale is disabled.
-    if (result && (decision.knownIsos?.length ?? 0) > 0) {
+    // Reopen (mark stale) only when stale detection is ENABLED, we RECORDED the
+    // candidates known at confirmation, AND a later source has a DIFFERENT date not
+    // among them — so the losing candidate the user already saw never re-triggers a
+    // false stale, and stale never runs while its persistence isn't guaranteed.
+    if (staleEnabled && result && (decision.knownIsos?.length ?? 0) > 0) {
       const known = new Set([...decision.knownIsos, decision.iso].filter((x): x is string => !!x));
       const fresh: DateCandidate[] = [];
       const seen = new Set<string>();
@@ -150,10 +158,11 @@ export function resolveDate(
 export function resolveMatterDates(
   result: PipelineResult | null,
   decisions: Partial<Record<CriticalDateKind, DateDecision>>,
+  opts: { staleEnabled?: boolean } = {},
 ): CriticalDate[] {
   const out: CriticalDate[] = [];
   for (const k of ["settlement", "finance"] as CriticalDateKind[]) {
-    const d = resolveDate(result, decisions[k] ?? null, k);
+    const d = resolveDate(result, decisions[k] ?? null, k, opts.staleEnabled ?? false);
     if (d) out.push(d);
   }
   return out.sort((a, b) => {

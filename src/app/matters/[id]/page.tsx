@@ -40,7 +40,7 @@ import { assignMatter, markMatterReviewed } from "@/app/actions";
 import { composeEmailBody, replySubject } from "@/lib/email";
 import { parseConversation } from "@/lib/conversation";
 import { listMessages } from "@/lib/messages";
-import { getMatterDateDecisions } from "@/lib/critical-dates";
+import { getMatterDateDecisions, staleDatesEnabled } from "@/lib/critical-dates";
 import { resolveMatterDates } from "@/lib/critical-date-derive";
 import { CriticalDatesStrip } from "@/app/critical-dates-strip";
 
@@ -120,7 +120,7 @@ async function SinceReviewSection({ matter, accountId }: { matter: Matter; accou
 
 async function CriticalDatesSection({ matter }: { matter: Matter }) {
   const decisions = await getMatterDateDecisions(matter.id);
-  const dates = resolveMatterDates(matter.result, decisions);
+  const dates = resolveMatterDates(matter.result, decisions, { staleEnabled: staleDatesEnabled() });
   if (dates.length === 0) return null;
   return <CriticalDatesStrip matterId={matter.id} dates={dates} />;
 }
