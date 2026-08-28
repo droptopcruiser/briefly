@@ -18,6 +18,7 @@ const TONE: Record<CriticalDate["confidence"], { dot: string; label: string; chi
   confirmed: { dot: "bg-accent", label: "Confirmed", chip: "bg-accent-soft text-accent" },
   suggested: { dot: "bg-awaiting", label: "Suggested — confirm to track", chip: "bg-awaiting-soft text-awaiting" },
   review: { dot: "bg-error", label: "Low confidence — review the source", chip: "bg-error-soft text-error" },
+  conflict: { dot: "bg-error", label: "Conflict — sources disagree", chip: "bg-error-soft text-error" },
 };
 
 export function CriticalDatesStrip({ matterId, dates }: { matterId: string; dates: CriticalDate[] }) {
@@ -44,6 +45,72 @@ function DateRow({ matterId, date }: { matterId: string; date: CriticalDate }) {
       setEditing(false);
       router.refresh();
     });
+
+  // Conflict — two+ dates disagree. Briefly refuses to pick; the human resolves by
+  // choosing the correct source. Until then it cannot drive Critical.
+  if (date.confidence === "conflict" && date.candidates && !editing) {
+    return (
+      <div className={`space-y-2 rounded-lg border border-error/60 bg-error-soft/40 px-3.5 py-3 ${pending ? "opacity-60" : ""}`}>
+        <div className="flex items-center gap-2">
+          <span aria-hidden="true">⚠</span>
+          <span className="text-sm font-medium text-error">
+            {kindLabel(date.kind)} conflict — {date.candidates.length} dates found
+          </span>
+        </div>
+        <p className="text-xs text-muted">
+          Briefly won&apos;t choose between them. Pick the correct source to resolve — this date can&apos;t
+          drive urgency until you do.
+        </p>
+        <ul className="space-y-1.5">
+          {date.candidates.map((c, i) => (
+            <li key={i} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-2">
+              <div className="min-w-0">
+                <span className="font-medium">{c.value}</span>
+                {c.source ? (
+                  <span className="ml-2 text-xs text-muted">
+                    {c.fromDocument ? (
+                      <>▤ {c.fromDocument.fileName}{c.fromDocument.page !== null ? ` · p.${c.fromDocument.page}` : ""}</>
+                    ) : (
+                      <span className="italic">“{c.source}”</span>
+                    )}
+                  </span>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => run(() => confirmDate(matterId, date.kind, { value: c.value, iso: c.iso }))}
+                className="btn-primary shrink-0 rounded-md px-3 py-1.5 text-sm font-medium"
+              >
+                Use this
+              </button>
+            </li>
+          ))}
+        </ul>
+        <div className="flex gap-2 pt-0.5">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => {
+              setDraft("");
+              setEditing(true);
+            }}
+            className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-inset"
+          >
+            Enter a different date
+          </button>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => run(() => rejectDate(matterId, date.kind))}
+            className="rounded-md border border-border px-3 py-1.5 text-sm text-muted hover:bg-inset hover:text-foreground"
+          >
+            Dismiss
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`flex flex-wrap items-start justify-between gap-x-4 gap-y-3 ${pending ? "opacity-60" : ""}`}>

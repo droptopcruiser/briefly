@@ -22,7 +22,22 @@ import type { PipelineResult } from "./types";
  */
 
 export type CriticalDateKind = "settlement" | "finance";
-export type DateConfidence = "confirmed" | "suggested" | "review";
+/**
+ * confirmed — a human confirmed it → may drive Critical.
+ * suggested — one clear date extracted, awaiting confirmation → prompts.
+ * review    — a partial/low-confidence mention → "review the source".
+ * conflict  — TWO+ different dates found for this kind; Briefly refuses to pick one.
+ *             Cannot drive Critical until the human resolves it.
+ */
+export type DateConfidence = "confirmed" | "suggested" | "review" | "conflict";
+
+/** One extracted date candidate, with its own evidence. */
+export interface DateCandidate {
+  value: string;
+  iso: string | null;
+  source: string | null;
+  fromDocument?: { fileName: string; page: number | null } | null;
+}
 
 interface KindConfig {
   /** Words that identify this date in a fact label/key or timeline event. */
@@ -75,6 +90,8 @@ export interface CriticalDate {
   /** Set when the date came from a read document. */
   fromDocument?: { fileName: string; page: number | null } | null;
   confirmedAt?: string | null;
+  /** Present when confidence === "conflict" — the disagreeing dates, to resolve between. */
+  candidates?: DateCandidate[];
 }
 
 /** A stored human decision about a matter's date (the only thing persisted). */
@@ -133,34 +150,50 @@ export function deriveDate(result: PipelineResult | null, kind: CriticalDateKind
   if (!result) return null;
   const re = KIND[kind].keywords;
 
+  // Gather EVERY candidate that mentions this kind (facts first, then timeline),
+  // rather than returning the first — so we can DETECT when sources disagree.
+  const cands: DateCandidate[] = [];
   for (const f of result.fields) {
     if (!f.present || !f.value) continue;
     if (!re.test(f.label) && !re.test(f.key)) continue;
     const iso = parseFullDate(f.value);
-    return {
-      kind,
-      value: iso ? formatDate(iso) : f.value,
-      iso,
-      confidence: iso ? "suggested" : "review",
-      source: f.source ?? null,
-      fromDocument: f.fromDocument ?? null,
-    };
+    cands.push({ value: iso ? formatDate(iso) : f.value, iso, source: f.source ?? null, fromDocument: f.fromDocument ?? null });
   }
-
   for (const e of result.timeline) {
     if (!re.test(e.description) && !(e.source && re.test(e.source))) continue;
     const iso = e.date ? parseFullDate(e.date) : null;
     if (!iso && !e.date) continue;
+    cands.push({ value: iso ? formatDate(iso) : e.date!, iso, source: e.source ?? e.description ?? null });
+  }
+  if (cands.length === 0) return null;
+
+  // Two or more DIFFERENT parseable dates → a conflict Briefly must not resolve
+  // silently. One candidate is kept per distinct date, with its own evidence.
+  const withIso = cands.filter((c) => c.iso);
+  const distinct = [...new Set(withIso.map((c) => c.iso))];
+  if (distinct.length >= 2) {
+    const perDate = distinct.map((iso) => withIso.find((c) => c.iso === iso)!);
     return {
       kind,
-      value: iso ? formatDate(iso) : e.date!,
-      iso,
-      confidence: iso ? "suggested" : "review",
-      source: e.source ?? e.description ?? null,
+      value: perDate.map((c) => c.value).join(" / "),
+      iso: null, // ambiguous → no single date → cannot drive Critical
+      confidence: "conflict",
+      source: null,
+      candidates: perDate,
     };
   }
 
-  return null;
+  // A single date (or only partial mentions) — prefer a document-sourced candidate.
+  const best =
+    withIso.slice().sort((a, b) => (b.fromDocument ? 1 : 0) - (a.fromDocument ? 1 : 0))[0] ?? cands[0];
+  return {
+    kind,
+    value: best.value,
+    iso: best.iso ?? null,
+    confidence: best.iso ? "suggested" : "review",
+    source: best.source,
+    fromDocument: best.fromDocument ?? null,
+  };
 }
 
 /** Resolve the date a matter effectively has for a kind: decision wins, else derived. */

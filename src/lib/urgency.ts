@@ -121,6 +121,7 @@ function dateReason(kind: CriticalDateKind, rel: string, blocker: string | null)
 /** The review-bucket prompt when a date is extracted but not yet confirmed. */
 function confirmPrompt(d: CriticalDateInput): string {
   const noun = d.kind === "finance" ? "finance date" : "settlement date";
+  if (d.confidence === "conflict") return `Resolve ${noun} conflict — sources disagree`;
   return d.confidence === "suggested"
     ? `Confirm ${noun} — ${d.value}`
     : `Possible ${noun}: ${d.value} — review source`;
@@ -172,7 +173,8 @@ export function computeUrgency(
     dates
       .filter((d) => d.confidence !== "confirmed")
       .sort((a, b) => {
-        const rank = (c: DateConfidence) => (c === "suggested" ? 0 : 1);
+        // A conflict is the most urgent to resolve, then a clear suggestion.
+        const rank = (c: DateConfidence) => (c === "conflict" ? 0 : c === "suggested" ? 1 : 2);
         if (rank(a.confidence) !== rank(b.confidence)) return rank(a.confidence) - rank(b.confidence);
         return (a.iso ?? "9999").localeCompare(b.iso ?? "9999");
       })[0] ?? null;
@@ -219,7 +221,10 @@ export function computeUrgency(
   for (const d of dates) {
     const rel = d.iso ? relDays(daysUntil(d.iso, now)) : "";
     if (d.confidence === "confirmed") signals.push(`${dateReason(d.kind, rel, null)} (${d.value}) — confirmed`);
-    else signals.push(confirmPrompt(d));
+    else {
+      signals.push(confirmPrompt(d));
+      if (d.confidence === "conflict") signals.push(`Dates found: ${d.value} — confirm the correct one`);
+    }
     if (d.source) signals.push(`Date source: “${d.source}”`);
   }
   if (consultSoon || consultUpcoming)
@@ -292,7 +297,8 @@ export function computeUrgency(
   } else if (priority === "review") {
     score += newDocs * 20 + newMsgs * 10 + newFactsN * 3;
     if (status === "ready_for_review") score += 15;
-    if (topUnconfirmed) score += topUnconfirmed.confidence === "suggested" ? 12 : 6;
+    if (topUnconfirmed)
+      score += topUnconfirmed.confidence === "conflict" ? 14 : topUnconfirmed.confidence === "suggested" ? 12 : 6;
   } else if (priority === "waiting") {
     score += Math.min(90, waitingDays * 3);
   } else if (priority === "ready") {
