@@ -7,6 +7,7 @@ import { getMatter } from "@/lib/store";
 import { addEvent } from "@/lib/events";
 import {
   deriveDate,
+  candidateIsos,
   saveDateDecision,
   clearDateDecision,
   formatDate,
@@ -32,7 +33,12 @@ async function loadMatter(matterId: string) {
 export async function confirmDate(
   matterId: string,
   kind: CriticalDateKind,
-  edited?: { value: string; iso: string | null },
+  edited?: {
+    value: string;
+    iso: string | null;
+    source?: string | null;
+    fromDocument?: { fileName: string; page: number | null } | null;
+  },
 ): Promise<{ ok: boolean }> {
   const user = await requireUser();
   const { accountId, matter } = await loadMatter(matterId);
@@ -43,18 +49,22 @@ export async function confirmDate(
   const value = iso ? formatDate(iso) : edited?.value?.trim() || derived?.value || "";
   if (!value) return { ok: false };
 
+  // Provenance is the CHOSEN source (the resolved candidate's quote/page), or the
+  // single derived suggestion's — never invented. A manually typed date has none.
+  const source = edited ? edited.source ?? null : derived?.source ?? null;
+  const fromDocument = edited ? edited.fromDocument ?? null : derived?.fromDocument ?? null;
+
   await saveDateDecision(accountId, {
     matterId,
     kind,
     status: "confirmed",
     value,
     iso,
-    // Provenance always comes from what Briefly actually read — never invented,
-    // even when the professional corrects the date itself.
-    source: derived?.source ?? null,
-    fromDocument: derived?.fromDocument ?? null,
+    source,
+    fromDocument,
     confirmedBy: user.id,
     confirmedAt: new Date().toISOString(),
+    knownIsos: candidateIsos(matter.result, kind),
   });
   await addEvent(accountId, matterId, "date_confirmed", `${kindNoun(kind)} date confirmed: ${value}`);
   revalidatePath("/app");
@@ -78,6 +88,7 @@ export async function rejectDate(matterId: string, kind: CriticalDateKind): Prom
     fromDocument: derived?.fromDocument ?? null,
     confirmedBy: user.id,
     confirmedAt: new Date().toISOString(),
+    knownIsos: candidateIsos(matter.result, kind),
   });
   await addEvent(accountId, matterId, "date_rejected", `${kindNoun(kind)} date dismissed`);
   revalidatePath("/app");

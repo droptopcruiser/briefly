@@ -60,6 +60,7 @@ export default async function Dashboard() {
         iso: d.iso,
         confidence: d.confidence,
         source: d.source,
+        stale: d.stale,
       }));
       return { m, u: computeUrgency(m, changesMap.get(m.id) ?? null, now, dateInputs), effDates };
     });

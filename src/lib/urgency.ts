@@ -111,6 +111,8 @@ export interface CriticalDateInput {
   iso: string | null;
   confidence: DateConfidence;
   source?: string | null;
+  /** A confirmed date a later source now disagrees with — surfaced, still confirmed. */
+  stale?: boolean;
 }
 
 /** The urgency headline for a confirmed date of a kind (its own language). */
@@ -220,8 +222,11 @@ export function computeUrgency(
   if (overridden) signals.push("Priority set manually by you");
   for (const d of dates) {
     const rel = d.iso ? relDays(daysUntil(d.iso, now)) : "";
-    if (d.confidence === "confirmed") signals.push(`${dateReason(d.kind, rel, null)} (${d.value}) — confirmed`);
-    else {
+    if (d.confidence === "confirmed") {
+      signals.push(`${dateReason(d.kind, rel, null)} (${d.value}) — confirmed`);
+      if (d.stale)
+        signals.push(`A newer source disagrees with the confirmed ${d.kind} date — review it`);
+    } else {
       signals.push(confirmPrompt(d));
       if (d.confidence === "conflict") signals.push(`Dates found: ${d.value} — confirm the correct one`);
     }

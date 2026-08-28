@@ -90,8 +90,13 @@ export interface CriticalDate {
   /** Set when the date came from a read document. */
   fromDocument?: { fileName: string; page: number | null } | null;
   confirmedAt?: string | null;
-  /** Present when confidence === "conflict" — the disagreeing dates, to resolve between. */
+  /** Present when confidence === "conflict" — the disagreeing dates, to resolve between.
+   *  Also present on a CONFIRMED date that has since gone stale (see `stale`): the
+   *  new disagreeing candidate(s) that appeared after confirmation. */
   candidates?: DateCandidate[];
+  /** A confirmed date that a LATER source now disagrees with — reopened for review.
+   *  Still confirmed (the human's decision stands) but visibly flagged. */
+  stale?: boolean;
 }
 
 /** A stored human decision about a matter's date (the only thing persisted). */
@@ -105,6 +110,9 @@ interface DateDecision {
   fromDocument: { fileName: string; page: number | null } | null;
   confirmedBy: string | null;
   confirmedAt: string;
+  /** All distinct candidate dates (ISO) that existed when this was confirmed — so a
+   *  later, genuinely NEW conflicting date can be told apart from a losing candidate. */
+  knownIsos: string[];
 }
 
 const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -146,12 +154,9 @@ function parseFullDate(raw: string): string | null {
  * matching timeline event. A clean full date → "suggested"; a partial or
  * keyword-only mention → "review". Returns null when nothing references the kind.
  */
-export function deriveDate(result: PipelineResult | null, kind: CriticalDateKind): CriticalDate | null {
-  if (!result) return null;
+/** Every date candidate that mentions a kind, from facts (first) then timeline. */
+function gatherCandidates(result: PipelineResult, kind: CriticalDateKind): DateCandidate[] {
   const re = KIND[kind].keywords;
-
-  // Gather EVERY candidate that mentions this kind (facts first, then timeline),
-  // rather than returning the first — so we can DETECT when sources disagree.
   const cands: DateCandidate[] = [];
   for (const f of result.fields) {
     if (!f.present || !f.value) continue;
@@ -165,6 +170,19 @@ export function deriveDate(result: PipelineResult | null, kind: CriticalDateKind
     if (!iso && !e.date) continue;
     cands.push({ value: iso ? formatDate(iso) : e.date!, iso, source: e.source ?? e.description ?? null });
   }
+  return cands;
+}
+
+/** The distinct parseable dates (ISO) found for a kind — used to record what was
+ *  known at confirmation time, and to detect a later new date. */
+export function candidateIsos(result: PipelineResult | null, kind: CriticalDateKind): string[] {
+  if (!result) return [];
+  return [...new Set(gatherCandidates(result, kind).map((c) => c.iso).filter((x): x is string => !!x))];
+}
+
+export function deriveDate(result: PipelineResult | null, kind: CriticalDateKind): CriticalDate | null {
+  if (!result) return null;
+  const cands = gatherCandidates(result, kind);
   if (cands.length === 0) return null;
 
   // Two or more DIFFERENT parseable dates → a conflict Briefly must not resolve
@@ -204,7 +222,7 @@ export function resolveDate(
 ): CriticalDate | null {
   if (decision?.status === "rejected") return null;
   if (decision?.status === "confirmed") {
-    return {
+    const base: CriticalDate = {
       kind,
       value: decision.value,
       iso: decision.iso,
@@ -213,6 +231,24 @@ export function resolveDate(
       fromDocument: decision.fromDocument,
       confirmedAt: decision.confirmedAt,
     };
+    // Reopen (mark stale) if a LATER source introduced a DIFFERENT date that wasn't
+    // among the candidates known when this was confirmed — never re-triggered by the
+    // losing candidate the user already saw.
+    if (result) {
+      const known = new Set([...(decision.knownIsos ?? []), decision.iso].filter((x): x is string => !!x));
+      const fresh: DateCandidate[] = [];
+      const seen = new Set<string>();
+      for (const c of gatherCandidates(result, kind)) {
+        if (!c.iso || known.has(c.iso) || seen.has(c.iso)) continue;
+        seen.add(c.iso);
+        fresh.push(c);
+      }
+      if (fresh.length) {
+        base.stale = true;
+        base.candidates = fresh;
+      }
+    }
+    return base;
   }
   return deriveDate(result, kind);
 }
@@ -251,6 +287,7 @@ interface DecisionRow {
   from_document: { fileName: string; page: number | null } | null;
   confirmed_by: string | null;
   confirmed_at: string;
+  known_isos: string[] | null;
 }
 
 function rowToDecision(r: DecisionRow): DateDecision {
@@ -264,6 +301,7 @@ function rowToDecision(r: DecisionRow): DateDecision {
     fromDocument: r.from_document,
     confirmedBy: r.confirmed_by,
     confirmedAt: r.confirmed_at,
+    knownIsos: Array.isArray(r.known_isos) ? r.known_isos : [],
   };
 }
 
@@ -332,6 +370,7 @@ export async function saveDateDecision(accountId: string, d: DateDecision): Prom
         from_document: d.fromDocument,
         confirmed_by: d.confirmedBy,
         confirmed_at: d.confirmedAt,
+        known_isos: d.knownIsos,
       },
       { onConflict: "matter_id,kind" },
     );
