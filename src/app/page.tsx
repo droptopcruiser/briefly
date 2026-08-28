@@ -11,10 +11,10 @@ const PRICING = [PLANS.solo, PLANS.practice, PLANS.firm];
 
 function Nav() {
   return (
-    <header className="glass-nav sticky top-0 z-50">
+    <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
         <Link href="/" className="font-serif text-xl font-semibold tracking-tight">
-          Briefly
+          Briefly<span className="text-accent">.</span>
         </Link>
         <nav className="hidden items-center gap-7 text-sm text-muted sm:flex">
           <a href="#position" className="hover:text-foreground">How it works</a>
@@ -61,50 +61,113 @@ export default async function Landing() {
       <Nav />
 
       <main>
-        {/* ── 1 · Hero — the universal pain (form-havers AND no-form solos) ── */}
-        <section className="relative overflow-hidden">
-          <div aria-hidden className="pointer-events-none absolute inset-0">
-            <div className="absolute -top-24 right-[6%] h-[420px] w-[420px] rounded-full bg-accent/10 blur-3xl" />
-            <div className="absolute top-48 left-[2%] h-[320px] w-[320px] rounded-full bg-awaiting/10 blur-3xl" />
+        {/* ── 1 · Hero — brand-forward dark band (warm black · green period · organic
+             shapes). A committed dark section: explicit colours, not theme tokens. ── */}
+        <section
+          className="relative overflow-hidden"
+          style={{
+            background:
+              "radial-gradient(130% 120% at 50% -10%, #1b1f15 0%, #14170f 58%, #0f110a 100%)",
+            color: "#f4f5ef",
+          }}
+        >
+          {/* decorative layer — sage/cream circles, contour lines, dotted grid */}
+          <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div
+              className="absolute -left-40 -top-28 h-[380px] w-[380px] rounded-full"
+              style={{ background: "#8aa87f", opacity: 0.92 }}
+            />
+            <div
+              className="absolute left-24 top-40 hidden h-[260px] w-[260px] rounded-full border sm:block"
+              style={{ borderColor: "rgba(232,237,222,0.16)" }}
+            />
+            <div
+              className="absolute bottom-12 left-12 hidden h-40 w-64 sm:block"
+              style={{
+                backgroundImage:
+                  "radial-gradient(circle, rgba(163,178,150,0.55) 1.1px, transparent 1.3px)",
+                backgroundSize: "16px 16px",
+                maskImage: "radial-gradient(circle at 32% 45%, #000, transparent 72%)",
+                WebkitMaskImage: "radial-gradient(circle at 32% 45%, #000, transparent 72%)",
+              }}
+            />
+            <div
+              className="absolute -bottom-44 -right-36 h-[440px] w-[440px] rounded-full"
+              style={{ background: "#e8eae0", opacity: 0.96 }}
+            />
+            <svg
+              className="absolute right-0 top-0 h-full w-[300px] sm:w-[420px]"
+              viewBox="0 0 300 700"
+              preserveAspectRatio="xMaxYMid slice"
+              fill="none"
+            >
+              {Array.from({ length: 9 }).map((_, i) => (
+                <path
+                  key={i}
+                  d="M150 -40 C 96 110, 214 210, 150 340 S 92 560, 150 720 S 214 900, 150 1060"
+                  transform={`translate(${i * 17 - 46} 0)`}
+                  stroke="#5f7054"
+                  strokeWidth="1"
+                  opacity={0.55 - i * 0.045}
+                />
+              ))}
+            </svg>
           </div>
 
-          <div className="relative mx-auto grid max-w-6xl items-center gap-14 px-6 pb-20 pt-16 lg:grid-cols-[1fr_1.05fr] lg:items-center lg:gap-12 lg:pb-28 lg:pt-24">
-            <div className="anim-rise">
-              <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.14em] text-muted">
-                <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-                For conveyancers and property firms
-              </div>
-              <h1 className="mt-6 font-serif text-4xl font-semibold leading-[1.05] tracking-tight text-balance sm:text-5xl lg:text-6xl">
-                Your client&apos;s messy email, turned into a checked, ready file.
-              </h1>
-              <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted">
-                Whatever your client actually sends — a rushed note, three PDFs, a photo of the
-                contract — Briefly reads it, checks it against your checklist, chases what&apos;s
-                missing, and hands you a file that&apos;s ready to open.
-              </p>
-              <div className="mt-8 flex flex-wrap items-center gap-4">
-                <a
-                  href="#waitlist"
-                  className="rounded-lg bg-accent px-6 py-3 text-sm font-medium text-accent-fg shadow-sm transition-opacity hover:opacity-90"
-                >
-                  Request early access
-                </a>
-                <a
-                  href="#leak"
-                  className="text-sm font-medium text-accent underline decoration-dotted underline-offset-4 hover:text-accent-h"
-                >
-                  Watch a real enquiry become a ready file →
-                </a>
-              </div>
-              <p className="mt-8 max-w-md text-sm leading-relaxed text-muted">
-                Keep working the way you do. Just forward your enquiries — nothing to switch, nothing
-                to migrate.
-              </p>
+          {/* content */}
+          <div className="anim-rise relative mx-auto max-w-3xl px-6 py-24 text-center sm:py-32">
+            <div
+              className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em]"
+              style={{ color: "#9aa48f" }}
+            >
+              <span className="h-1.5 w-1.5 rounded-full" style={{ background: "#7fb086" }} />
+              For conveyancers and property firms
             </div>
-
-            <PreparedDesk />
+            <h1
+              className="mt-6 font-serif text-4xl font-semibold leading-[1.06] tracking-tight text-balance sm:text-5xl lg:text-[3.4rem]"
+              style={{ color: "#f4f5ef" }}
+            >
+              Your client&apos;s messy email, turned into a checked, ready file
+              <span style={{ color: "#7fb086" }}>.</span>
+            </h1>
+            <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed" style={{ color: "#a7ae9f" }}>
+              Whatever your client actually sends — a rushed note, three PDFs, a photo of the
+              contract — Briefly reads it, checks it against your checklist, chases what&apos;s
+              missing, and hands you a file that&apos;s ready to open.
+            </p>
+            <div className="mt-9 flex flex-wrap items-center justify-center gap-4">
+              <a
+                href="#waitlist"
+                className="rounded-lg px-6 py-3 text-sm font-semibold shadow-sm transition-transform hover:-translate-y-0.5"
+                style={{ background: "#7fb086", color: "#12160f" }}
+              >
+                Request early access
+              </a>
+              <a
+                href="#see"
+                className="text-sm font-medium underline decoration-dotted underline-offset-4"
+                style={{ color: "#cdd4c6" }}
+              >
+                Watch a real enquiry become a ready file →
+              </a>
+            </div>
+            <p className="mx-auto mt-8 max-w-md text-sm leading-relaxed" style={{ color: "#828b78" }}>
+              Keep working the way you do. Just forward your enquiries — nothing to switch, nothing
+              to migrate.
+            </p>
           </div>
         </section>
+
+        {/* ── 1b · See it — the product demo, on light paper ────────────────── */}
+        <Section id="see">
+          <Heading
+            title="Watch a real enquiry become a ready file"
+            sub="A rushed email in. A checked, review-ready matter out."
+          />
+          <div className="mx-auto max-w-xl">
+            <PreparedDesk />
+          </div>
+        </Section>
 
         {/* ── 2 · The leak, made visible ────────────────────────────────── */}
         <Section id="leak">
