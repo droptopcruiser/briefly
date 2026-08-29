@@ -236,30 +236,23 @@ export default async function Landing() {
 
         {/* ── 4 · Proof — page-cited traceability (the trust engine) ─────── */}
         <Section id="proof">
-          <div className="grid items-start gap-10 lg:grid-cols-2 lg:gap-14">
-            <Reveal className="space-y-4 lg:pt-6">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
-                <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-                It evidences, it doesn&apos;t assert
-              </div>
-              <h2 className="font-serif text-3xl font-semibold leading-[1.08] tracking-tight text-balance sm:text-4xl">
-                Every fact traces back to the page it came from.
-              </h2>
-              <p className="max-w-xl text-muted">
-                The fear with any tool like this is a quietly wrong settlement date you don&apos;t catch.
-                So Briefly never asserts — it <strong className="font-medium text-foreground">evidences</strong>.
-                Every fact it pulls carries its source page, one click to verify against the original.
-                Nothing touches the file until you confirm it.
-              </p>
-              <div className="rounded-xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm">
-                <span className="font-medium text-accent">Briefly would rather flag a gap than guess.</span>{" "}
-                <span className="text-foreground/80">A detail it can&apos;t find is marked missing — never filled in.</span>
-              </div>
-            </Reveal>
-
-            <div className="lg:pt-2">
-              <EvidenceProof />
+          <Reveal className="mx-auto max-w-2xl space-y-4 text-center">
+            <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+              <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+              It evidences, it doesn&apos;t assert
             </div>
+            <h2 className="font-serif text-3xl font-semibold leading-[1.08] tracking-tight text-balance sm:text-4xl lg:text-5xl">
+              Every fact, traced to its source — and what it means.
+            </h2>
+            <p className="mx-auto max-w-xl text-muted">
+              Briefly never asserts; it <strong className="font-medium text-foreground">evidences</strong>. Every
+              fact carries its source page and its consequence — so you can trust it, or reject it, in one look.
+              A detail it can&apos;t find is marked missing, never filled in.
+            </p>
+          </Reveal>
+
+          <div className="mx-auto mt-4 max-w-4xl">
+            <EvidenceProof />
           </div>
         </Section>
 

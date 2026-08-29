@@ -320,24 +320,61 @@ export function MatterScene() {
 }
 
 /**
- * The proof moment, made interactive — the recurring "evidence thread" motif.
- * Hovering a fact lights its exact source line + page in the contract, joined by a
- * thin thread; hovering the source does the same in reverse. Source-grounded trust
- * you can feel, not a static mockup. Threads are measured from the live DOM so they
- * connect precisely and re-measure on resize.
+ * The proof CHAPTER — the recurring "evidence thread" motif, finished and accessible.
+ * A fact connects to its exact contract source AND to what it means: fact → verified
+ * source → readiness effect → next action. Selectable by hover, click, or keyboard
+ * focus (works on touch + for keyboard users); a default fact is active so the
+ * relationship is visible at rest. Threads are measured from the live DOM (re-measured
+ * on resize + after fonts settle) and are decorative only — the colour highlights and
+ * the reasoning chain carry the meaning, so it degrades cleanly where threads are
+ * hidden (mobile / reduced-motion).
  */
 const EVIDENCE = [
-  { key: "property", label: "Property", value: "8 Ellery Lane, Fitzroy North", page: 1, src: "Property: 8 Ellery Lane, Fitzroy North VIC 3068" },
-  { key: "vendors", label: "Vendors", value: "Kwame & Abena Osei", page: 1, src: "Vendors: Kwame Osei and Abena Osei" },
-  { key: "price", label: "Purchase price", value: "$1,295,000", page: 3, src: "Purchase Price: $1,295,000 (AUD)" },
-  { key: "settlement", label: "Settlement date", value: "5 June 2027", page: 3, src: "Settlement Date: 5 June 2027" },
+  {
+    key: "settlement",
+    label: "Settlement date",
+    value: "5 June 2027",
+    page: 3,
+    src: "Settlement Date: 5 June 2027",
+    effect: "Settlement in 8 days",
+    next: "Signed authority still missing",
+  },
+  {
+    key: "price",
+    label: "Purchase price",
+    value: "$1,295,000",
+    page: 3,
+    src: "Purchase Price: $1,295,000 (AUD)",
+    effect: "Funds to reconcile before settlement",
+    next: "Confirm the deposit was paid",
+  },
+  {
+    key: "vendors",
+    label: "Vendors",
+    value: "Kwame & Abena Osei",
+    page: 1,
+    src: "Vendors: Kwame Osei and Abena Osei",
+    effect: "Two proprietors on title",
+    next: "Order a title search on both",
+  },
+  {
+    key: "property",
+    label: "Property",
+    value: "8 Ellery Lane, Fitzroy North",
+    page: 1,
+    src: "Property: 8 Ellery Lane, Fitzroy North VIC 3068",
+    effect: "Title and plan identified",
+    next: "Begin the property certificates",
+  },
 ];
 
 export function EvidenceProof() {
-  const [active, setActive] = useState<string | null>(null);
+  const [selected, setSelected] = useState("settlement");
+  const [hovered, setHovered] = useState<string | null>(null);
+  const active = hovered ?? selected;
   const wrapRef = useRef<HTMLDivElement>(null);
-  const factRefs = useRef<Record<string, HTMLLIElement | null>>({});
-  const srcRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const factRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const srcRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const [paths, setPaths] = useState<Record<string, string>>({});
 
   const measure = useCallback(() => {
@@ -351,10 +388,10 @@ export function EvidenceProof() {
       if (!f || !s) continue;
       const fr = f.getBoundingClientRect();
       const sr = s.getBoundingClientRect();
-      const x1 = sr.right - w.left;
-      const y1 = sr.top + sr.height / 2 - w.top;
-      const x2 = fr.left - w.left;
-      const y2 = fr.top + fr.height / 2 - w.top;
+      const x1 = fr.right - w.left;
+      const y1 = fr.top + fr.height / 2 - w.top;
+      const x2 = sr.left - w.left;
+      const y2 = sr.top + sr.height / 2 - w.top;
       const mx = (x1 + x2) / 2;
       next[e.key] = `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`;
     }
@@ -366,96 +403,167 @@ export function EvidenceProof() {
     const ro = new ResizeObserver(measure);
     if (wrapRef.current) ro.observe(wrapRef.current);
     window.addEventListener("resize", measure);
-    const t = window.setTimeout(measure, 400); // after fonts settle
+    const t1 = window.setTimeout(measure, 300);
+    const t2 = window.setTimeout(measure, 900); // after web fonts settle
+    if (document.fonts?.ready) void document.fonts.ready.then(measure);
     return () => {
       ro.disconnect();
       window.removeEventListener("resize", measure);
-      window.clearTimeout(t);
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
     };
   }, [measure]);
 
-  const Filler = ({ w }: { w: string }) => (
-    <div className="h-1.5 rounded bg-border/70" style={{ width: w }} />
-  );
+  const cur = EVIDENCE.find((e) => e.key === active) ?? EVIDENCE[0];
+  const handlers = (k: string) => ({
+    onMouseEnter: () => setHovered(k),
+    onMouseLeave: () => setHovered(null),
+    onFocus: () => setSelected(k),
+    onClick: () => setSelected(k),
+  });
 
   return (
-    <div ref={wrapRef} className="relative grid gap-6 sm:grid-cols-2 sm:items-start">
-      {/* evidence threads — measured fact ↔ source connectors */}
-      <svg className="pointer-events-none absolute inset-0 z-10 hidden h-full w-full sm:block" aria-hidden>
-        {EVIDENCE.map((e) => (
-          <path
-            key={e.key}
-            d={paths[e.key] ?? ""}
-            fill="none"
-            stroke={active === e.key ? "var(--accent)" : "var(--muted)"}
-            strokeWidth={active === e.key ? 1.6 : 1}
-            strokeDasharray={active === e.key ? "0" : "2 5"}
-            className="transition-all duration-300"
-            style={{ opacity: active === e.key ? 1 : active ? 0.12 : 0.32 }}
-          />
-        ))}
-      </svg>
-
-      {/* The contract (source) */}
-      <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-[var(--shadow-sm)]">
-        <div className="border-b border-border bg-inset px-4 py-2 text-[10px] font-medium uppercase tracking-wide text-muted">
-          Contract of Sale · PDF
-        </div>
-        <div className="space-y-2 p-4">
-          <div className="text-center font-serif text-[11px] font-semibold">CONTRACT OF SALE OF REAL ESTATE</div>
-          <Filler w="100%" />
-          <Filler w="82%" />
+    <div className="space-y-8">
+      <div ref={wrapRef} className="relative grid gap-6 sm:grid-cols-2 sm:items-start">
+        {/* evidence threads — decorative connectors (hidden on mobile) */}
+        <svg className="pointer-events-none absolute inset-0 z-10 hidden h-full w-full sm:block" aria-hidden>
           {EVIDENCE.map((e) => (
-            <div
+            <path
               key={e.key}
-              ref={(el) => {
-                srcRefs.current[e.key] = el;
-              }}
-              onMouseEnter={() => setActive(e.key)}
-              onMouseLeave={() => setActive(null)}
-              className={`flex items-center justify-between gap-2 rounded px-1.5 py-1 text-[11px] font-medium transition-colors ${
-                active === e.key ? "bg-accent text-accent-fg" : "bg-accent-soft text-foreground/85"
-              }`}
-            >
-              <span className="truncate">{e.src}</span>
-              <span className={active === e.key ? "shrink-0 opacity-70" : "shrink-0 text-muted"}>p.{e.page}</span>
-            </div>
+              d={paths[e.key] ?? ""}
+              fill="none"
+              stroke={active === e.key ? "var(--accent)" : "var(--muted)"}
+              strokeWidth={active === e.key ? 1.75 : 1}
+              strokeDasharray={active === e.key ? "0" : "2 5"}
+              className="transition-all duration-300"
+              style={{ opacity: active === e.key ? 1 : hovered || selected ? 0.14 : 0.3 }}
+            />
           ))}
-          <Filler w="70%" />
-          <Filler w="60%" />
+        </svg>
+
+        {/* Read from the contract (facts) */}
+        <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+          <div className="border-b border-border bg-inset px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
+            Read from the contract — select a fact to trace it
+          </div>
+          <ul>
+            {EVIDENCE.map((e) => (
+              <li key={e.key} className="border-b border-border last:border-0">
+                <button
+                  type="button"
+                  ref={(el) => {
+                    factRefs.current[e.key] = el;
+                  }}
+                  {...handlers(e.key)}
+                  aria-pressed={active === e.key}
+                  className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors ${
+                    active === e.key ? "bg-accent-soft" : "hover:bg-inset"
+                  }`}
+                >
+                  <span
+                    className={`h-2 w-2 shrink-0 rounded-full transition-colors ${active === e.key ? "bg-accent" : "bg-border"}`}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[10px] uppercase tracking-wide text-muted">{e.label}</span>
+                    <span className="block text-sm font-medium">{e.value}</span>
+                  </span>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                      active === e.key ? "bg-accent text-accent-fg" : "bg-inset text-muted"
+                    }`}
+                  >
+                    p.{e.page}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* The contract (source) */}
+        <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-[var(--shadow-sm)]">
+          <div className="border-b border-border bg-inset px-4 py-2.5 text-[10px] font-medium uppercase tracking-wide text-muted">
+            Contract of Sale · PDF
+          </div>
+          <div className="space-y-2 p-4">
+            <div className="text-center font-serif text-[11px] font-semibold">CONTRACT OF SALE OF REAL ESTATE</div>
+            <div className="h-1.5 rounded bg-border/70" style={{ width: "100%" }} />
+            <div className="h-1.5 rounded bg-border/70" style={{ width: "82%" }} />
+            {EVIDENCE.map((e) => (
+              <button
+                type="button"
+                key={e.key}
+                ref={(el) => {
+                  srcRefs.current[e.key] = el;
+                }}
+                {...handlers(e.key)}
+                aria-pressed={active === e.key}
+                className={`flex w-full items-center justify-between gap-2 rounded px-1.5 py-1 text-left text-[11px] font-medium transition-colors ${
+                  active === e.key ? "bg-accent text-accent-fg" : "bg-accent-soft text-foreground/85 hover:bg-accent/20"
+                }`}
+              >
+                <span className="truncate">{e.src}</span>
+                <span className={active === e.key ? "shrink-0 opacity-70" : "shrink-0 text-muted"}>p.{e.page}</span>
+              </button>
+            ))}
+            <div className="h-1.5 rounded bg-border/70" style={{ width: "70%" }} />
+            <div className="h-1.5 rounded bg-border/70" style={{ width: "60%" }} />
+          </div>
         </div>
       </div>
 
-      {/* Read from the contract (facts) */}
-      <div className="overflow-hidden rounded-xl border border-accent/40 bg-surface">
-        <div className="border-b border-border bg-inset px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
-          Read from the contract — hover to trace each source
+      {/* The reasoning chain: fact -> verified source -> readiness effect -> next action */}
+      <div className="rounded-2xl border border-border bg-surface px-5 py-5 sm:px-7 sm:py-6">
+        <div className="flex flex-wrap items-stretch gap-2 sm:gap-0">
+          <ChainStep tone="neutral" cap="Fact" body={`${cur.label} · ${cur.value}`} />
+          <ChainArrow />
+          <ChainStep tone="accent" cap="Verified source" body={`Contract of Sale, p.${cur.page}`} check />
+          <ChainArrow />
+          <ChainStep tone="neutral" cap="What it means" body={cur.effect} />
+          <ChainArrow />
+          <ChainStep tone="awaiting" cap="Next action" body={cur.next} />
         </div>
-        <ul className="divide-y divide-border">
-          {EVIDENCE.map((e) => (
-            <li
-              key={e.key}
-              ref={(el) => {
-                factRefs.current[e.key] = el;
-              }}
-              onMouseEnter={() => setActive(e.key)}
-              onMouseLeave={() => setActive(null)}
-              className={`space-y-1 px-4 py-3 transition-colors ${active === e.key ? "bg-accent-soft" : ""}`}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-[10px] uppercase tracking-wide text-muted">{e.label}</div>
-                <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
-                    active === e.key ? "bg-accent text-accent-fg" : "bg-inset text-muted"
-                  }`}
-                >
-                  ▤ p.{e.page}
-                </span>
-              </div>
-              <div className="text-sm font-medium">{e.value}</div>
-            </li>
-          ))}
-        </ul>
+        <p className="mt-4 text-xs text-muted">
+          Every fact carries its source and its consequence — so you can trust it, or reject it, in one look.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ChainArrow() {
+  return (
+    <div className="flex items-center justify-center px-1 text-muted sm:px-2" aria-hidden>
+      <span className="hidden sm:inline">→</span>
+      <span className="w-full text-center sm:hidden">↓</span>
+    </div>
+  );
+}
+
+function ChainStep({
+  tone,
+  cap,
+  body,
+  check,
+}: {
+  tone: "neutral" | "accent" | "awaiting";
+  cap: string;
+  body: string;
+  check?: boolean;
+}) {
+  const toneCls =
+    tone === "accent"
+      ? "border-accent/40 bg-accent-soft"
+      : tone === "awaiting"
+        ? "border-awaiting/40 bg-awaiting-soft"
+        : "border-border bg-inset/60";
+  const capCls = tone === "accent" ? "text-accent" : tone === "awaiting" ? "text-awaiting" : "text-muted";
+  return (
+    <div className={`flex-1 rounded-xl border px-3.5 py-3 transition-colors ${toneCls}`}>
+      <div className={`text-[10px] font-semibold uppercase tracking-wide ${capCls}`}>{cap}</div>
+      <div className="mt-1 flex items-center gap-1.5 text-sm font-medium text-foreground/90">
+        {check ? <span className="text-accent">✓</span> : null}
+        <span>{body}</span>
       </div>
     </div>
   );
