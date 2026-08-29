@@ -423,7 +423,8 @@ export function EvidenceProof() {
   });
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      <p className="text-center text-xs text-muted">Select a fact to trace it through the file.</p>
       <div ref={wrapRef} className="relative grid gap-6 sm:grid-cols-2 sm:items-start">
         {/* evidence threads — decorative connectors (hidden on mobile) */}
         <svg className="pointer-events-none absolute inset-0 z-10 hidden h-full w-full sm:block" aria-hidden>
@@ -444,7 +445,7 @@ export function EvidenceProof() {
         {/* Read from the contract (facts) */}
         <div className="overflow-hidden rounded-2xl border border-border bg-surface">
           <div className="border-b border-border bg-inset px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
-            Read from the contract — select a fact to trace it
+            Read from the contract
           </div>
           <ul>
             {EVIDENCE.map((e) => (
@@ -512,60 +513,53 @@ export function EvidenceProof() {
         </div>
       </div>
 
-      {/* The reasoning chain: fact -> verified source -> readiness effect -> next action */}
-      <div className="rounded-2xl border border-border bg-surface px-5 py-5 sm:px-7 sm:py-6">
-        <div className="flex flex-wrap items-stretch gap-2 sm:gap-0">
-          <ChainStep tone="neutral" cap="Fact" body={`${cur.label} · ${cur.value}`} />
-          <ChainArrow />
-          <ChainStep tone="accent" cap="Verified source" body={`Contract of Sale, p.${cur.page}`} check />
-          <ChainArrow />
-          <ChainStep tone="neutral" cap="What it means" body={cur.effect} />
-          <ChainArrow />
-          <ChainStep tone="awaiting" cap="Next action" body={cur.next} />
+      {/* The evidence trail: fact → verified source → effect → next action. Kept
+          deliberately quiet — a trail of chips + separators, not four cards that
+          compete with the panels above. */}
+      <div className="rounded-2xl border border-border bg-inset/30 px-5 py-4 sm:px-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-1 sm:gap-y-2">
+          <TrailStep cap="Fact" body={`${cur.label} · ${cur.value}`} />
+          <TrailSep />
+          <TrailStep tone="accent" cap="Verified source" body={`Contract of Sale, p.${cur.page}`} check />
+          <TrailSep />
+          <TrailStep cap="What it means" body={cur.effect} />
+          <TrailSep />
+          <TrailStep tone="awaiting" cap="Next action" body={cur.next} />
         </div>
-        <p className="mt-4 text-xs text-muted">
-          Every fact carries its source and its consequence — so you can trust it, or reject it, in one look.
-        </p>
       </div>
     </div>
   );
 }
 
-function ChainArrow() {
+function TrailSep() {
   return (
-    <div className="flex items-center justify-center px-1 text-muted sm:px-2" aria-hidden>
+    <span className="text-muted/60 sm:px-1" aria-hidden>
       <span className="hidden sm:inline">→</span>
-      <span className="w-full text-center sm:hidden">↓</span>
-    </div>
+      <span className="sm:hidden">↓</span>
+    </span>
   );
 }
 
-function ChainStep({
-  tone,
+function TrailStep({
+  tone = "neutral",
   cap,
   body,
   check,
 }: {
-  tone: "neutral" | "accent" | "awaiting";
+  tone?: "neutral" | "accent" | "awaiting";
   cap: string;
   body: string;
   check?: boolean;
 }) {
-  const toneCls =
-    tone === "accent"
-      ? "border-accent/40 bg-accent-soft"
-      : tone === "awaiting"
-        ? "border-awaiting/40 bg-awaiting-soft"
-        : "border-border bg-inset/60";
   const capCls = tone === "accent" ? "text-accent" : tone === "awaiting" ? "text-awaiting" : "text-muted";
   return (
-    <div className={`flex-1 rounded-xl border px-3.5 py-3 transition-colors ${toneCls}`}>
-      <div className={`text-[10px] font-semibold uppercase tracking-wide ${capCls}`}>{cap}</div>
-      <div className="mt-1 flex items-center gap-1.5 text-sm font-medium text-foreground/90">
+    <span className="min-w-0">
+      <span className={`mr-2 text-[10px] font-semibold uppercase tracking-wide ${capCls}`}>{cap}</span>
+      <span className="inline-flex items-center gap-1 text-sm font-medium text-foreground/90">
         {check ? <span className="text-accent">✓</span> : null}
-        <span>{body}</span>
-      </div>
-    </div>
+        {body}
+      </span>
+    </span>
   );
 }
 
@@ -1850,6 +1844,382 @@ export function TwoPathTriage() {
           </span>
         </p>
       </div>
+    </div>
+  );
+}
+
+// ── Sticky decision fork ──────────────────────────────────────────────────────
+
+/** Progress 0→1 as the sticky child is pinned through its tall track. */
+function useTrackProgress(ref: React.RefObject<HTMLElement | null>) {
+  const [p, setP] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let raf = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const rect = el.getBoundingClientRect();
+        const total = rect.height - window.innerHeight;
+        const scrolled = -rect.top;
+        setP(total > 0 ? Math.min(1, Math.max(0, scrolled / total)) : 0);
+      });
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      cancelAnimationFrame(raf);
+    };
+  }, [ref]);
+  return p;
+}
+
+/** The persistent matter workspace — one file whose readiness and requirements
+ *  evolve as the client replies. Real Briefly UI language. */
+function ForkWorkspace({
+  readiness,
+  received,
+  ready,
+  replyIn,
+}: {
+  readiness: number;
+  received: boolean;
+  ready: boolean;
+  replyIn: boolean;
+}) {
+  return (
+    <div className="glass glass-sheen rounded-3xl p-5 sm:p-6">
+      {/* header */}
+      <div className="flex items-center gap-3 border-b border-border pb-4">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent-soft text-xs font-semibold text-accent">
+          TN
+        </span>
+        <div className="min-w-0">
+          <div className="truncate text-sm font-semibold">Tomas Nowak</div>
+          <div className="truncate text-xs text-muted">Property Purchase · 8 Ellery Lane</div>
+        </div>
+        <span
+          className="ml-auto shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors duration-500"
+          style={
+            ready
+              ? { background: "var(--accent-soft)", color: "var(--accent)" }
+              : { background: "var(--awaiting-soft)", color: "var(--awaiting)" }
+          }
+        >
+          {ready ? "✓ Ready for your review" : "Preparing…"}
+        </span>
+      </div>
+
+      {/* readiness */}
+      <div className="mt-4 flex items-center gap-3">
+        <span className="text-[11px] font-medium uppercase tracking-wide text-muted">Readiness</span>
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-inset">
+          <div
+            className="h-full rounded-full"
+            style={{
+              width: `${readiness}%`,
+              background: ready ? "var(--accent)" : "var(--awaiting)",
+              transition: "width 300ms linear, background-color 500ms",
+            }}
+          />
+        </div>
+        <span
+          className="text-xs font-semibold tabular-nums"
+          style={{ color: ready ? "var(--accent)" : "var(--awaiting)" }}
+        >
+          {readiness}%
+        </span>
+      </div>
+
+      {/* requirements — checked against the firm's rulebook */}
+      <div className="mt-4 text-[11px] font-semibold uppercase tracking-wide text-muted">
+        Checked against your Property Purchase rulebook
+      </div>
+      <ul className="mt-2 space-y-1.5 text-sm">
+        {[
+          { label: "Property · 8 Ellery Lane, Fitzroy North", src: "from email" },
+          { label: "Vendors · Kwame & Abena Osei", src: "Contract p.1" },
+          { label: "Settlement · 5 June 2027", src: "Contract p.3" },
+        ].map((r) => (
+          <li key={r.label} className="flex items-center gap-2.5">
+            <span className="text-accent">&#10003;</span>
+            <span className="min-w-0 flex-1 truncate text-foreground/85">{r.label}</span>
+            <span className="shrink-0 text-xs text-muted">{r.src}</span>
+          </li>
+        ))}
+        {/* the pivotal requirement — the fork turns on this row */}
+        <li
+          id="fork-pivot"
+          className="flex items-center gap-2.5 rounded-md px-1.5 py-1 transition-colors"
+          style={
+            received
+              ? { background: "var(--accent-soft)" }
+              : { background: "color-mix(in srgb, var(--awaiting-soft) 60%, transparent)" }
+          }
+        >
+          <span style={{ color: received ? "var(--accent)" : "var(--awaiting)" }}>
+            {received ? "✓" : "○"}
+          </span>
+          <span className="min-w-0 flex-1 truncate text-foreground/85">Signed transfer</span>
+          <span
+            className="shrink-0 text-xs font-medium"
+            style={{ color: received ? "var(--accent)" : "var(--awaiting)" }}
+          >
+            {received ? "received · reply p.1" : "missing"}
+          </span>
+        </li>
+      </ul>
+
+      {/* the client reply — folds into the same matter */}
+      <div
+        className="mt-3 overflow-hidden"
+        style={{
+          maxHeight: replyIn ? 84 : 0,
+          opacity: replyIn ? 1 : 0,
+          transition: `max-height 500ms ${EASE}, opacity 400ms ${EASE}`,
+        }}
+      >
+        <div className="rounded-xl border border-border bg-surface px-3.5 py-2.5">
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-accent" aria-hidden>
+              &#9993;
+            </span>
+            <span className="font-medium text-foreground/85">Tomas replied</span>
+            <span className="ml-auto text-muted">folded into this matter</span>
+          </div>
+          <p className="mt-1 pl-6 text-xs italic text-muted">
+            &ldquo;Done — I&apos;ve signed the Contract of Sale and attached it.&rdquo;
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** One outcome of the fork — Path A (chase, awaiting) or Path B (work brief, ready). */
+function ForkOutcome({ variant }: { variant: "A" | "B" }) {
+  const a = variant === "A";
+  return (
+    <div
+      className={`h-full rounded-3xl border p-5 sm:p-6 ${
+        a ? "border-awaiting/40 bg-awaiting-soft/50" : "border-accent/40 bg-accent-soft/60"
+      }`}
+    >
+      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em]">
+        <span className={`h-1.5 w-1.5 rounded-full ${a ? "bg-awaiting" : "bg-accent"}`} />
+        <span className={a ? "text-awaiting" : "text-accent"}>
+          {a ? "Path A · Awaiting information" : "Path B · Ready for action"}
+        </span>
+      </div>
+      <h3 className="mt-3 font-serif text-xl font-semibold tracking-tight sm:text-2xl">
+        {a ? (
+          <>
+            One item is <span className="italic text-awaiting">still missing.</span>
+          </>
+        ) : (
+          <>
+            The file is <span className="italic text-accent">ready.</span>
+          </>
+        )}
+      </h3>
+      <p className="mt-2 text-sm text-muted">
+        {a
+          ? "Briefly prepares the exact request for what's outstanding — nothing more — and stops."
+          : "Every requirement is met and sourced. Briefly prepares the Initial Work Brief and your next decision."}
+      </p>
+
+      <div
+        className={`mt-4 rounded-xl border bg-surface px-4 py-3 ${a ? "border-awaiting/30" : "border-accent/30"}`}
+      >
+        <div
+          className={`flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide ${
+            a ? "text-awaiting" : "text-accent"
+          }`}
+        >
+          <MiniDoc />
+          {a ? "Prepared request" : "Initial Work Brief"}
+        </div>
+        {a ? (
+          <p className="mt-2 text-sm text-foreground/85">
+            &ldquo;Hi Tomas — could you send the signed transfer when you have a moment? Once it&apos;s in
+            we can proceed.&rdquo;
+          </p>
+        ) : (
+          <ul className="mt-2 space-y-1 text-sm text-foreground/85">
+            <li className="flex items-center gap-2">
+              <span className="text-accent">&#10003;</span> Parties, property &amp; settlement — all sourced
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="text-accent">&#10003;</span> Signed Contract of Sale on file
+            </li>
+            <li className="flex items-center gap-2 text-muted">
+              <span className="text-accent">→</span> Next: order title search on both proprietors
+            </li>
+          </ul>
+        )}
+      </div>
+
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <span
+          className={`inline-flex items-center gap-1.5 text-xs font-medium ${a ? "text-awaiting" : "text-accent"}`}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 3l7 4v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V7l7-4Z" />
+          </svg>
+          {a ? "Awaiting your review" : "Ready for your review"}
+        </span>
+        <span
+          className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
+            a ? "border border-awaiting/50 text-awaiting" : "bg-accent text-accent-fg"
+          }`}
+        >
+          {a ? "Review & send" : "Open the work brief"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/** The signature evidence thread for this chapter — a single connector between the
+ *  matter and its prepared outcome. Unresolved (dashed, honey) on Path A; resolved
+ *  (solid, forest) on Path B. Relative geometry, so it never misaligns; decorative,
+ *  hidden on mobile. */
+function ForkThread({ resolved }: { resolved: boolean }) {
+  return (
+    <svg
+      className="pointer-events-none hidden h-full w-full lg:block"
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      aria-hidden
+    >
+      <path
+        d="M 2 50 C 40 50, 60 50, 98 50"
+        fill="none"
+        stroke={resolved ? "var(--accent)" : "var(--awaiting)"}
+        strokeWidth={resolved ? 2 : 1.5}
+        strokeDasharray={resolved ? "0" : "3 4"}
+        vectorEffect="non-scaling-stroke"
+        style={{ transition: "stroke 500ms" }}
+      />
+      <circle cx="2" cy="50" r="2.4" fill={resolved ? "var(--accent)" : "var(--awaiting)"} vectorEffect="non-scaling-stroke" />
+      <circle cx="98" cy="50" r="2.4" fill={resolved ? "var(--accent)" : "var(--awaiting)"} vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
+export function DecisionFork() {
+  const reduced = useReducedMotion();
+  const trackRef = useRef<HTMLDivElement>(null);
+  const scrollP = useTrackProgress(trackRef);
+  const p = scrollP;
+
+  // Phase mapping. Reduced motion presents both outcomes at rest (no scroll).
+  const aOpacity = reduced ? 1 : Math.min(1, Math.max(0, (0.6 - p) / 0.12));
+  const bOpacity = reduced ? 1 : Math.min(1, Math.max(0, (p - 0.52) / 0.12));
+  const replyIn = reduced ? false : p >= 0.44;
+  const received = reduced ? false : p >= 0.52;
+  const ready = reduced ? false : p >= 0.6;
+  const readiness = reduced ? 66 : Math.round(66 + Math.min(1, Math.max(0, (p - 0.4) / 0.25)) * 34);
+
+  const Header = (
+    <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="max-w-xl">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+          <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+          One file · two paths
+        </div>
+        <h2 className="mt-3 font-serif text-3xl font-semibold leading-[1.08] tracking-tight text-balance sm:text-4xl">
+          Every enquiry reaches a clear fork.
+        </h2>
+      </div>
+      {/* which path is live */}
+      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em]">
+        <span
+          className="rounded-full px-2.5 py-1 transition-colors"
+          style={
+            ready
+              ? { background: "var(--inset)", color: "var(--muted)" }
+              : { background: "var(--awaiting-soft)", color: "var(--awaiting)" }
+          }
+        >
+          Path A
+        </span>
+        <span aria-hidden className="text-muted">
+          →
+        </span>
+        <span
+          className="rounded-full px-2.5 py-1 transition-colors"
+          style={
+            ready
+              ? { background: "var(--accent-soft)", color: "var(--accent)" }
+              : { background: "var(--inset)", color: "var(--muted)" }
+          }
+        >
+          Path B
+        </span>
+      </div>
+    </div>
+  );
+
+  const Stage = (
+    <div className="mx-auto max-w-6xl px-6">
+      {Header}
+      <div className="mt-8 grid items-center gap-5 lg:grid-cols-[minmax(0,1fr)_64px_minmax(0,1fr)] lg:gap-0">
+        {/* the one matter */}
+        <ForkWorkspace readiness={readiness} received={received} ready={ready} replyIn={replyIn} />
+
+        {/* evidence thread */}
+        <div className="hidden h-24 items-center justify-center lg:flex">
+          <ForkThread resolved={ready} />
+        </div>
+
+        {/* the active outcome */}
+        {reduced ? (
+          <div className="space-y-4">
+            <ForkOutcome variant="A" />
+            <ForkOutcome variant="B" />
+          </div>
+        ) : (
+          <div className="relative min-h-[300px]">
+            <div
+              className="lg:absolute lg:inset-0"
+              style={{ opacity: aOpacity, transition: "opacity 300ms linear", pointerEvents: aOpacity > 0.5 ? "auto" : "none" }}
+              aria-hidden={aOpacity < 0.5}
+            >
+              <ForkOutcome variant="A" />
+            </div>
+            <div
+              className="mt-4 lg:absolute lg:inset-0 lg:mt-0"
+              style={{ opacity: bOpacity, transition: "opacity 300ms linear", pointerEvents: bOpacity > 0.5 ? "auto" : "none" }}
+              aria-hidden={bOpacity < 0.5}
+            >
+              <ForkOutcome variant="B" />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* the automatic-prep promise + the human boundary */}
+      <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-muted">
+        By the time you open the file, Briefly has already done the prep.{" "}
+        <span className="font-medium text-foreground/80">You review, decide, and send.</span> Whichever
+        path, nothing leaves your desk until you approve it.
+      </p>
+    </div>
+  );
+
+  // Reduced motion → a calm, static presentation of both outcomes (no pinning).
+  if (reduced) {
+    return <div className="py-4">{Stage}</div>;
+  }
+
+  return (
+    <div ref={trackRef} className="relative h-[260vh]">
+      <div className="sticky top-0 flex min-h-screen items-center py-16">{Stage}</div>
     </div>
   );
 }

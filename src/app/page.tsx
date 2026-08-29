@@ -4,7 +4,7 @@ import { getAuthUser } from "@/lib/auth";
 import { PLANS, CREDIT_PACK } from "@/lib/plans";
 import { WaitlistForm } from "@/app/waitlist-form";
 import { joinWaitlist } from "@/app/waitlist-actions";
-import { Reveal, TwoPathTriage, HeroBackdrop, MatterScene, EvidenceProof } from "@/app/landing";
+import { Reveal, HeroBackdrop, MatterScene, EvidenceProof, DecisionFork } from "@/app/landing";
 import { ThemeToggle } from "@/app/theme-toggle";
 
 const PRICING = [PLANS.solo, PLANS.practice, PLANS.firm];
@@ -260,31 +260,10 @@ export default async function Landing() {
             Leave the empty frame; do NOT fabricate a testimonial. Sits between
             Proof and the wedge, ready for a named conveyancer + one-line quote. */}
 
-        {/* ── 5 · The wedge — reads what the client actually sent ────────── */}
-        <Section id="wedge">
-          <Heading
-            title="When the client ignores the form, Briefly reads what they sent instead."
-            sub="Structured forms work — for the clients who fill them in. For everyone else, Briefly works out what's missing against your checklist, drafts the exact request for what's outstanding, and reads each reply the moment it lands. You approve every chase before it sends."
-          />
-          <Reveal>
-            <TwoPathTriage />
-          </Reveal>
-
-          {/* What lands on your desk — the prepared file, its three real parts. */}
-          <Reveal className="mt-4 grid gap-4 sm:grid-cols-3">
-            {[
-              { v: "Understand", t: "What Briefly noticed", d: "The facts it connected — each tied to a client quote or the document page it came from." },
-              { v: "Decide", t: "What's outstanding", d: "Exactly what's still missing against your checklist, and whether the file is ready." },
-              { v: "Act", t: "The chase, drafted", d: "The precise request for what's outstanding — yours to edit, approve, and send." },
-            ].map((c) => (
-              <div key={c.t} className="rounded-2xl border border-border bg-surface p-5">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">{c.v}</div>
-                <h3 className="mt-2 font-serif text-lg font-semibold tracking-tight">{c.t}</h3>
-                <p className="mt-1.5 text-sm text-muted">{c.d}</p>
-              </div>
-            ))}
-          </Reveal>
-        </Section>
+        {/* ── 5 · The decision fork — one matter, missing → ready, scroll-pinned ── */}
+        <section id="wedge" className="scroll-mt-24">
+          <DecisionFork />
+        </section>
 
         {/* ── 6 · You keep the call — human-gated trust ─────────────────── */}
         <Section>
