@@ -110,6 +110,148 @@ export function HeroBackdrop() {
   );
 }
 
+/**
+ * The hero's living matter — one conveyancing file moving through Briefly's four
+ * quiet stages (Read → Check → Chase → Prepare). Not a flashy AI transformation:
+ * one calm process becoming progressively more complete, always anchored to plain
+ * detail so a visitor can see exactly what the product does.
+ */
+const MATTER_PHASES = [
+  {
+    label: "Read",
+    dot: "bg-accent",
+    status: "Reads the enquiry, the contract, and every reply",
+    detail: "“We're buying at 8 Ellery Lane, Fitzroy North.” — Contract of Sale attached.",
+    meta: "1 email · 1 document received",
+    rows: [
+      { icon: "✉", text: "Client enquiry — Tomas Nowak", tone: "muted" as const },
+      { icon: "▤", text: "Contract of Sale.pdf", tone: "muted" as const },
+    ],
+  },
+  {
+    label: "Check",
+    dot: "bg-awaiting",
+    status: "Checks the file against your Property Purchase rulebook",
+    detail: "Every required fact and document, matched to your firm's definition of ready.",
+    meta: "1 item missing",
+    rows: [
+      { icon: "✓", text: "Property · 8 Ellery Lane, Fitzroy North", tone: "accent" as const },
+      { icon: "✓", text: "Vendors · Kwame & Abena Osei", tone: "accent" as const },
+      { icon: "○", text: "Signed transfer — missing", tone: "error" as const },
+    ],
+  },
+  {
+    label: "Chase",
+    dot: "bg-awaiting",
+    status: "Drafts the exact request for what's missing",
+    detail: "Ready for you to review and send — Briefly never sends on its own.",
+    meta: "1 draft awaiting your approval",
+    rows: [
+      { icon: "✎", text: "“Hi Tomas — could you send the signed transfer…”", tone: "muted" as const },
+      { icon: "→", text: "Review & send", tone: "accent" as const },
+    ],
+  },
+  {
+    label: "Prepare",
+    dot: "bg-accent",
+    status: "A source-backed matter, ready for your review",
+    detail: "Known facts, their sources, what's outstanding, and the next move.",
+    meta: "Settlement 5 June 2027 · Ready for review",
+    rows: [
+      { icon: "✓", text: "Settlement · 5 June 2027 — Contract p.3", tone: "accent" as const },
+      { icon: "✓", text: "Purchase price · $1,295,000 — p.3", tone: "accent" as const },
+      { icon: "○", text: "Signed transfer — still outstanding", tone: "awaiting" as const },
+    ],
+  },
+];
+
+const MATTER_TONE: Record<string, string> = {
+  accent: "text-accent",
+  awaiting: "text-awaiting",
+  error: "text-error",
+  muted: "text-muted",
+};
+
+export function MatterScene() {
+  const reduced = useReducedMotion();
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    if (reduced) {
+      setI(MATTER_PHASES.length - 1);
+      return;
+    }
+    const t = window.setInterval(() => setI((p) => (p + 1) % MATTER_PHASES.length), 2900);
+    return () => window.clearInterval(t);
+  }, [reduced]);
+  const p = MATTER_PHASES[i];
+
+  return (
+    <div
+      className="overflow-hidden rounded-2xl text-left ring-1 ring-white/10"
+      style={{ background: "#f3f4ef", boxShadow: "0 50px 130px -30px rgba(0,0,0,0.8)" }}
+    >
+      <div
+        className="flex items-center gap-2 px-5 py-3.5"
+        style={{ background: "#eaeee4", borderBottom: "1px solid rgba(29,38,33,0.06)" }}
+      >
+        <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#d7b3aa" }} />
+        <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#e6d3a0" }} />
+        <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#b6c9ad" }} />
+        <span className="ml-2 truncate text-[12px] text-muted">
+          Property Purchase — Conveyancing · Tomas Nowak
+        </span>
+        <span className="ml-auto shrink-0 text-[11px] tabular-nums text-muted">
+          Step {i + 1} of {MATTER_PHASES.length}
+        </span>
+      </div>
+
+      <div className="px-6 py-7 sm:px-8">
+        <div key={i} className="anim-swapin min-h-[164px] space-y-3.5">
+          <div className="flex items-center gap-2.5">
+            <span className={`h-2 w-2 rounded-full ${p.dot}`} />
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted">{p.label}</span>
+          </div>
+          <h3 className="font-serif text-xl font-medium tracking-tight text-foreground sm:text-2xl">
+            {p.status}
+          </h3>
+          <p className="max-w-xl text-sm text-muted">{p.detail}</p>
+          <ul className="space-y-2 pt-0.5">
+            {p.rows.map((r, idx) => (
+              <li key={idx} className="flex items-center gap-2.5 text-sm">
+                <span className={`w-4 shrink-0 text-center ${MATTER_TONE[r.tone]}`}>{r.icon}</span>
+                <span className="text-foreground/85">{r.text}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="mt-6 flex items-center justify-between gap-4 border-t border-border pt-4">
+          <span className="text-xs font-medium text-muted">{p.meta}</span>
+          <div className="flex items-center gap-1.5">
+            {MATTER_PHASES.map((_, idx) => (
+              <span
+                key={idx}
+                className={`h-1.5 rounded-full transition-all duration-500 ${idx === i ? "w-6 bg-accent" : "w-1.5 bg-border"}`}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-4 border-t border-border text-center text-xs font-medium">
+        {MATTER_PHASES.map((ph, idx) => (
+          <div
+            key={idx}
+            className={`py-3 transition-colors duration-500 ${idx === i ? "bg-accent-soft text-accent" : "text-muted"}`}
+          >
+            {ph.label}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function useReducedMotion() {
   const [rm, setRm] = useState(false);
   useEffect(() => {

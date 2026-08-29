@@ -4,7 +4,7 @@ import { getAuthUser } from "@/lib/auth";
 import { PLANS, CREDIT_PACK } from "@/lib/plans";
 import { WaitlistForm } from "@/app/waitlist-form";
 import { joinWaitlist } from "@/app/waitlist-actions";
-import { Reveal, PreparedDesk, TwoPathTriage, HeroBackdrop } from "@/app/landing";
+import { Reveal, TwoPathTriage, HeroBackdrop, MatterScene } from "@/app/landing";
 import { ThemeToggle } from "@/app/theme-toggle";
 
 const PRICING = [PLANS.solo, PLANS.practice, PLANS.firm];
@@ -74,29 +74,34 @@ export default async function Landing() {
           {/* decorative layer — sage/cream circles, contour lines, dotted grid, w/ parallax */}
           <HeroBackdrop />
 
-          {/* content — message left, live demo floating right */}
-          <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-6 py-16 lg:grid-cols-[1fr_1.05fr] lg:gap-14 lg:py-24">
-            <div className="anim-rise">
+          {/* content — one central thesis, then the living matter scene below it */}
+          <div className="relative mx-auto max-w-5xl px-6 py-16 sm:py-20">
+            <div className="anim-rise mx-auto max-w-3xl text-center">
               <div
-                className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em]"
+                className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em]"
                 style={{ color: "#9aa48f" }}
               >
                 <span className="h-1.5 w-1.5 rounded-full" style={{ background: "#7fb086" }} />
                 For conveyancers and property firms
               </div>
               <h1
-                className="mt-6 font-serif text-4xl font-semibold leading-[1.06] tracking-tight text-balance sm:text-5xl lg:text-[3.3rem]"
+                className="mt-6 font-serif font-semibold leading-[1.02] tracking-tight text-balance text-5xl sm:text-6xl lg:text-7xl"
                 style={{ color: "#f4f5ef" }}
               >
-                Your client&apos;s messy email, turned into a checked, ready file
-                <span style={{ color: "#7fb086" }}>.</span>
+                The file before the file<span style={{ color: "#7fb086" }}>.</span>
               </h1>
-              <p className="mt-6 max-w-xl text-lg leading-relaxed" style={{ color: "#a7ae9f" }}>
-                Whatever your client actually sends — a rushed note, three PDFs, a photo of the
-                contract — Briefly reads it, checks it against your checklist, chases what&apos;s
-                missing, and hands you a file that&apos;s ready to open.
+              <p
+                className="mx-auto mt-7 max-w-2xl text-lg leading-relaxed"
+                style={{ color: "#a7ae9f" }}
+              >
+                Briefly turns messy client emails, contracts, and replies into a checked matter ready
+                for your review. It finds what&apos;s missing, reads what comes back, and prepares the
+                next move using your firm&apos;s own requirements.
               </p>
-              <div className="mt-9 flex flex-wrap items-center gap-4">
+              <p className="mt-5 text-sm font-medium" style={{ color: "#8fb894" }}>
+                You review, decide, and send. Briefly does the prep.
+              </p>
+              <div className="mt-9 flex flex-wrap items-center justify-center gap-4">
                 <a
                   href="#waitlist"
                   className="rounded-lg px-6 py-3 text-sm font-semibold shadow-sm transition-transform hover:-translate-y-0.5"
@@ -109,36 +114,14 @@ export default async function Landing() {
                   className="text-sm font-medium underline decoration-dotted underline-offset-4"
                   style={{ color: "#cdd4c6" }}
                 >
-                  See how it works →
+                  How it works →
                 </a>
               </div>
-              <p className="mt-8 max-w-md text-sm leading-relaxed" style={{ color: "#828b78" }}>
-                Keep working the way you do. Just forward your enquiries — nothing to switch, nothing
-                to migrate.
-              </p>
             </div>
 
-            {/* The live demo, framed as a light app window floating on the dark hero */}
-            <div className="anim-rise" style={{ animationDelay: "120ms" }}>
-              <div
-                className="overflow-hidden rounded-2xl ring-1 ring-white/10"
-                style={{ background: "#f3f4ef", boxShadow: "0 50px 120px -30px rgba(0,0,0,0.75)" }}
-              >
-                <div
-                  className="flex items-center gap-1.5 px-4 py-3"
-                  style={{ background: "#eaeee4", borderBottom: "1px solid rgba(29,38,33,0.06)" }}
-                >
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#d7b3aa" }} />
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#e6d3a0" }} />
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#b6c9ad" }} />
-                  <span className="ml-3 text-[11px]" style={{ color: "#8b9188" }}>
-                    Briefly — matter prepared
-                  </span>
-                </div>
-                <div className="px-5 pb-4 pt-2">
-                  <PreparedDesk />
-                </div>
-              </div>
+            {/* The living matter — one file moving through Read → Check → Chase → Prepare */}
+            <div className="anim-rise mx-auto mt-14 max-w-3xl sm:mt-16" style={{ animationDelay: "140ms" }}>
+              <MatterScene />
             </div>
           </div>
         </section>
