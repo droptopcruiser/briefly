@@ -116,6 +116,10 @@ export default async function Landing() {
                 the copy, so it reads as the focal object of the hero, not a demo below. */}
             <div className="anim-rise mx-auto mt-12 max-w-4xl sm:mt-14" style={{ animationDelay: "140ms" }}>
               <MatterScene />
+              <p className="mt-6 text-center text-sm" style={{ color: "#8fb894" }}>
+                Follow one file as it becomes ready
+                <span aria-hidden style={{ color: "#7fb086" }}> ↓</span>
+              </p>
             </div>
           </div>
         </section>

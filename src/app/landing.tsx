@@ -356,43 +356,59 @@ export function MatterScene() {
  * hidden (mobile / reduced-motion).
  */
 const EVIDENCE = [
-  {
-    key: "settlement",
-    label: "Settlement date",
-    value: "5 June 2027",
-    page: 3,
-    src: "Settlement Date: 5 June 2027",
-    effect: "Settlement in 8 days",
-    next: "Signed authority still missing",
-  },
-  {
-    key: "price",
-    label: "Purchase price",
-    value: "$1,295,000",
-    page: 3,
-    src: "Purchase Price: $1,295,000 (AUD)",
-    effect: "Funds to reconcile before settlement",
-    next: "Confirm the deposit was paid",
-  },
-  {
-    key: "vendors",
-    label: "Vendors",
-    value: "Kwame & Abena Osei",
-    page: 1,
-    src: "Vendors: Kwame Osei and Abena Osei",
-    effect: "Two proprietors on title",
-    next: "Order a title search on both",
-  },
-  {
-    key: "property",
-    label: "Property",
-    value: "8 Ellery Lane, Fitzroy North",
-    page: 1,
-    src: "Property: 8 Ellery Lane, Fitzroy North VIC 3068",
-    effect: "Title and plan identified",
-    next: "Begin the property certificates",
-  },
+  { key: "settlement", label: "Settlement date", value: "5 June 2027", page: 3, effect: "Settlement in 8 days", next: "Signed authority still missing" },
+  { key: "price", label: "Purchase price", value: "$1,295,000", page: 3, effect: "Funds to reconcile before settlement", next: "Confirm the deposit was paid" },
+  { key: "vendors", label: "Vendors", value: "Kwame & Abena Osei", page: 1, effect: "Two proprietors on title", next: "Order a title search on both" },
+  { key: "property", label: "Property", value: "8 Ellery Lane, Fitzroy North", page: 1, effect: "Title and plan identified", next: "Begin the property certificates" },
 ];
+
+// The actual contract pages the viewer renders — believable clause text, with the
+// exact phrase Briefly cited marked inline. Only the active fact's page is shown.
+type Clause = { head?: string; pre?: string; markKey?: string; mark?: string; post?: string };
+const PAGE_CONTENT: Record<number, Clause[]> = {
+  1: [
+    { head: "1.  The Property" },
+    { pre: "The land known as ", markKey: "property", mark: "8 Ellery Lane, Fitzroy North VIC 3068", post: ", being the whole of the land in Certificate of Title Volume 10982 Folio 447." },
+    { head: "2.  The Vendor" },
+    { pre: "The Vendors are ", markKey: "vendors", mark: "Kwame Osei and Abena Osei", post: ", who sell as joint proprietors and warrant clear and unencumbered title to the Property." },
+    { pre: "The Vendors shall give vacant possession of the Property to the Purchaser on the settlement date." },
+  ],
+  3: [
+    { head: "5.  Price and Deposit" },
+    { pre: "The Purchase Price is ", markKey: "price", mark: "$1,295,000 (AUD)", post: ", of which a deposit of $129,500 is payable by the Purchaser upon execution of this Contract." },
+    { head: "6.  Settlement" },
+    { pre: "Settlement shall be effected on ", markKey: "settlement", mark: "5 June 2027", post: ", at the office of the Vendor's solicitor or as the parties may otherwise agree in writing." },
+    { pre: "Interest is payable on any money in default from the date due until settlement is completed." },
+  ],
+};
+
+/** One label/value pair in the active fact's evidence stack — clear vertical spacing,
+ *  no crowding. The verified source renders as a warm evidence chip. */
+function EvGroup({
+  label,
+  value,
+  tone = "neutral",
+  chip = false,
+}: {
+  label: string;
+  value: string;
+  tone?: "neutral" | "accent" | "awaiting";
+  chip?: boolean;
+}) {
+  const labelCls = tone === "accent" ? "text-accent" : tone === "awaiting" ? "text-awaiting" : "text-muted";
+  return (
+    <div>
+      <div className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${labelCls}`}>{label}</div>
+      {chip ? (
+        <div className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-accent-soft px-2 py-1 text-xs font-medium text-accent">
+          <Check className="text-accent" /> {value}
+        </div>
+      ) : (
+        <div className="mt-1 text-sm text-foreground/90">{value}</div>
+      )}
+    </div>
+  );
+}
 
 export function EvidenceProof() {
   const [selected, setSelected] = useState("settlement");
@@ -454,10 +470,12 @@ export function EvidenceProof() {
     onClick: () => setSelected(k),
   });
 
+  const cur = EVIDENCE.find((e) => e.key === active) ?? EVIDENCE[0];
+
   return (
     <div className="space-y-5">
       <p className="text-center text-xs text-muted">Select a fact to trace it through the file.</p>
-      <div ref={wrapRef} className="relative grid gap-6 sm:grid-cols-[1.05fr_1fr] sm:items-start">
+      <div ref={wrapRef} className="relative grid gap-6 sm:grid-cols-[1fr_1.1fr] sm:items-start">
         {/* evidence thread — one restrained connector for the active fact (hidden on mobile) */}
         <svg className="pointer-events-none absolute inset-0 z-10 hidden h-full w-full sm:block" aria-hidden>
           {EVIDENCE.map((e) => (
@@ -465,17 +483,16 @@ export function EvidenceProof() {
               key={e.key}
               d={paths[e.key] ?? ""}
               fill="none"
-              stroke={active === e.key ? "var(--accent)" : "var(--muted)"}
-              strokeWidth={active === e.key ? 1.75 : 1}
-              strokeDasharray={active === e.key ? "0" : "2 5"}
-              className="transition-all duration-300"
-              style={{ opacity: active === e.key ? 0.9 : 0 }}
+              stroke="var(--accent)"
+              strokeWidth={1.75}
+              className="transition-opacity duration-200"
+              style={{ opacity: active === e.key ? 0.85 : 0 }}
             />
           ))}
         </svg>
 
         {/* Left — the facts Briefly read; the active row expands to its full chain,
-            so fact → source → effect → next action reads in one place. */}
+            with clear label/value spacing so it reads in one glance. */}
         <div className="overflow-hidden rounded-2xl border border-border bg-surface">
           <div className="border-b border-border bg-inset px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
             Read from the contract
@@ -492,40 +509,29 @@ export function EvidenceProof() {
                     }}
                     {...handlers(e.key)}
                     aria-pressed={on}
-                    className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors ${
+                    className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-200 ${
                       on ? "bg-accent-soft" : "hover:bg-inset"
                     }`}
                   >
-                    <span className={`h-2 w-2 shrink-0 rounded-full transition-colors ${on ? "bg-accent" : "bg-border"}`} />
+                    <span className={`h-2 w-2 shrink-0 rounded-full transition-colors duration-200 ${on ? "bg-accent" : "bg-border"}`} />
                     <span className="min-w-0 flex-1">
                       <span className="block text-[10px] uppercase tracking-wide text-muted">{e.label}</span>
                       <span className="block text-sm font-medium">{e.value}</span>
                     </span>
                     <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors duration-200 ${
                         on ? "bg-accent text-accent-fg" : "bg-inset text-muted"
                       }`}
                     >
                       p.{e.page}
                     </span>
                   </button>
-                  {/* the reasoning chain, attached to the active row */}
-                  <div
-                    className="overflow-hidden"
-                    style={{ maxHeight: on ? 132 : 0, transition: `max-height 360ms ${EASE}` }}
-                  >
-                    <div className="space-y-1.5 border-t border-accent/15 bg-accent-soft/40 px-4 py-3 pl-9 text-xs">
-                      <div className="flex items-center gap-1.5 font-medium text-accent">
-                        <Check className="text-accent" /> Verified · Contract of Sale, p.{e.page}
-                      </div>
-                      <div className="text-foreground/80">
-                        <span className="mr-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted">Effect</span>
-                        {e.effect}
-                      </div>
-                      <div className="text-foreground/80">
-                        <span className="mr-1.5 text-[10px] font-semibold uppercase tracking-wide text-awaiting">Next</span>
-                        {e.next}
-                      </div>
+                  {/* the reasoning chain, grouped label-over-value — no crowding */}
+                  <div className="overflow-hidden" style={{ maxHeight: on ? 210 : 0, transition: `max-height 240ms ${EASE}` }}>
+                    <div className="space-y-3 border-t border-accent/15 bg-accent-soft/30 px-4 py-4 pl-9">
+                      <EvGroup label="Verified source" tone="accent" chip value={`Contract of Sale · p. ${e.page}`} />
+                      <EvGroup label="What it means" value={e.effect} />
+                      <EvGroup label="Next action" tone="awaiting" value={e.next} />
                     </div>
                   </div>
                 </li>
@@ -534,45 +540,69 @@ export function EvidenceProof() {
           </ul>
         </div>
 
-        {/* Right — a real-looking scanned contract page; the active clause highlights softly */}
+        {/* Right — the source document viewer: a light paper contract page inside the
+            product glass; selecting a fact turns to its page and highlights the clause. */}
         <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-[var(--shadow-sm)]">
           <div className="flex items-center justify-between border-b border-border bg-inset px-4 py-2.5 text-[10px] font-medium uppercase tracking-wide text-muted">
-            <span>Contract of Sale · scanned</span>
-            <span>Fitzroy North · VIC</span>
+            <span>Contract of Sale · source document</span>
+            <span className="inline-flex items-center gap-2 tabular-nums">
+              <span aria-hidden className="text-muted/50">‹</span>
+              Page {cur.page} of 12
+              <span aria-hidden className="text-muted/50">›</span>
+            </span>
           </div>
-          <div className="space-y-2.5 px-5 py-4" style={{ background: "color-mix(in srgb, var(--inset) 30%, transparent)" }}>
-            <div className="flex items-baseline justify-between">
-              <span className="font-serif text-[12px] font-semibold tracking-tight text-foreground/70">
-                Contract of Sale of Real Estate
-              </span>
-              <span className="text-[9px] text-muted">p. 1–3</span>
-            </div>
-            <div className="h-1.5 rounded bg-border/60" style={{ width: "94%" }} />
-            <div className="h-1.5 rounded bg-border/60" style={{ width: "78%" }} />
-            {EVIDENCE.map((e, i) => (
-              <div key={e.key} className="space-y-2.5">
-                <button
-                  type="button"
-                  ref={(el) => {
-                    srcRefs.current[e.key] = el;
-                  }}
-                  {...handlers(e.key)}
-                  aria-pressed={active === e.key}
-                  className={`flex w-full items-start gap-2 border-l-2 py-1 pl-2.5 pr-1 text-left text-[11px] leading-relaxed transition-colors ${
-                    active === e.key
-                      ? "border-accent bg-accent-soft text-foreground"
-                      : "border-transparent text-foreground/70 hover:bg-inset/60"
-                  }`}
-                >
-                  <span className="shrink-0 text-[9px] font-semibold tabular-nums text-muted">{i + 1}.{i + 3}</span>
-                  <span className="min-w-0 flex-1">{e.src}</span>
-                  <span className="shrink-0 text-[9px] text-muted">p.{e.page}</span>
-                </button>
-                {/* uneven filler lines between clauses — a scanned page, not a poster */}
-                <div className="h-1.5 rounded bg-border/60" style={{ width: `${72 - i * 6}%` }} />
+          <div className="p-3 sm:p-4" style={{ background: "color-mix(in srgb, var(--inset) 45%, transparent)" }}>
+            {/* the paper page */}
+            <div
+              className="rounded-md px-5 py-5 sm:px-6"
+              style={{
+                background: "#f6f2e6",
+                color: "#33302a",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 2px rgba(0,0,0,0.14), 0 8px 20px -12px rgba(0,0,0,0.4)",
+                backgroundImage: "repeating-linear-gradient(180deg, transparent, transparent 27px, rgba(120,110,80,0.05) 27px, rgba(120,110,80,0.05) 28px)",
+              }}
+            >
+              <div className="mb-4 flex items-baseline justify-between border-b border-black/10 pb-2">
+                <span className="font-serif text-[12px] font-semibold tracking-tight" style={{ color: "#2c2822" }}>
+                  Contract of Sale of Land
+                </span>
+                <span className="text-[9px] tabular-nums" style={{ color: "#8a8272" }}>
+                  Page {cur.page}
+                </span>
               </div>
-            ))}
-            <div className="h-1.5 rounded bg-border/60" style={{ width: "66%" }} />
+              <div key={cur.page} className="anim-swapin space-y-2.5">
+                {PAGE_CONTENT[cur.page].map((ln, i) =>
+                  ln.head ? (
+                    <div key={i} className="pt-1.5 font-serif text-[10.5px] font-bold uppercase tracking-[0.08em]" style={{ color: "#4a4438" }}>
+                      {ln.head}
+                    </div>
+                  ) : (
+                    <p key={i} className="font-serif text-[11.5px] leading-[1.75]" style={{ color: "#33302a", textAlign: "justify" }}>
+                      {ln.pre}
+                      {ln.markKey && ln.mark ? (
+                        <button
+                          type="button"
+                          ref={(el) => {
+                            srcRefs.current[ln.markKey!] = el;
+                          }}
+                          {...handlers(ln.markKey)}
+                          aria-pressed={active === ln.markKey}
+                          className="rounded-[2px] px-0.5 font-medium transition-colors duration-200"
+                          style={
+                            active === ln.markKey
+                              ? { background: "rgba(232,196,110,0.6)", boxShadow: "0 0 0 1px rgba(198,158,72,0.4)", color: "#2a2620" }
+                              : { background: "rgba(232,196,110,0.18)", color: "#2a2620" }
+                          }
+                        >
+                          {ln.mark}
+                        </button>
+                      ) : null}
+                      {ln.post}
+                    </p>
+                  ),
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -2193,58 +2223,70 @@ export function DecisionFork() {
   const trackRef = useRef<HTMLDivElement>(null);
   const p = useTrackProgress(trackRef);
 
-  // Beats — the causal story, revealed one at a time as the visitor scrolls.
-  const received = p >= 0.64;
-  const ready = p >= 0.74;
+  // Beats — the causal story, revealed one at a time as the visitor scrolls
+  // (thresholds follow the required Path A → reply → Path B progression).
+  const requestIn = p >= 0.45;
+  const replyIn = p >= 0.6;
+  const received = p >= 0.72;
+  const ready = p >= 0.86;
   const state: ForkState = {
-    emailIn: p >= 0.04,
-    checkIn: p >= 0.16,
-    pivotIn: p >= 0.28,
-    requestIn: p >= 0.4,
-    replyIn: p >= 0.54,
+    emailIn: p >= 0.02,
+    checkIn: p >= 0.15,
+    pivotIn: p >= 0.3,
+    requestIn,
+    replyIn,
     received,
     ready,
     readiness: ready ? 100 : received ? 88 : 70,
   };
+  const phase = ready
+    ? "Ready for your review"
+    : received
+      ? "Reading the reply"
+      : replyIn
+        ? "Client replied"
+        : requestIn
+          ? "Request prepared"
+          : "Preparing";
 
   const Header = (
-    <div className="flex flex-wrap items-end justify-between gap-4">
-      <div className="max-w-xl">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
-          <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-          One file · two paths
-        </div>
-        <h2 className="mt-3 font-serif text-3xl font-semibold leading-[1.08] tracking-tight text-balance sm:text-4xl">
-          Every enquiry reaches a clear fork.
-        </h2>
-        <p className="mt-3 text-sm text-muted">
-          Your intake form only catches the tidy clients. Here&apos;s what Briefly does with everyone
-          else — read, checked, and prepared, from the messy email to a file ready for your review.
-        </p>
+    <div className="max-w-xl">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+        <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+        One file · two paths
       </div>
-      {/* which path is live */}
-      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em]">
-        <span
-          className="rounded-full px-2.5 py-1 transition-colors duration-500"
-          style={ready ? { background: "var(--inset)", color: "var(--muted)" } : { background: "var(--awaiting-soft)", color: "var(--awaiting)" }}
-        >
-          Path A
-        </span>
-        <span aria-hidden className="text-muted">→</span>
-        <span
-          className="rounded-full px-2.5 py-1 transition-colors duration-500"
-          style={ready ? { background: "var(--accent-soft)", color: "var(--accent)" } : { background: "var(--inset)", color: "var(--muted)" }}
-        >
-          Path B
-        </span>
+      <h2 className="mt-3 font-serif text-3xl font-semibold leading-[1.08] tracking-tight text-balance sm:text-4xl">
+        Every enquiry reaches a clear fork.
+      </h2>
+      <p className="mt-3 text-sm text-muted">
+        Your intake form only catches the tidy clients. Here&apos;s what Briefly does with everyone
+        else — read, checked, and prepared, from the messy email to a file ready for your review.
+      </p>
+    </div>
+  );
+
+  // A live, NON-interactive readout of where the scroll is in the story — makes it
+  // unmistakable that scrolling (not a control) drives the matter forward.
+  const ScrollReadout = (
+    <div className="mt-6 flex items-center gap-3">
+      <span className="text-[11px] font-medium uppercase tracking-[0.12em] transition-colors duration-500" style={{ color: ready ? "var(--accent)" : "var(--muted)" }}>
+        {phase}
+      </span>
+      <div className="h-1 flex-1 overflow-hidden rounded-full bg-inset">
+        <div
+          className="h-full rounded-full"
+          style={{ width: `${Math.round(p * 100)}%`, background: ready ? "var(--accent)" : "var(--awaiting)", transition: "width 120ms linear, background-color 500ms" }}
+        />
       </div>
+      <span className="text-[11px] text-muted">Scroll to follow</span>
     </div>
   );
 
   const Stage = (
     <div className="mx-auto max-w-6xl px-6">
       {Header}
-      <div className="mt-8 grid items-center gap-5 lg:grid-cols-[minmax(0,1fr)_64px_minmax(0,1fr)] lg:gap-0">
+      {ScrollReadout}
+      <div className="mt-6 grid items-center gap-5 lg:grid-cols-[minmax(0,1fr)_64px_minmax(0,1fr)] lg:gap-0">
         <ForkWorkspace {...state} />
         <div className="hidden h-24 items-center justify-center lg:flex">
           <ForkThread resolved={ready} />
