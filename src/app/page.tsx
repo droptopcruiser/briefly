@@ -120,65 +120,6 @@ export default async function Landing() {
           </div>
         </section>
 
-        {/* ── 2 · The leak, made visible ────────────────────────────────── */}
-        <Section id="leak">
-          <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
-            <Reveal className="space-y-4">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
-                <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-                The work before the work
-              </div>
-              <h2 className="font-serif text-3xl font-semibold leading-[1.08] tracking-tight text-balance sm:text-4xl">
-                Your intake form only catches the tidy clients.
-              </h2>
-              <p className="max-w-xl text-muted">
-                The rest email a messy note with the contract attached — and you end up doing the prep
-                by hand anyway.{" "}
-                <span className="text-foreground/80">(No intake form? Then every enquiry is that messy note.)</span>{" "}
-                Briefly reads whatever actually lands and turns it into a checked file — so someone
-                doesn&apos;t have to do it by hand. Right now that someone is you.
-              </p>
-            </Reveal>
-
-            <Reveal className="grid gap-3">
-              {/* What your form expected — tidy, empty */}
-              <div className="rounded-xl border border-dashed border-border bg-inset/50 p-4">
-                <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted">
-                  What your form expected
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {["Property address", "Parties", "Purchase price", "Settlement date"].map((f) => (
-                    <div key={f} className="rounded-md border border-border bg-surface px-2.5 py-1.5">
-                      <div className="text-[10px] text-muted">{f}</div>
-                      <div className="mt-1 h-1.5 w-2/3 rounded bg-border/70" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {/* What actually landed — the mess */}
-              <div className="rounded-xl border border-border bg-surface p-4 shadow-[var(--shadow-sm)]">
-                <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-awaiting">
-                  What actually landed in your inbox
-                </div>
-                <p className="text-sm leading-relaxed text-foreground/85">
-                  &ldquo;Hi, buying at 8 Ellery Lane, settlement&apos;s 5 June — contract attached, and a
-                  photo of the page you wanted. Signed transfer to come.&rdquo;
-                </p>
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {["📎 Contract-of-Sale.pdf", "📷 IMG_4471.jpg", "📎 Section-32.pdf"].map((a) => (
-                    <span
-                      key={a}
-                      className="rounded-md border border-border bg-raise px-2 py-1 text-[11px] font-medium text-foreground/75"
-                    >
-                      {a}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </Reveal>
-          </div>
-        </Section>
-
         {/* ── 3 · The position — in front of, not on top of ─────────────── */}
         <Section id="position">
           <div className="grid items-center gap-10 lg:grid-cols-2">

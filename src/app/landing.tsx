@@ -193,118 +193,144 @@ export function MatterScene() {
         }}
       />
 
-      {/* the work surface — layered depth, bright top edge, deep shadow */}
+      {/* the work surface — the real dark glassmorphic Briefly workspace (explicit
+          dark colours, so it never borrows the page theme on this committed-dark band) */}
       <div
         className="overflow-hidden rounded-[18px] text-left"
         style={{
-          background: "#f5f6f0",
-          border: "1px solid rgba(255,255,255,0.14)",
+          background: "linear-gradient(180deg, rgba(28,38,29,0.72), rgba(15,21,15,0.74))",
+          backdropFilter: "blur(22px) saturate(1.08)",
+          WebkitBackdropFilter: "blur(22px) saturate(1.08)",
+          border: "1px solid rgba(150,190,150,0.15)",
           boxShadow:
-            "inset 0 1px 0 rgba(255,255,255,0.6), 0 2px 6px rgba(0,0,0,0.2), 0 44px 70px -24px rgba(0,0,0,0.55), 0 90px 150px -40px rgba(0,0,0,0.6)",
+            "inset 0 1px 0 rgba(255,255,255,0.06), 0 44px 80px -30px rgba(0,0,0,0.7), 0 90px 150px -50px rgba(0,0,0,0.65)",
         }}
       >
+        {/* product header — a Briefly surface, not a browser shell */}
         <div
-          className="flex items-center gap-2 px-5 py-3.5 sm:px-6"
-          style={{ background: "#ecefe6", borderBottom: "1px solid rgba(29,38,33,0.06)" }}
+          className="flex items-center gap-2.5 px-5 py-3.5 sm:px-6"
+          style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
         >
-          <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#d7b3aa" }} />
-          <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#e6d3a0" }} />
-          <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#b6c9ad" }} />
-          <span className="ml-2 truncate text-[12.5px] text-muted">
-            Property Purchase — Conveyancing · Tomas Nowak
+          <span className="h-3.5 w-3.5 rounded-[4px]" style={{ background: "#7fb086" }} />
+          <span className="truncate text-[12.5px]" style={{ color: "#c3cbb9" }}>
+            Property Purchase · Tomas Nowak
           </span>
           <span
             className="ml-auto shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors duration-500"
             style={
               step >= MATTER_STEPS
-                ? { background: "var(--accent-soft)", color: "var(--accent)" }
-                : { background: "var(--inset)", color: "var(--muted)" }
+                ? { background: "rgba(127,176,134,0.18)", color: "#9dcaa3", border: "1px solid rgba(127,176,134,0.3)" }
+                : { background: "rgba(255,255,255,0.05)", color: "#93a087" }
             }
           >
-            {step >= MATTER_STEPS ? "✓ Ready for review" : "Preparing…"}
+            {step >= MATTER_STEPS ? "✓ Ready for your review" : "Preparing…"}
           </span>
         </div>
 
         <div className="space-y-3 px-5 py-6 sm:px-7 sm:py-7">
-          <div className="rounded-xl border border-border bg-surface px-4 py-3.5" style={reveal(0)}>
+          {/* the incoming enquiry + its attachment */}
+          <div
+            className="rounded-xl px-4 py-3.5"
+            style={{ ...reveal(0), background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+          >
             <div className="flex items-center gap-2.5">
-              <span className="grid h-8 w-8 place-items-center rounded-full bg-accent-soft text-[11px] font-semibold text-accent">
+              <span
+                className="grid h-8 w-8 place-items-center rounded-full text-[11px] font-semibold"
+                style={{ background: "rgba(127,176,134,0.18)", color: "#9dcaa3" }}
+              >
                 TN
               </span>
               <div className="min-w-0">
-                <div className="text-sm font-medium">Tomas Nowak</div>
-                <div className="truncate text-xs text-muted">New enquiry · just now</div>
+                <div className="text-sm font-medium" style={{ color: "#e9ede3" }}>Tomas Nowak</div>
+                <div className="truncate text-xs" style={{ color: "#8b9a82" }}>New enquiry · just now</div>
               </div>
             </div>
-            <p className="mt-2.5 text-sm text-foreground/85">
+            <p className="mt-2.5 text-sm" style={{ color: "#cbd2c2" }}>
               &ldquo;We&apos;re buying at 8 Ellery Lane, Fitzroy North. Contract&apos;s attached &mdash; can
               you handle the conveyancing?&rdquo;
             </p>
             <div
-              className="mt-2.5 inline-flex items-center gap-1.5 rounded-md border border-border bg-inset px-2.5 py-1 text-xs text-foreground/75"
-              style={reveal(1, 6)}
+              className="mt-2.5 inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs"
+              style={{ ...reveal(1, 6), background: "rgba(0,0,0,0.22)", border: "1px solid rgba(255,255,255,0.08)", color: "#b4bda9" }}
             >
               <span aria-hidden>📎</span> Contract of Sale.pdf
             </div>
           </div>
 
-          <div className="rounded-xl border border-border bg-inset/60 px-4 py-3.5" style={reveal(2)}>
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+          {/* checked against the firm's rulebook */}
+          <div
+            className="rounded-xl px-4 py-3.5"
+            style={{ ...reveal(2), background: "rgba(0,0,0,0.18)", border: "1px solid rgba(255,255,255,0.06)" }}
+          >
+            <div className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "#8b9a82" }}>
               Checked against your Property Purchase rulebook
             </div>
             <ul className="mt-2 space-y-1.5 text-sm">
               <li className="flex items-center gap-2.5" style={reveal(2, 6)}>
-                <span className="text-accent">&#10003;</span>
-                <span className="text-foreground/85">Property · 8 Ellery Lane, Fitzroy North</span>
-                <span className="ml-auto text-xs text-muted">from email</span>
+                <span style={{ color: "#8bbf92" }}>&#10003;</span>
+                <span style={{ color: "#cbd2c2" }}>Property · 8 Ellery Lane, Fitzroy North</span>
+                <span className="ml-auto text-xs" style={{ color: "#8b9a82" }}>from email</span>
               </li>
               <li className="flex items-center gap-2.5" style={reveal(3, 6)}>
-                <span className="text-accent">&#10003;</span>
-                <span className="text-foreground/85">Vendors · Kwame &amp; Abena Osei</span>
-                <span className="ml-auto text-xs text-muted">Contract p.1</span>
+                <span style={{ color: "#8bbf92" }}>&#10003;</span>
+                <span style={{ color: "#cbd2c2" }}>Vendors · Kwame &amp; Abena Osei</span>
+                <span className="ml-auto text-xs" style={{ color: "#8b9a82" }}>Contract p.1</span>
               </li>
               <li className="flex items-center gap-2.5" style={reveal(4, 6)}>
-                <span className="text-error">&#9675;</span>
-                <span className="text-foreground/85">Signed transfer</span>
-                <span className="ml-auto text-xs font-medium text-error">missing</span>
+                <span style={{ color: "#d8a06b" }}>&#9675;</span>
+                <span style={{ color: "#cbd2c2" }}>Signed transfer</span>
+                <span className="ml-auto text-xs font-medium" style={{ color: "#d8a06b" }}>missing</span>
               </li>
             </ul>
           </div>
 
+          {/* the prepared request — bounded, awaiting approval */}
           <div
-            className="rounded-xl border px-4 py-3.5"
+            className="rounded-xl px-4 py-3.5"
             style={{
               ...reveal(5),
-              borderColor: "color-mix(in srgb, var(--awaiting) 40%, transparent)",
-              background: "color-mix(in srgb, var(--awaiting-soft) 55%, transparent)",
+              borderColor: "rgba(216,160,107,0.32)",
+              borderWidth: 1,
+              borderStyle: "solid",
+              background: "rgba(216,160,107,0.1)",
             }}
           >
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-awaiting" aria-hidden>&#9998;</span>
-              <span className="font-medium text-foreground/85">Drafted a request for the signed transfer</span>
-              <span className="ml-auto text-xs text-muted">awaiting your approval</span>
+              <span style={{ color: "#d8a06b" }} aria-hidden>&#9998;</span>
+              <span className="font-medium" style={{ color: "#dfe4d7" }}>Drafted a request for the signed transfer</span>
+              <span className="ml-auto text-xs" style={{ color: "#a99873" }}>awaiting your approval</span>
             </div>
-            <p className="mt-1.5 pl-6 text-xs italic text-muted">
+            <p className="mt-1.5 pl-6 text-xs italic" style={{ color: "#a99873" }}>
               &ldquo;Hi Tomas — could you send the signed transfer when you have a moment?&rdquo;
             </p>
           </div>
 
-          <div className="rounded-xl border border-border bg-surface px-4 py-3.5" style={reveal(6)}>
+          {/* the client reply folds into the same matter */}
+          <div
+            className="rounded-xl px-4 py-3.5"
+            style={{ ...reveal(6), background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+          >
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-accent" aria-hidden>&#9993;</span>
-              <span className="font-medium text-foreground/85">Reply received — signed Contract of Sale</span>
-              <span className="ml-auto text-xs text-muted">folded into this matter</span>
+              <span style={{ color: "#8bbf92" }} aria-hidden>&#9993;</span>
+              <span className="font-medium" style={{ color: "#dfe4d7" }}>Reply received — signed Contract of Sale</span>
+              <span className="ml-auto text-xs" style={{ color: "#8b9a82" }}>folded into this matter</span>
             </div>
             <div className="mt-1.5 flex items-center gap-2.5 pl-6 text-xs" style={reveal(7, 6)}>
-              <span className="text-accent">&#10003;</span>
-              <span className="text-foreground/80">Settlement · 5 June 2027</span>
-              <span className="text-muted">— read, Contract p.3</span>
+              <span style={{ color: "#8bbf92" }}>&#10003;</span>
+              <span style={{ color: "#c3cbb9" }}>Settlement · 5 June 2027</span>
+              <span style={{ color: "#8b9a82" }}>— read, Contract p.3</span>
             </div>
           </div>
 
+          {/* ready */}
           <div
             className="flex items-center gap-2.5 rounded-xl px-4 py-3.5 text-sm font-medium"
-            style={{ ...reveal(8), background: "var(--accent-soft)", color: "var(--accent)" }}
+            style={{
+              ...reveal(8),
+              background: "rgba(127,176,134,0.16)",
+              border: "1px solid rgba(127,176,134,0.3)",
+              color: "#9dcaa3",
+            }}
           >
             <span aria-hidden>&#10003;</span>
             Ready for your review · Settlement 5 June 2027
@@ -414,7 +440,13 @@ export function EvidenceProof() {
     };
   }, [measure]);
 
-  const cur = EVIDENCE.find((e) => e.key === active) ?? EVIDENCE[0];
+  // Re-measure the connector whenever the active fact changes (row expansion moves
+  // the endpoints) — belt-and-braces alongside the ResizeObserver.
+  useEffect(() => {
+    const t = window.setTimeout(measure, 20);
+    return () => window.clearTimeout(t);
+  }, [active, measure]);
+
   const handlers = (k: string) => ({
     onMouseEnter: () => setHovered(k),
     onMouseLeave: () => setHovered(null),
@@ -423,10 +455,10 @@ export function EvidenceProof() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <p className="text-center text-xs text-muted">Select a fact to trace it through the file.</p>
-      <div ref={wrapRef} className="relative grid gap-6 sm:grid-cols-2 sm:items-start">
-        {/* evidence threads — decorative connectors (hidden on mobile) */}
+      <div ref={wrapRef} className="relative grid gap-6 sm:grid-cols-[1.05fr_1fr] sm:items-start">
+        {/* evidence thread — one restrained connector for the active fact (hidden on mobile) */}
         <svg className="pointer-events-none absolute inset-0 z-10 hidden h-full w-full sm:block" aria-hidden>
           {EVIDENCE.map((e) => (
             <path
@@ -437,129 +469,114 @@ export function EvidenceProof() {
               strokeWidth={active === e.key ? 1.75 : 1}
               strokeDasharray={active === e.key ? "0" : "2 5"}
               className="transition-all duration-300"
-              style={{ opacity: active === e.key ? 1 : hovered || selected ? 0.14 : 0.3 }}
+              style={{ opacity: active === e.key ? 0.9 : 0 }}
             />
           ))}
         </svg>
 
-        {/* Read from the contract (facts) */}
+        {/* Left — the facts Briefly read; the active row expands to its full chain,
+            so fact → source → effect → next action reads in one place. */}
         <div className="overflow-hidden rounded-2xl border border-border bg-surface">
           <div className="border-b border-border bg-inset px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
             Read from the contract
           </div>
           <ul>
-            {EVIDENCE.map((e) => (
-              <li key={e.key} className="border-b border-border last:border-0">
-                <button
-                  type="button"
-                  ref={(el) => {
-                    factRefs.current[e.key] = el;
-                  }}
-                  {...handlers(e.key)}
-                  aria-pressed={active === e.key}
-                  className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors ${
-                    active === e.key ? "bg-accent-soft" : "hover:bg-inset"
-                  }`}
-                >
-                  <span
-                    className={`h-2 w-2 shrink-0 rounded-full transition-colors ${active === e.key ? "bg-accent" : "bg-border"}`}
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[10px] uppercase tracking-wide text-muted">{e.label}</span>
-                    <span className="block text-sm font-medium">{e.value}</span>
-                  </span>
-                  <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
-                      active === e.key ? "bg-accent text-accent-fg" : "bg-inset text-muted"
+            {EVIDENCE.map((e) => {
+              const on = active === e.key;
+              return (
+                <li key={e.key} className="border-b border-border last:border-0">
+                  <button
+                    type="button"
+                    ref={(el) => {
+                      factRefs.current[e.key] = el;
+                    }}
+                    {...handlers(e.key)}
+                    aria-pressed={on}
+                    className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors ${
+                      on ? "bg-accent-soft" : "hover:bg-inset"
                     }`}
                   >
-                    p.{e.page}
-                  </span>
-                </button>
-              </li>
-            ))}
+                    <span className={`h-2 w-2 shrink-0 rounded-full transition-colors ${on ? "bg-accent" : "bg-border"}`} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[10px] uppercase tracking-wide text-muted">{e.label}</span>
+                      <span className="block text-sm font-medium">{e.value}</span>
+                    </span>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                        on ? "bg-accent text-accent-fg" : "bg-inset text-muted"
+                      }`}
+                    >
+                      p.{e.page}
+                    </span>
+                  </button>
+                  {/* the reasoning chain, attached to the active row */}
+                  <div
+                    className="overflow-hidden"
+                    style={{ maxHeight: on ? 132 : 0, transition: `max-height 360ms ${EASE}` }}
+                  >
+                    <div className="space-y-1.5 border-t border-accent/15 bg-accent-soft/40 px-4 py-3 pl-9 text-xs">
+                      <div className="flex items-center gap-1.5 font-medium text-accent">
+                        <Check className="text-accent" /> Verified · Contract of Sale, p.{e.page}
+                      </div>
+                      <div className="text-foreground/80">
+                        <span className="mr-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted">Effect</span>
+                        {e.effect}
+                      </div>
+                      <div className="text-foreground/80">
+                        <span className="mr-1.5 text-[10px] font-semibold uppercase tracking-wide text-awaiting">Next</span>
+                        {e.next}
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </div>
 
-        {/* The contract (source) */}
+        {/* Right — a real-looking scanned contract page; the active clause highlights softly */}
         <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-[var(--shadow-sm)]">
-          <div className="border-b border-border bg-inset px-4 py-2.5 text-[10px] font-medium uppercase tracking-wide text-muted">
-            Contract of Sale · PDF
+          <div className="flex items-center justify-between border-b border-border bg-inset px-4 py-2.5 text-[10px] font-medium uppercase tracking-wide text-muted">
+            <span>Contract of Sale · scanned</span>
+            <span>Fitzroy North · VIC</span>
           </div>
-          <div className="space-y-2 p-4">
-            <div className="text-center font-serif text-[11px] font-semibold">CONTRACT OF SALE OF REAL ESTATE</div>
-            <div className="h-1.5 rounded bg-border/70" style={{ width: "100%" }} />
-            <div className="h-1.5 rounded bg-border/70" style={{ width: "82%" }} />
-            {EVIDENCE.map((e) => (
-              <button
-                type="button"
-                key={e.key}
-                ref={(el) => {
-                  srcRefs.current[e.key] = el;
-                }}
-                {...handlers(e.key)}
-                aria-pressed={active === e.key}
-                className={`flex w-full items-center justify-between gap-2 rounded px-1.5 py-1 text-left text-[11px] font-medium transition-colors ${
-                  active === e.key ? "bg-accent text-accent-fg" : "bg-accent-soft text-foreground/85 hover:bg-accent/20"
-                }`}
-              >
-                <span className="truncate">{e.src}</span>
-                <span className={active === e.key ? "shrink-0 opacity-70" : "shrink-0 text-muted"}>p.{e.page}</span>
-              </button>
+          <div className="space-y-2.5 px-5 py-4" style={{ background: "color-mix(in srgb, var(--inset) 30%, transparent)" }}>
+            <div className="flex items-baseline justify-between">
+              <span className="font-serif text-[12px] font-semibold tracking-tight text-foreground/70">
+                Contract of Sale of Real Estate
+              </span>
+              <span className="text-[9px] text-muted">p. 1–3</span>
+            </div>
+            <div className="h-1.5 rounded bg-border/60" style={{ width: "94%" }} />
+            <div className="h-1.5 rounded bg-border/60" style={{ width: "78%" }} />
+            {EVIDENCE.map((e, i) => (
+              <div key={e.key} className="space-y-2.5">
+                <button
+                  type="button"
+                  ref={(el) => {
+                    srcRefs.current[e.key] = el;
+                  }}
+                  {...handlers(e.key)}
+                  aria-pressed={active === e.key}
+                  className={`flex w-full items-start gap-2 border-l-2 py-1 pl-2.5 pr-1 text-left text-[11px] leading-relaxed transition-colors ${
+                    active === e.key
+                      ? "border-accent bg-accent-soft text-foreground"
+                      : "border-transparent text-foreground/70 hover:bg-inset/60"
+                  }`}
+                >
+                  <span className="shrink-0 text-[9px] font-semibold tabular-nums text-muted">{i + 1}.{i + 3}</span>
+                  <span className="min-w-0 flex-1">{e.src}</span>
+                  <span className="shrink-0 text-[9px] text-muted">p.{e.page}</span>
+                </button>
+                {/* uneven filler lines between clauses — a scanned page, not a poster */}
+                <div className="h-1.5 rounded bg-border/60" style={{ width: `${72 - i * 6}%` }} />
+              </div>
             ))}
-            <div className="h-1.5 rounded bg-border/70" style={{ width: "70%" }} />
-            <div className="h-1.5 rounded bg-border/70" style={{ width: "60%" }} />
+            <div className="h-1.5 rounded bg-border/60" style={{ width: "66%" }} />
           </div>
-        </div>
-      </div>
-
-      {/* The evidence trail: fact → verified source → effect → next action. Kept
-          deliberately quiet — a trail of chips + separators, not four cards that
-          compete with the panels above. */}
-      <div className="rounded-2xl border border-border bg-inset/30 px-5 py-4 sm:px-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-1 sm:gap-y-2">
-          <TrailStep cap="Fact" body={`${cur.label} · ${cur.value}`} />
-          <TrailSep />
-          <TrailStep tone="accent" cap="Verified source" body={`Contract of Sale, p.${cur.page}`} check />
-          <TrailSep />
-          <TrailStep cap="What it means" body={cur.effect} />
-          <TrailSep />
-          <TrailStep tone="awaiting" cap="Next action" body={cur.next} />
         </div>
       </div>
     </div>
-  );
-}
-
-function TrailSep() {
-  return (
-    <span className="text-muted/60 sm:px-1" aria-hidden>
-      <span className="hidden sm:inline">→</span>
-      <span className="sm:hidden">↓</span>
-    </span>
-  );
-}
-
-function TrailStep({
-  tone = "neutral",
-  cap,
-  body,
-  check,
-}: {
-  tone?: "neutral" | "accent" | "awaiting";
-  cap: string;
-  body: string;
-  check?: boolean;
-}) {
-  const capCls = tone === "accent" ? "text-accent" : tone === "awaiting" ? "text-awaiting" : "text-muted";
-  return (
-    <span className="min-w-0">
-      <span className={`mr-2 text-[10px] font-semibold uppercase tracking-wide ${capCls}`}>{cap}</span>
-      <span className="inline-flex items-center gap-1 text-sm font-medium text-foreground/90">
-        {check ? <span className="text-accent">✓</span> : null}
-        {body}
-      </span>
-    </span>
   );
 }
 
@@ -1878,22 +1895,32 @@ function useTrackProgress(ref: React.RefObject<HTMLElement | null>) {
   return p;
 }
 
-/** The persistent matter workspace — one file whose readiness and requirements
- *  evolve as the client replies. Real Briefly UI language. */
-function ForkWorkspace({
-  readiness,
-  received,
-  ready,
-  replyIn,
-}: {
-  readiness: number;
+/** Reveal one element on its own beat — enter only (no whole-card crossfade),
+ *  reversible as the visitor scrubs back up. */
+const beatStyle = (show: boolean, dy = 8) => ({
+  opacity: show ? 1 : 0,
+  transform: show ? "none" : `translateY(${dy}px)`,
+  transition: `opacity 420ms ${EASE}, transform 420ms ${EASE}`,
+});
+
+type ForkState = {
+  emailIn: boolean;
+  checkIn: boolean;
+  pivotIn: boolean;
+  requestIn: boolean;
+  replyIn: boolean;
   received: boolean;
   ready: boolean;
-  replyIn: boolean;
-}) {
+  readiness: number;
+};
+
+/** The persistent matter workspace — ONE file. The workspace itself never fades
+ *  or blurs; only the elements caused by new information change, one beat at a time. */
+function ForkWorkspace(s: ForkState) {
+  const { emailIn, checkIn, pivotIn, replyIn, received, ready, readiness } = s;
   return (
     <div className="glass glass-sheen rounded-3xl p-5 sm:p-6">
-      {/* header */}
+      {/* header — identity + live status */}
       <div className="flex items-center gap-3 border-b border-border pb-4">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent-soft text-xs font-semibold text-accent">
           TN
@@ -1914,8 +1941,27 @@ function ForkWorkspace({
         </span>
       </div>
 
-      {/* readiness */}
-      <div className="mt-4 flex items-center gap-3">
+      {/* the incoming enquiry + its attachment — the mess Briefly starts from */}
+      <div className="mt-4 rounded-xl border border-border bg-surface px-3.5 py-3" style={beatStyle(emailIn)}>
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-accent" aria-hidden>&#9993;</span>
+          <span className="font-medium text-foreground/85">New enquiry</span>
+          <span className="ml-auto text-muted">just now</span>
+        </div>
+        <p className="mt-1.5 text-xs leading-relaxed text-muted">
+          &ldquo;Buying at 8 Ellery Lane, Fitzroy North — contract attached. Signed transfer to come.&rdquo;
+        </p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {["📎 Contract-of-Sale.pdf", "📷 IMG_4471.jpg"].map((f) => (
+            <span key={f} className="rounded-md border border-border bg-raise px-1.5 py-0.5 text-[10px] font-medium text-foreground/70">
+              {f}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* readiness — a crisp preparation gauge, not urgency */}
+      <div className="mt-4 flex items-center gap-3" style={beatStyle(checkIn)}>
         <span className="text-[11px] font-medium uppercase tracking-wide text-muted">Readiness</span>
         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-inset">
           <div
@@ -1923,20 +1969,17 @@ function ForkWorkspace({
             style={{
               width: `${readiness}%`,
               background: ready ? "var(--accent)" : "var(--awaiting)",
-              transition: "width 300ms linear, background-color 500ms",
+              transition: "width 450ms cubic-bezier(0.16,1,0.3,1), background-color 500ms",
             }}
           />
         </div>
-        <span
-          className="text-xs font-semibold tabular-nums"
-          style={{ color: ready ? "var(--accent)" : "var(--awaiting)" }}
-        >
+        <span className="text-xs font-semibold tabular-nums" style={{ color: ready ? "var(--accent)" : "var(--awaiting)" }}>
           {readiness}%
         </span>
       </div>
 
       {/* requirements — checked against the firm's rulebook */}
-      <div className="mt-4 text-[11px] font-semibold uppercase tracking-wide text-muted">
+      <div className="mt-4 text-[11px] font-semibold uppercase tracking-wide text-muted" style={beatStyle(checkIn)}>
         Checked against your Property Purchase rulebook
       </div>
       <ul className="mt-2 space-y-1.5 text-sm">
@@ -1944,52 +1987,45 @@ function ForkWorkspace({
           { label: "Property · 8 Ellery Lane, Fitzroy North", src: "from email" },
           { label: "Vendors · Kwame & Abena Osei", src: "Contract p.1" },
           { label: "Settlement · 5 June 2027", src: "Contract p.3" },
-        ].map((r) => (
-          <li key={r.label} className="flex items-center gap-2.5">
+        ].map((r, i) => (
+          <li key={r.label} className="flex items-center gap-2.5" style={beatStyle(checkIn, 6 + i * 2)}>
             <span className="text-accent">&#10003;</span>
             <span className="min-w-0 flex-1 truncate text-foreground/85">{r.label}</span>
             <span className="shrink-0 text-xs text-muted">{r.src}</span>
           </li>
         ))}
-        {/* the pivotal requirement — the fork turns on this row */}
+        {/* the pivotal requirement — the fork turns on this row; only IT changes on reply */}
         <li
           id="fork-pivot"
-          className="flex items-center gap-2.5 rounded-md px-1.5 py-1 transition-colors"
-          style={
-            received
-              ? { background: "var(--accent-soft)" }
-              : { background: "color-mix(in srgb, var(--awaiting-soft) 60%, transparent)" }
-          }
+          className="flex items-center gap-2.5 rounded-md px-1.5 py-1 transition-colors duration-500"
+          style={{
+            ...beatStyle(pivotIn, 6),
+            background: received
+              ? "var(--accent-soft)"
+              : "color-mix(in srgb, var(--awaiting-soft) 60%, transparent)",
+          }}
         >
-          <span style={{ color: received ? "var(--accent)" : "var(--awaiting)" }}>
-            {received ? "✓" : "○"}
-          </span>
+          <span style={{ color: received ? "var(--accent)" : "var(--awaiting)" }}>{received ? "✓" : "○"}</span>
           <span className="min-w-0 flex-1 truncate text-foreground/85">Signed transfer</span>
-          <span
-            className="shrink-0 text-xs font-medium"
-            style={{ color: received ? "var(--accent)" : "var(--awaiting)" }}
-          >
+          <span className="shrink-0 text-xs font-medium" style={{ color: received ? "var(--accent)" : "var(--awaiting)" }}>
             {received ? "received · reply p.1" : "missing"}
           </span>
         </li>
       </ul>
 
-      {/* the client reply — folds into the same matter */}
+      {/* the client reply — the visible TRIGGER that changes the file */}
       <div
         className="mt-3 overflow-hidden"
         style={{
-          maxHeight: replyIn ? 84 : 0,
+          maxHeight: replyIn ? 96 : 0,
           opacity: replyIn ? 1 : 0,
-          transition: `max-height 500ms ${EASE}, opacity 400ms ${EASE}`,
+          transition: `max-height 520ms ${EASE}, opacity 400ms ${EASE}`,
         }}
       >
-        <div className="rounded-xl border border-border bg-surface px-3.5 py-2.5">
+        <div className="rounded-xl border border-accent/40 bg-accent-soft/60 px-3.5 py-2.5">
           <div className="flex items-center gap-2 text-xs">
-            <span className="text-accent" aria-hidden>
-              &#9993;
-            </span>
-            <span className="font-medium text-foreground/85">Tomas replied</span>
-            <span className="ml-auto text-muted">folded into this matter</span>
+            <span className="text-accent" aria-hidden>&#9993;</span>
+            <span className="font-semibold text-accent">Reply received — signed transfer attached</span>
           </div>
           <p className="mt-1 pl-6 text-xs italic text-muted">
             &ldquo;Done — I&apos;ve signed the Contract of Sale and attached it.&rdquo;
@@ -2000,55 +2036,77 @@ function ForkWorkspace({
   );
 }
 
-/** One outcome of the fork — Path A (chase, awaiting) or Path B (work brief, ready). */
-function ForkOutcome({ variant }: { variant: "A" | "B" }) {
-  const a = variant === "A";
+/** The single outcome panel. It does NOT crossfade between two cards — the prepared
+ *  request appears, resolves when the client provides the document, and the Initial
+ *  Work Brief is revealed. Each block enters on its own beat. */
+function ForkOutcome(s: ForkState) {
+  const { requestIn, received, ready } = s;
   return (
     <div
-      className={`h-full rounded-3xl border p-5 sm:p-6 ${
-        a ? "border-awaiting/40 bg-awaiting-soft/50" : "border-accent/40 bg-accent-soft/60"
-      }`}
+      className="h-full rounded-3xl border p-5 sm:p-6 transition-colors duration-500"
+      style={{
+        borderColor: ready ? "color-mix(in srgb, var(--accent) 40%, transparent)" : "color-mix(in srgb, var(--awaiting) 40%, transparent)",
+        background: ready ? "color-mix(in srgb, var(--accent-soft) 60%, transparent)" : "color-mix(in srgb, var(--awaiting-soft) 45%, transparent)",
+      }}
     >
       <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em]">
-        <span className={`h-1.5 w-1.5 rounded-full ${a ? "bg-awaiting" : "bg-accent"}`} />
-        <span className={a ? "text-awaiting" : "text-accent"}>
-          {a ? "Path A · Awaiting information" : "Path B · Ready for action"}
+        <span className="h-1.5 w-1.5 rounded-full transition-colors duration-500" style={{ background: ready ? "var(--accent)" : "var(--awaiting)" }} />
+        <span className="transition-colors duration-500" style={{ color: ready ? "var(--accent)" : "var(--awaiting)" }}>
+          {ready ? "Path B · Ready for action" : "Path A · Awaiting information"}
         </span>
       </div>
       <h3 className="mt-3 font-serif text-xl font-semibold tracking-tight sm:text-2xl">
-        {a ? (
+        {ready ? (
           <>
-            One item is <span className="italic text-awaiting">still missing.</span>
+            The file is <span className="italic text-accent">ready.</span>
           </>
         ) : (
           <>
-            The file is <span className="italic text-accent">ready.</span>
+            One item is <span className="italic text-awaiting">still missing.</span>
           </>
         )}
       </h3>
       <p className="mt-2 text-sm text-muted">
-        {a
-          ? "Briefly prepares the exact request for what's outstanding — nothing more — and stops."
-          : "Every requirement is met and sourced. Briefly prepares the Initial Work Brief and your next decision."}
+        {ready
+          ? "Every requirement is met and sourced. Briefly prepares the Initial Work Brief and your next decision."
+          : "Briefly prepares the exact request for what's outstanding — nothing more — and stops."}
       </p>
 
+      {/* Prepared request — appears at requestIn; resolves when the client provides it */}
       <div
-        className={`mt-4 rounded-xl border bg-surface px-4 py-3 ${a ? "border-awaiting/30" : "border-accent/30"}`}
+        className="mt-4 rounded-xl border bg-surface px-4 py-3 transition-colors duration-500"
+        style={{ ...beatStyle(requestIn), borderColor: received ? "color-mix(in srgb, var(--accent) 30%, transparent)" : "color-mix(in srgb, var(--awaiting) 30%, transparent)" }}
       >
-        <div
-          className={`flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide ${
-            a ? "text-awaiting" : "text-accent"
-          }`}
-        >
+        <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide" style={{ color: received ? "var(--accent)" : "var(--awaiting)" }}>
           <MiniDoc />
-          {a ? "Prepared request" : "Initial Work Brief"}
+          Prepared request
+          <span className="ml-auto normal-case tracking-normal text-[10px] font-medium">
+            {received ? "✓ client provided it" : "awaiting your review"}
+          </span>
         </div>
-        {a ? (
-          <p className="mt-2 text-sm text-foreground/85">
-            &ldquo;Hi Tomas — could you send the signed transfer when you have a moment? Once it&apos;s in
-            we can proceed.&rdquo;
-          </p>
-        ) : (
+        <p className="mt-2 text-sm text-foreground/85">
+          &ldquo;Hi Tomas — could you send the signed transfer when you have a moment? Once it&apos;s in we can
+          proceed.&rdquo;
+        </p>
+        {!received ? (
+          <div className="mt-3 flex justify-end">
+            <span className="rounded-lg border border-awaiting/50 px-3 py-1.5 text-xs font-medium text-awaiting">
+              Review &amp; send
+            </span>
+          </div>
+        ) : null}
+      </div>
+
+      {/* Initial Work Brief — revealed once the file is ready */}
+      <div
+        className="mt-3 overflow-hidden"
+        style={{ maxHeight: ready ? 220 : 0, opacity: ready ? 1 : 0, transition: `max-height 560ms ${EASE}, opacity 420ms ${EASE}` }}
+      >
+        <div className="rounded-xl border border-accent/30 bg-surface px-4 py-3">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-accent">
+            <MiniDoc />
+            Initial Work Brief
+          </div>
           <ul className="mt-2 space-y-1 text-sm text-foreground/85">
             <li className="flex items-center gap-2">
               <span className="text-accent">&#10003;</span> Parties, property &amp; settlement — all sourced
@@ -2057,37 +2115,24 @@ function ForkOutcome({ variant }: { variant: "A" | "B" }) {
               <span className="text-accent">&#10003;</span> Signed Contract of Sale on file
             </li>
             <li className="flex items-center gap-2 text-muted">
-              <span className="text-accent">→</span> Next: order title search on both proprietors
+              <span className="text-accent">&rarr;</span> Next: order title search on both proprietors
             </li>
           </ul>
-        )}
-      </div>
-
-      <div className="mt-4 flex items-center justify-between gap-3">
-        <span
-          className={`inline-flex items-center gap-1.5 text-xs font-medium ${a ? "text-awaiting" : "text-accent"}`}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M12 3l7 4v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V7l7-4Z" />
-          </svg>
-          {a ? "Awaiting your review" : "Ready for your review"}
-        </span>
-        <span
-          className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
-            a ? "border border-awaiting/50 text-awaiting" : "bg-accent text-accent-fg"
-          }`}
-        >
-          {a ? "Review & send" : "Open the work brief"}
-        </span>
+          <div className="mt-3 flex items-center justify-between gap-3 border-t border-accent/20 pt-3">
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-accent">
+              <span className="h-1.5 w-1.5 rounded-full bg-accent" /> Ready for your review
+            </span>
+            <span className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg">Open the work brief</span>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-/** The signature evidence thread for this chapter — a single connector between the
- *  matter and its prepared outcome. Unresolved (dashed, honey) on Path A; resolved
- *  (solid, forest) on Path B. Relative geometry, so it never misaligns; decorative,
- *  hidden on mobile. */
+/** The signature evidence thread — one connector between the matter and its prepared
+ *  outcome. Unresolved (dashed, honey) → resolved (solid, forest). Relative geometry,
+ *  so it never misaligns; decorative, hidden on mobile. */
 function ForkThread({ resolved }: { resolved: boolean }) {
   return (
     <svg
@@ -2111,19 +2156,56 @@ function ForkThread({ resolved }: { resolved: boolean }) {
   );
 }
 
+/** Mobile + reduced-motion fallback — the same causal sequence as a plain, robust
+ *  vertical stepper. No sticky motion, no connector threads required to understand it. */
+function ForkStepper() {
+  const steps = [
+    { t: "Incoming enquiry", d: "Tomas's email + Contract of Sale arrive as one matter.", tone: "neutral" },
+    { t: "Checked against your rulebook", d: "Property, vendors and settlement resolve — each from its source.", tone: "neutral" },
+    { t: "Signed transfer — missing", d: "One requirement is still outstanding.", tone: "awaiting" },
+    { t: "Prepared request · awaiting your review", d: "The exact chase for what's outstanding — Review & send.", tone: "awaiting" },
+    { t: "Reply received — signed transfer attached", d: "The client replies; Briefly reads what changed.", tone: "accent" },
+    { t: "Source verified", d: "Signed transfer received · reply p.1. Readiness reaches 100%.", tone: "accent" },
+    { t: "Ready for your review", d: "The Initial Work Brief is prepared. You decide the next move.", tone: "accent" },
+  ];
+  const dot = (tone: string) =>
+    tone === "accent" ? "bg-accent" : tone === "awaiting" ? "bg-awaiting" : "bg-border";
+  return (
+    <div className="glass glass-sheen rounded-3xl p-5 sm:p-6">
+      <div className="mb-1 text-sm font-semibold">Tomas Nowak · Property Purchase · 8 Ellery Lane</div>
+      <div className="mb-4 text-xs text-muted">Missing information → prepared request → reply → ready</div>
+      <ol className="relative space-y-4">
+        <div className="absolute bottom-2 left-[7px] top-2 w-px bg-border" />
+        {steps.map((s) => (
+          <li key={s.t} className="relative pl-6">
+            <span className={`absolute left-0 top-1.5 h-3.5 w-3.5 rounded-full border-2 border-surface ${dot(s.tone)}`} />
+            <div className="text-sm font-medium">{s.t}</div>
+            <div className="text-xs text-muted">{s.d}</div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 export function DecisionFork() {
   const reduced = useReducedMotion();
   const trackRef = useRef<HTMLDivElement>(null);
-  const scrollP = useTrackProgress(trackRef);
-  const p = scrollP;
+  const p = useTrackProgress(trackRef);
 
-  // Phase mapping. Reduced motion presents both outcomes at rest (no scroll).
-  const aOpacity = reduced ? 1 : Math.min(1, Math.max(0, (0.6 - p) / 0.12));
-  const bOpacity = reduced ? 1 : Math.min(1, Math.max(0, (p - 0.52) / 0.12));
-  const replyIn = reduced ? false : p >= 0.44;
-  const received = reduced ? false : p >= 0.52;
-  const ready = reduced ? false : p >= 0.6;
-  const readiness = reduced ? 66 : Math.round(66 + Math.min(1, Math.max(0, (p - 0.4) / 0.25)) * 34);
+  // Beats — the causal story, revealed one at a time as the visitor scrolls.
+  const received = p >= 0.64;
+  const ready = p >= 0.74;
+  const state: ForkState = {
+    emailIn: p >= 0.04,
+    checkIn: p >= 0.16,
+    pivotIn: p >= 0.28,
+    requestIn: p >= 0.4,
+    replyIn: p >= 0.54,
+    received,
+    ready,
+    readiness: ready ? 100 : received ? 88 : 70,
+  };
 
   const Header = (
     <div className="flex flex-wrap items-end justify-between gap-4">
@@ -2135,29 +2217,23 @@ export function DecisionFork() {
         <h2 className="mt-3 font-serif text-3xl font-semibold leading-[1.08] tracking-tight text-balance sm:text-4xl">
           Every enquiry reaches a clear fork.
         </h2>
+        <p className="mt-3 text-sm text-muted">
+          Your intake form only catches the tidy clients. Here&apos;s what Briefly does with everyone
+          else — read, checked, and prepared, from the messy email to a file ready for your review.
+        </p>
       </div>
       {/* which path is live */}
       <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em]">
         <span
-          className="rounded-full px-2.5 py-1 transition-colors"
-          style={
-            ready
-              ? { background: "var(--inset)", color: "var(--muted)" }
-              : { background: "var(--awaiting-soft)", color: "var(--awaiting)" }
-          }
+          className="rounded-full px-2.5 py-1 transition-colors duration-500"
+          style={ready ? { background: "var(--inset)", color: "var(--muted)" } : { background: "var(--awaiting-soft)", color: "var(--awaiting)" }}
         >
           Path A
         </span>
-        <span aria-hidden className="text-muted">
-          →
-        </span>
+        <span aria-hidden className="text-muted">→</span>
         <span
-          className="rounded-full px-2.5 py-1 transition-colors"
-          style={
-            ready
-              ? { background: "var(--accent-soft)", color: "var(--accent)" }
-              : { background: "var(--inset)", color: "var(--muted)" }
-          }
+          className="rounded-full px-2.5 py-1 transition-colors duration-500"
+          style={ready ? { background: "var(--accent-soft)", color: "var(--accent)" } : { background: "var(--inset)", color: "var(--muted)" }}
         >
           Path B
         </span>
@@ -2169,58 +2245,39 @@ export function DecisionFork() {
     <div className="mx-auto max-w-6xl px-6">
       {Header}
       <div className="mt-8 grid items-center gap-5 lg:grid-cols-[minmax(0,1fr)_64px_minmax(0,1fr)] lg:gap-0">
-        {/* the one matter */}
-        <ForkWorkspace readiness={readiness} received={received} ready={ready} replyIn={replyIn} />
-
-        {/* evidence thread */}
+        <ForkWorkspace {...state} />
         <div className="hidden h-24 items-center justify-center lg:flex">
           <ForkThread resolved={ready} />
         </div>
-
-        {/* the active outcome */}
-        {reduced ? (
-          <div className="space-y-4">
-            <ForkOutcome variant="A" />
-            <ForkOutcome variant="B" />
-          </div>
-        ) : (
-          <div className="relative min-h-[300px]">
-            <div
-              className="lg:absolute lg:inset-0"
-              style={{ opacity: aOpacity, transition: "opacity 300ms linear", pointerEvents: aOpacity > 0.5 ? "auto" : "none" }}
-              aria-hidden={aOpacity < 0.5}
-            >
-              <ForkOutcome variant="A" />
-            </div>
-            <div
-              className="mt-4 lg:absolute lg:inset-0 lg:mt-0"
-              style={{ opacity: bOpacity, transition: "opacity 300ms linear", pointerEvents: bOpacity > 0.5 ? "auto" : "none" }}
-              aria-hidden={bOpacity < 0.5}
-            >
-              <ForkOutcome variant="B" />
-            </div>
-          </div>
-        )}
+        <ForkOutcome {...state} />
       </div>
-
-      {/* the automatic-prep promise + the human boundary */}
       <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-muted">
-        By the time you open the file, Briefly has already done the prep.{" "}
-        <span className="font-medium text-foreground/80">You review, decide, and send.</span> Whichever
-        path, nothing leaves your desk until you approve it.
+        The moment a client replies, Briefly gets to work.{" "}
+        <span className="font-medium text-foreground/80">You review, decide, and send.</span> Nothing
+        leaves your desk until you approve it.
       </p>
     </div>
   );
 
-  // Reduced motion → a calm, static presentation of both outcomes (no pinning).
-  if (reduced) {
-    return <div className="py-4">{Stage}</div>;
-  }
+  // Mobile + reduced-motion → the robust stepper (no pin, no threads needed).
+  const stepper = (
+    <div className="mx-auto max-w-xl px-6">
+      {Header}
+      <div className="mt-8">
+        <ForkStepper />
+      </div>
+    </div>
+  );
+
+  if (reduced) return <div className="py-16">{stepper}</div>;
 
   return (
-    <div ref={trackRef} className="relative h-[260vh]">
-      <div className="sticky top-0 flex min-h-screen items-center py-16">{Stage}</div>
-    </div>
+    <>
+      <div className="py-16 lg:hidden">{stepper}</div>
+      <div ref={trackRef} className="relative hidden h-[260vh] lg:block">
+        <div className="sticky top-0 flex min-h-screen items-center py-16">{Stage}</div>
+      </div>
+    </>
   );
 }
 
