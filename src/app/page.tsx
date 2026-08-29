@@ -4,7 +4,7 @@ import { getAuthUser } from "@/lib/auth";
 import { PLANS, CREDIT_PACK } from "@/lib/plans";
 import { WaitlistForm } from "@/app/waitlist-form";
 import { joinWaitlist } from "@/app/waitlist-actions";
-import { Reveal, TwoPathTriage, HeroBackdrop, MatterScene } from "@/app/landing";
+import { Reveal, TwoPathTriage, HeroBackdrop, MatterScene, EvidenceProof } from "@/app/landing";
 import { ThemeToggle } from "@/app/theme-toggle";
 
 const PRICING = [PLANS.solo, PLANS.practice, PLANS.firm];
@@ -257,58 +257,9 @@ export default async function Landing() {
               </div>
             </Reveal>
 
-            <Reveal className="grid gap-4 sm:grid-cols-[0.9fr_1.1fr] sm:items-start">
-              <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-[var(--shadow-sm)]">
-                <div className="border-b border-border bg-inset px-4 py-2 text-[10px] font-medium uppercase tracking-wide text-muted">
-                  Contract of Sale · PDF · p.1
-                </div>
-                <div className="space-y-2 p-4">
-                  <div className="text-center font-serif text-[11px] font-semibold">
-                    CONTRACT OF SALE OF REAL ESTATE
-                  </div>
-                  <div className="h-1.5 w-full rounded bg-border/70" />
-                  <div className="h-1.5 w-4/5 rounded bg-border/70" />
-                  {["Vendor: Rafael & Marisol Delgado", "Purchase Price: $980,000", "Settlement Date: 5 June 2027"].map(
-                    (line) => (
-                      <div key={line} className="rounded bg-accent-soft px-1.5 py-1 text-[10.5px] font-medium text-foreground/85">
-                        {line}
-                      </div>
-                    ),
-                  )}
-                  <div className="h-1.5 w-3/4 rounded bg-border/70" />
-                  <div className="h-1.5 w-2/3 rounded bg-border/70" />
-                </div>
-              </div>
-
-              <div className="overflow-hidden rounded-xl border border-accent/40 bg-surface">
-                <div className="border-b border-border bg-inset px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
-                  Read from the contract — awaiting your confirmation
-                </div>
-                <ul className="divide-y divide-border">
-                  {[
-                    { label: "Vendor", value: "Rafael & Marisol Delgado" },
-                    { label: "Purchase price", value: "$980,000" },
-                    { label: "Settlement date", value: "5 June 2027" },
-                  ].map((f) => (
-                    <li key={f.label} className="space-y-1.5 px-4 py-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-[10px] uppercase tracking-wide text-muted">{f.label}</div>
-                        <span className="shrink-0 rounded-full bg-inset px-2 py-0.5 text-[10px] font-medium text-muted">
-                          ▤ p.1
-                        </span>
-                      </div>
-                      <div className="text-sm font-medium">{f.value}</div>
-                      <div className="flex items-center gap-2 pt-0.5">
-                        <span className="rounded-md bg-accent px-2 py-0.5 text-[10px] font-semibold text-accent-fg">
-                          Confirm
-                        </span>
-                        <span className="text-[10px] text-muted">Reject</span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </Reveal>
+            <div className="lg:pt-2">
+              <EvidenceProof />
+            </div>
           </div>
         </Section>
 

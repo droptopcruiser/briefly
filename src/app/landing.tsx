@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 
@@ -314,6 +314,148 @@ export function MatterScene() {
 
       <div className="mt-4 text-center text-xs tracking-wide" style={{ color: "#93a98c" }}>
         {telemetry}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The proof moment, made interactive — the recurring "evidence thread" motif.
+ * Hovering a fact lights its exact source line + page in the contract, joined by a
+ * thin thread; hovering the source does the same in reverse. Source-grounded trust
+ * you can feel, not a static mockup. Threads are measured from the live DOM so they
+ * connect precisely and re-measure on resize.
+ */
+const EVIDENCE = [
+  { key: "property", label: "Property", value: "8 Ellery Lane, Fitzroy North", page: 1, src: "Property: 8 Ellery Lane, Fitzroy North VIC 3068" },
+  { key: "vendors", label: "Vendors", value: "Kwame & Abena Osei", page: 1, src: "Vendors: Kwame Osei and Abena Osei" },
+  { key: "price", label: "Purchase price", value: "$1,295,000", page: 3, src: "Purchase Price: $1,295,000 (AUD)" },
+  { key: "settlement", label: "Settlement date", value: "5 June 2027", page: 3, src: "Settlement Date: 5 June 2027" },
+];
+
+export function EvidenceProof() {
+  const [active, setActive] = useState<string | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const factRefs = useRef<Record<string, HTMLLIElement | null>>({});
+  const srcRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [paths, setPaths] = useState<Record<string, string>>({});
+
+  const measure = useCallback(() => {
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    const w = wrap.getBoundingClientRect();
+    const next: Record<string, string> = {};
+    for (const e of EVIDENCE) {
+      const f = factRefs.current[e.key];
+      const s = srcRefs.current[e.key];
+      if (!f || !s) continue;
+      const fr = f.getBoundingClientRect();
+      const sr = s.getBoundingClientRect();
+      const x1 = sr.right - w.left;
+      const y1 = sr.top + sr.height / 2 - w.top;
+      const x2 = fr.left - w.left;
+      const y2 = fr.top + fr.height / 2 - w.top;
+      const mx = (x1 + x2) / 2;
+      next[e.key] = `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`;
+    }
+    setPaths(next);
+  }, []);
+
+  useEffect(() => {
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (wrapRef.current) ro.observe(wrapRef.current);
+    window.addEventListener("resize", measure);
+    const t = window.setTimeout(measure, 400); // after fonts settle
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+      window.clearTimeout(t);
+    };
+  }, [measure]);
+
+  const Filler = ({ w }: { w: string }) => (
+    <div className="h-1.5 rounded bg-border/70" style={{ width: w }} />
+  );
+
+  return (
+    <div ref={wrapRef} className="relative grid gap-6 sm:grid-cols-2 sm:items-start">
+      {/* evidence threads — measured fact ↔ source connectors */}
+      <svg className="pointer-events-none absolute inset-0 z-10 hidden h-full w-full sm:block" aria-hidden>
+        {EVIDENCE.map((e) => (
+          <path
+            key={e.key}
+            d={paths[e.key] ?? ""}
+            fill="none"
+            stroke={active === e.key ? "var(--accent)" : "var(--muted)"}
+            strokeWidth={active === e.key ? 1.6 : 1}
+            strokeDasharray={active === e.key ? "0" : "2 5"}
+            className="transition-all duration-300"
+            style={{ opacity: active === e.key ? 1 : active ? 0.12 : 0.32 }}
+          />
+        ))}
+      </svg>
+
+      {/* The contract (source) */}
+      <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-[var(--shadow-sm)]">
+        <div className="border-b border-border bg-inset px-4 py-2 text-[10px] font-medium uppercase tracking-wide text-muted">
+          Contract of Sale · PDF
+        </div>
+        <div className="space-y-2 p-4">
+          <div className="text-center font-serif text-[11px] font-semibold">CONTRACT OF SALE OF REAL ESTATE</div>
+          <Filler w="100%" />
+          <Filler w="82%" />
+          {EVIDENCE.map((e) => (
+            <div
+              key={e.key}
+              ref={(el) => {
+                srcRefs.current[e.key] = el;
+              }}
+              onMouseEnter={() => setActive(e.key)}
+              onMouseLeave={() => setActive(null)}
+              className={`flex items-center justify-between gap-2 rounded px-1.5 py-1 text-[11px] font-medium transition-colors ${
+                active === e.key ? "bg-accent text-accent-fg" : "bg-accent-soft text-foreground/85"
+              }`}
+            >
+              <span className="truncate">{e.src}</span>
+              <span className={active === e.key ? "shrink-0 opacity-70" : "shrink-0 text-muted"}>p.{e.page}</span>
+            </div>
+          ))}
+          <Filler w="70%" />
+          <Filler w="60%" />
+        </div>
+      </div>
+
+      {/* Read from the contract (facts) */}
+      <div className="overflow-hidden rounded-xl border border-accent/40 bg-surface">
+        <div className="border-b border-border bg-inset px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
+          Read from the contract — hover to trace each source
+        </div>
+        <ul className="divide-y divide-border">
+          {EVIDENCE.map((e) => (
+            <li
+              key={e.key}
+              ref={(el) => {
+                factRefs.current[e.key] = el;
+              }}
+              onMouseEnter={() => setActive(e.key)}
+              onMouseLeave={() => setActive(null)}
+              className={`space-y-1 px-4 py-3 transition-colors ${active === e.key ? "bg-accent-soft" : ""}`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-[10px] uppercase tracking-wide text-muted">{e.label}</div>
+                <span
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                    active === e.key ? "bg-accent text-accent-fg" : "bg-inset text-muted"
+                  }`}
+                >
+                  ▤ p.{e.page}
+                </span>
+              </div>
+              <div className="text-sm font-medium">{e.value}</div>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );
