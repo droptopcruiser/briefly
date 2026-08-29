@@ -52,7 +52,7 @@ export function HeroBackdrop() {
           top: "-20%",
           left: "3%",
           background: "radial-gradient(circle, #7fb086 0%, rgba(127,176,134,0) 68%)",
-          opacity: 0.4,
+          opacity: 0.5,
           filter: "blur(18px)",
         }}
       />
@@ -62,7 +62,7 @@ export function HeroBackdrop() {
           bottom: "-24%",
           right: "1%",
           background: "radial-gradient(circle, #3f7a49 0%, rgba(63,122,73,0) 66%)",
-          opacity: 0.5,
+          opacity: 0.6,
           filter: "blur(18px)",
         }}
       />
@@ -106,147 +106,214 @@ export function HeroBackdrop() {
           />
         ))}
       </svg>
+
+      {/* Faint document grid — like paper under the light, masked to the centre */}
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(160,175,150,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(160,175,150,0.05) 1px, transparent 1px)",
+          backgroundSize: "46px 46px",
+          maskImage: "radial-gradient(ellipse at 50% 42%, #000 10%, transparent 78%)",
+          WebkitMaskImage: "radial-gradient(ellipse at 50% 42%, #000 10%, transparent 78%)",
+        }}
+      />
+
+      {/* Film grain — a whisper of texture so the light reads as an environment */}
+      <svg className="absolute inset-0 h-full w-full opacity-[0.05] mix-blend-overlay">
+        <filter id="briefly-grain">
+          <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch" />
+        </filter>
+        <rect width="100%" height="100%" filter="url(#briefly-grain)" />
+      </svg>
     </div>
   );
 }
 
 /**
- * The hero's living matter — one conveyancing file moving through Briefly's four
- * quiet stages (Read → Check → Chase → Prepare). Not a flashy AI transformation:
- * one calm process becoming progressively more complete, always anchored to plain
- * detail so a visitor can see exactly what the product does.
+ * The hero's living matter — ONE conveyancing file that fills in over time as
+ * Briefly reads and prepares it: the enquiry arrives, a contract lands, facts are
+ * checked against the firm's rulebook, a missing item surfaces, a chase is drafted,
+ * the reply comes back, and the file reaches "Ready for review". The SAME object
+ * accumulates state — it never resets between isolated cards. Calm and cumulative;
+ * frozen at "ready" under reduced-motion.
  */
-const MATTER_PHASES = [
-  {
-    label: "Read",
-    dot: "bg-accent",
-    status: "Reads the enquiry, the contract, and every reply",
-    detail: "“We're buying at 8 Ellery Lane, Fitzroy North.” — Contract of Sale attached.",
-    meta: "1 email · 1 document received",
-    rows: [
-      { icon: "✉", text: "Client enquiry — Tomas Nowak", tone: "muted" as const },
-      { icon: "▤", text: "Contract of Sale.pdf", tone: "muted" as const },
-    ],
-  },
-  {
-    label: "Check",
-    dot: "bg-awaiting",
-    status: "Checks the file against your Property Purchase rulebook",
-    detail: "Every required fact and document, matched to your firm's definition of ready.",
-    meta: "1 item missing",
-    rows: [
-      { icon: "✓", text: "Property · 8 Ellery Lane, Fitzroy North", tone: "accent" as const },
-      { icon: "✓", text: "Vendors · Kwame & Abena Osei", tone: "accent" as const },
-      { icon: "○", text: "Signed transfer — missing", tone: "error" as const },
-    ],
-  },
-  {
-    label: "Chase",
-    dot: "bg-awaiting",
-    status: "Drafts the exact request for what's missing",
-    detail: "Ready for you to review and send — Briefly never sends on its own.",
-    meta: "1 draft awaiting your approval",
-    rows: [
-      { icon: "✎", text: "“Hi Tomas — could you send the signed transfer…”", tone: "muted" as const },
-      { icon: "→", text: "Review & send", tone: "accent" as const },
-    ],
-  },
-  {
-    label: "Prepare",
-    dot: "bg-accent",
-    status: "A source-backed matter, ready for your review",
-    detail: "Known facts, their sources, what's outstanding, and the next move.",
-    meta: "Settlement 5 June 2027 · Ready for review",
-    rows: [
-      { icon: "✓", text: "Settlement · 5 June 2027 — Contract p.3", tone: "accent" as const },
-      { icon: "✓", text: "Purchase price · $1,295,000 — p.3", tone: "accent" as const },
-      { icon: "○", text: "Signed transfer — still outstanding", tone: "awaiting" as const },
-    ],
-  },
-];
-
-const MATTER_TONE: Record<string, string> = {
-  accent: "text-accent",
-  awaiting: "text-awaiting",
-  error: "text-error",
-  muted: "text-muted",
-};
+const MATTER_STEPS = 8; // 0..8
 
 export function MatterScene() {
   const reduced = useReducedMotion();
-  const [i, setI] = useState(0);
+  const [step, setStep] = useState(0);
   useEffect(() => {
     if (reduced) {
-      setI(MATTER_PHASES.length - 1);
+      setStep(MATTER_STEPS);
       return;
     }
-    const t = window.setInterval(() => setI((p) => (p + 1) % MATTER_PHASES.length), 2900);
-    return () => window.clearInterval(t);
+    let s = 0;
+    let timer = 0;
+    const tick = () => {
+      setStep(s);
+      const delay = s === MATTER_STEPS ? 3400 : s === 0 ? 1000 : 1450;
+      s = s >= MATTER_STEPS ? 0 : s + 1;
+      timer = window.setTimeout(tick, delay);
+    };
+    tick();
+    return () => window.clearTimeout(timer);
   }, [reduced]);
-  const p = MATTER_PHASES[i];
+
+  const on = (k: number) => step >= k;
+  const reveal = (k: number, dy = 10) => ({
+    opacity: on(k) ? 1 : 0,
+    transform: on(k) ? "none" : `translateY(${dy}px)`,
+    transition: reduced ? undefined : `opacity 640ms ${EASE}, transform 640ms ${EASE}`,
+  });
+
+  const telemetry =
+    step >= MATTER_STEPS
+      ? "Ready for review · Settlement 5 June 2027"
+      : step >= 6
+        ? "2 documents received · reading the contract"
+        : step >= 5
+          ? "1 draft awaiting your approval"
+          : step >= 4
+            ? "1 item missing"
+            : step >= 2
+              ? "2 sources verified"
+              : "New enquiry · 1 document";
 
   return (
-    <div
-      className="overflow-hidden rounded-2xl text-left ring-1 ring-white/10"
-      style={{ background: "#f3f4ef", boxShadow: "0 50px 130px -30px rgba(0,0,0,0.8)" }}
-    >
+    <div className="relative">
+      {/* ambient green backlight — the object sits IN the light, not on a flat bg */}
       <div
-        className="flex items-center gap-2 px-5 py-3.5"
-        style={{ background: "#eaeee4", borderBottom: "1px solid rgba(29,38,33,0.06)" }}
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[135%] w-[125%] -translate-x-1/2 -translate-y-1/2"
+        style={{
+          background:
+            "radial-gradient(ellipse at 50% 42%, rgba(140,190,150,0.5), rgba(127,176,134,0) 66%)",
+          filter: "blur(56px)",
+        }}
+      />
+
+      {/* the work surface — layered depth, bright top edge, deep shadow */}
+      <div
+        className="overflow-hidden rounded-[18px] text-left"
+        style={{
+          background: "#f5f6f0",
+          border: "1px solid rgba(255,255,255,0.14)",
+          boxShadow:
+            "inset 0 1px 0 rgba(255,255,255,0.6), 0 2px 6px rgba(0,0,0,0.2), 0 44px 70px -24px rgba(0,0,0,0.55), 0 90px 150px -40px rgba(0,0,0,0.6)",
+        }}
       >
-        <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#d7b3aa" }} />
-        <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#e6d3a0" }} />
-        <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#b6c9ad" }} />
-        <span className="ml-2 truncate text-[12px] text-muted">
-          Property Purchase — Conveyancing · Tomas Nowak
-        </span>
-        <span className="ml-auto shrink-0 text-[11px] tabular-nums text-muted">
-          Step {i + 1} of {MATTER_PHASES.length}
-        </span>
-      </div>
-
-      <div className="px-6 py-7 sm:px-8">
-        <div key={i} className="anim-swapin min-h-[164px] space-y-3.5">
-          <div className="flex items-center gap-2.5">
-            <span className={`h-2 w-2 rounded-full ${p.dot}`} />
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted">{p.label}</span>
-          </div>
-          <h3 className="font-serif text-xl font-medium tracking-tight text-foreground sm:text-2xl">
-            {p.status}
-          </h3>
-          <p className="max-w-xl text-sm text-muted">{p.detail}</p>
-          <ul className="space-y-2 pt-0.5">
-            {p.rows.map((r, idx) => (
-              <li key={idx} className="flex items-center gap-2.5 text-sm">
-                <span className={`w-4 shrink-0 text-center ${MATTER_TONE[r.tone]}`}>{r.icon}</span>
-                <span className="text-foreground/85">{r.text}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="mt-6 flex items-center justify-between gap-4 border-t border-border pt-4">
-          <span className="text-xs font-medium text-muted">{p.meta}</span>
-          <div className="flex items-center gap-1.5">
-            {MATTER_PHASES.map((_, idx) => (
-              <span
-                key={idx}
-                className={`h-1.5 rounded-full transition-all duration-500 ${idx === i ? "w-6 bg-accent" : "w-1.5 bg-border"}`}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-4 border-t border-border text-center text-xs font-medium">
-        {MATTER_PHASES.map((ph, idx) => (
-          <div
-            key={idx}
-            className={`py-3 transition-colors duration-500 ${idx === i ? "bg-accent-soft text-accent" : "text-muted"}`}
+        <div
+          className="flex items-center gap-2 px-5 py-3.5 sm:px-6"
+          style={{ background: "#ecefe6", borderBottom: "1px solid rgba(29,38,33,0.06)" }}
+        >
+          <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#d7b3aa" }} />
+          <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#e6d3a0" }} />
+          <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#b6c9ad" }} />
+          <span className="ml-2 truncate text-[12.5px] text-muted">
+            Property Purchase — Conveyancing · Tomas Nowak
+          </span>
+          <span
+            className="ml-auto shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors duration-500"
+            style={
+              step >= MATTER_STEPS
+                ? { background: "var(--accent-soft)", color: "var(--accent)" }
+                : { background: "var(--inset)", color: "var(--muted)" }
+            }
           >
-            {ph.label}
+            {step >= MATTER_STEPS ? "✓ Ready for review" : "Preparing…"}
+          </span>
+        </div>
+
+        <div className="space-y-3 px-5 py-6 sm:px-7 sm:py-7">
+          <div className="rounded-xl border border-border bg-surface px-4 py-3.5" style={reveal(0)}>
+            <div className="flex items-center gap-2.5">
+              <span className="grid h-8 w-8 place-items-center rounded-full bg-accent-soft text-[11px] font-semibold text-accent">
+                TN
+              </span>
+              <div className="min-w-0">
+                <div className="text-sm font-medium">Tomas Nowak</div>
+                <div className="truncate text-xs text-muted">New enquiry · just now</div>
+              </div>
+            </div>
+            <p className="mt-2.5 text-sm text-foreground/85">
+              &ldquo;We&apos;re buying at 8 Ellery Lane, Fitzroy North. Contract&apos;s attached &mdash; can
+              you handle the conveyancing?&rdquo;
+            </p>
+            <div
+              className="mt-2.5 inline-flex items-center gap-1.5 rounded-md border border-border bg-inset px-2.5 py-1 text-xs text-foreground/75"
+              style={reveal(1, 6)}
+            >
+              <span aria-hidden>📎</span> Contract of Sale.pdf
+            </div>
           </div>
-        ))}
+
+          <div className="rounded-xl border border-border bg-inset/60 px-4 py-3.5" style={reveal(2)}>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+              Checked against your Property Purchase rulebook
+            </div>
+            <ul className="mt-2 space-y-1.5 text-sm">
+              <li className="flex items-center gap-2.5" style={reveal(2, 6)}>
+                <span className="text-accent">&#10003;</span>
+                <span className="text-foreground/85">Property · 8 Ellery Lane, Fitzroy North</span>
+                <span className="ml-auto text-xs text-muted">from email</span>
+              </li>
+              <li className="flex items-center gap-2.5" style={reveal(3, 6)}>
+                <span className="text-accent">&#10003;</span>
+                <span className="text-foreground/85">Vendors · Kwame &amp; Abena Osei</span>
+                <span className="ml-auto text-xs text-muted">Contract p.1</span>
+              </li>
+              <li className="flex items-center gap-2.5" style={reveal(4, 6)}>
+                <span className="text-error">&#9675;</span>
+                <span className="text-foreground/85">Signed transfer</span>
+                <span className="ml-auto text-xs font-medium text-error">missing</span>
+              </li>
+            </ul>
+          </div>
+
+          <div
+            className="rounded-xl border px-4 py-3.5"
+            style={{
+              ...reveal(5),
+              borderColor: "color-mix(in srgb, var(--awaiting) 40%, transparent)",
+              background: "color-mix(in srgb, var(--awaiting-soft) 55%, transparent)",
+            }}
+          >
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-awaiting" aria-hidden>&#9998;</span>
+              <span className="font-medium text-foreground/85">Drafted a request for the signed transfer</span>
+              <span className="ml-auto text-xs text-muted">awaiting your approval</span>
+            </div>
+            <p className="mt-1.5 pl-6 text-xs italic text-muted">
+              &ldquo;Hi Tomas — could you send the signed transfer when you have a moment?&rdquo;
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-border bg-surface px-4 py-3.5" style={reveal(6)}>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-accent" aria-hidden>&#9993;</span>
+              <span className="font-medium text-foreground/85">Reply received — signed Contract of Sale</span>
+              <span className="ml-auto text-xs text-muted">folded into this matter</span>
+            </div>
+            <div className="mt-1.5 flex items-center gap-2.5 pl-6 text-xs" style={reveal(7, 6)}>
+              <span className="text-accent">&#10003;</span>
+              <span className="text-foreground/80">Settlement · 5 June 2027</span>
+              <span className="text-muted">— read, Contract p.3</span>
+            </div>
+          </div>
+
+          <div
+            className="flex items-center gap-2.5 rounded-xl px-4 py-3.5 text-sm font-medium"
+            style={{ ...reveal(8), background: "var(--accent-soft)", color: "var(--accent)" }}
+          >
+            <span aria-hidden>&#10003;</span>
+            Ready for your review · Settlement 5 June 2027
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 text-center text-xs tracking-wide" style={{ color: "#93a98c" }}>
+        {telemetry}
       </div>
     </div>
   );

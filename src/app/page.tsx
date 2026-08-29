@@ -101,26 +101,20 @@ export default async function Landing() {
               <p className="mt-5 text-sm font-medium" style={{ color: "#8fb894" }}>
                 You review, decide, and send. Briefly does the prep.
               </p>
-              <div className="mt-9 flex flex-wrap items-center justify-center gap-4">
+              <div className="mt-9 flex items-center justify-center">
                 <a
                   href="#waitlist"
-                  className="rounded-lg px-6 py-3 text-sm font-semibold shadow-sm transition-transform hover:-translate-y-0.5"
+                  className="rounded-lg px-7 py-3.5 text-sm font-semibold shadow-sm transition-transform hover:-translate-y-0.5"
                   style={{ background: "#7fb086", color: "#12160f" }}
                 >
                   Request early access
                 </a>
-                <a
-                  href="#position"
-                  className="text-sm font-medium underline decoration-dotted underline-offset-4"
-                  style={{ color: "#cdd4c6" }}
-                >
-                  How it works →
-                </a>
               </div>
             </div>
 
-            {/* The living matter — one file moving through Read → Check → Chase → Prepare */}
-            <div className="anim-rise mx-auto mt-14 max-w-3xl sm:mt-16" style={{ animationDelay: "140ms" }}>
+            {/* The living matter — one file that fills in over time. Larger, closer to
+                the copy, so it reads as the focal object of the hero, not a demo below. */}
+            <div className="anim-rise mx-auto mt-12 max-w-4xl sm:mt-14" style={{ animationDelay: "140ms" }}>
               <MatterScene />
             </div>
           </div>
