@@ -198,6 +198,28 @@ h1, h2, h3 {
 .anim-float { animation: briefly-float 8s ease-in-out infinite; }
 .anim-rise { animation: briefly-rise 0.8s var(--ease) both; }
 
+/* ── Hero aurora ──────────────────────────────────────────────────────────
+   A slow green light that lives behind the dark hero — two drifting glows and a
+   brighter beam sweeping across, like a prism streak rendered in forest/sage.
+   Soft and unhurried; frozen under reduced-motion. */
+@keyframes aurora-a {
+  0%, 100% { transform: translate3d(-8%, -4%, 0) scale(1); }
+  50% { transform: translate3d(10%, 6%, 0) scale(1.18); }
+}
+@keyframes aurora-b {
+  0%, 100% { transform: translate3d(6%, 4%, 0) scale(1.12); }
+  50% { transform: translate3d(-9%, -5%, 0) scale(1); }
+}
+@keyframes aurora-sweep {
+  0% { transform: translateX(-55%) rotate(-9deg); opacity: 0; }
+  20% { opacity: 0.9; }
+  80% { opacity: 0.9; }
+  100% { transform: translateX(155%) rotate(-9deg); opacity: 0; }
+}
+.aurora-a { animation: aurora-a 26s ease-in-out infinite; }
+.aurora-b { animation: aurora-b 32s ease-in-out infinite; }
+.aurora-sweep { animation: aurora-sweep 15s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+
 /* Staggered list entrance — each row settles in turn, keyed off --i (its index). */
 @keyframes briefly-settle {
   from { opacity: 0; transform: translateY(8px); }
@@ -289,7 +311,11 @@ h1, h2, h3 {
 @media (prefers-reduced-motion: reduce) {
   .anim-float,
   .anim-rise,
-  .stagger-in { animation: none !important; }
+  .stagger-in,
+  .aurora-a,
+  .aurora-b,
+  .aurora-sweep { animation: none !important; }
+  .aurora-sweep { opacity: 0.6 !important; }
   .trace-dot { display: none; }
   .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
   .swap { transition: none !important; }

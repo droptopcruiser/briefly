@@ -45,27 +45,48 @@ export function HeroBackdrop() {
 
   return (
     <div ref={ref} aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+      {/* Moving green aurora — two drifting glows + a brighter beam sweeping across */}
       <div
-        className="absolute -left-48 -top-52 h-[300px] w-[300px] rounded-full will-change-transform"
-        style={{ background: "#8aa87f", opacity: 0.85, transform: "translateY(var(--pa,0px))" }}
+        className="aurora-a absolute h-[78vh] w-[78vh] rounded-full will-change-transform"
+        style={{
+          top: "-20%",
+          left: "3%",
+          background: "radial-gradient(circle, #7fb086 0%, rgba(127,176,134,0) 68%)",
+          opacity: 0.4,
+          filter: "blur(18px)",
+        }}
       />
       <div
-        className="absolute left-24 top-40 hidden h-[260px] w-[260px] rounded-full border sm:block will-change-transform"
-        style={{ borderColor: "rgba(232,237,222,0.16)", transform: "translateY(var(--pc,0px))" }}
+        className="aurora-b absolute h-[64vh] w-[64vh] rounded-full will-change-transform"
+        style={{
+          bottom: "-24%",
+          right: "1%",
+          background: "radial-gradient(circle, #3f7a49 0%, rgba(63,122,73,0) 66%)",
+          opacity: 0.5,
+          filter: "blur(18px)",
+        }}
       />
+      <div
+        className="aurora-sweep absolute left-0 w-[46%] will-change-transform"
+        style={{
+          top: "-25%",
+          bottom: "-25%",
+          background:
+            "linear-gradient(90deg, transparent, rgba(127,176,134,0.22), rgba(196,224,190,0.55), rgba(127,176,134,0.18), transparent)",
+          filter: "blur(44px)",
+        }}
+      />
+
+      {/* Fine detail: dotted grid + topographic contour lines, with scroll parallax */}
       <div
         className="absolute bottom-12 left-12 hidden h-40 w-64 sm:block will-change-transform"
         style={{
-          backgroundImage: "radial-gradient(circle, rgba(163,178,150,0.55) 1.1px, transparent 1.3px)",
+          backgroundImage: "radial-gradient(circle, rgba(163,178,150,0.5) 1.1px, transparent 1.3px)",
           backgroundSize: "16px 16px",
           maskImage: "radial-gradient(circle at 32% 45%, #000, transparent 72%)",
           WebkitMaskImage: "radial-gradient(circle at 32% 45%, #000, transparent 72%)",
           transform: "translateY(var(--pb,0px))",
         }}
-      />
-      <div
-        className="absolute -bottom-44 -right-36 h-[440px] w-[440px] rounded-full will-change-transform"
-        style={{ background: "#e8eae0", opacity: 0.96, transform: "translateY(var(--pb,0px))" }}
       />
       <svg
         className="absolute right-0 top-0 h-full w-[300px] will-change-transform sm:w-[420px]"
@@ -81,7 +102,7 @@ export function HeroBackdrop() {
             transform={`translate(${i * 17 - 46} 0)`}
             stroke="#5f7054"
             strokeWidth="1"
-            opacity={0.55 - i * 0.045}
+            opacity={0.5 - i * 0.045}
           />
         ))}
       </svg>
