@@ -25,6 +25,8 @@ export type MatterEventType =
   | "packet_refreshed"
   | "packet_reviewed"
   | "agenda_promoted"
+  | "file_open_prepared"
+  | "file_open_reviewed"
   | "document_attached"
   | "document_read"
   | "document_fact_confirmed"

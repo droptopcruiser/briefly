@@ -1,4 +1,5 @@
 import type { Rubric } from "./types";
+import { CRIMINAL_RUBRIC } from "./criminal";
 
 /**
  * Seed rubrics shipped to new firms as a starting point (BYOR).
@@ -240,6 +241,7 @@ export const SEED_RUBRICS: Rubric[] = [
       },
     ],
   },
+  CRIMINAL_RUBRIC,
 ];
 
 export function getRubric(id: string): Rubric | undefined {

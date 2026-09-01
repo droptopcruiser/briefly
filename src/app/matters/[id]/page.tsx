@@ -43,6 +43,9 @@ import { listMessages } from "@/lib/messages";
 import { getMatterDateDecisions, staleDatesEnabled } from "@/lib/critical-dates";
 import { resolveMatterDates } from "@/lib/critical-date-derive";
 import { CriticalDatesStrip } from "@/app/critical-dates-strip";
+import { getActiveFileOpen, fileOpenGate } from "@/lib/file-open";
+import { isCriminalMatter } from "@/lib/criminal";
+import { FileOpenPanel } from "@/app/file-open-panel";
 
 /**
  * Evidence over confidence: show how much of the matter is backed by source
@@ -343,6 +346,26 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
  * to review and send; Path B (ready) is the Initial Work Brief, reframed to lead
  * with the next step and NOT reprint the facts (those live in the record).
  */
+/**
+ * PREPARATION WORKFLOWS — the criminal-chambers counterpart to Next step. For a
+ * criminal matter, Briefly prepares source-backed DRAFTS (File Open first); counsel
+ * reviews, decides, and sends. The File Open gate is computed here so the panel can
+ * explain what's missing (the charging document + Summary of Facts) before it runs.
+ */
+async function PreparationWorkflowsSection({ matter }: { matter: Matter }) {
+  const run = await getActiveFileOpen(matter.id);
+  const gate = fileOpenGate(matter.result);
+  return (
+    <FileOpenPanel
+      matterId={matter.id}
+      initialRun={run}
+      gateOk={gate.ok}
+      gateReason={gate.reason}
+      missing={gate.missing}
+    />
+  );
+}
+
 async function NextStepSection({ matter, account }: { matter: Matter; account: Account }) {
   const r = matter.result!;
   // The default outbound subject: the conversation's "Re:" subject when this matter
@@ -873,13 +896,19 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
   // reached only by explicit choice (never by an automatic default or scroll).
   const defaultTab = "next";
 
+  const criminal = isCriminalMatter(r);
+
   const tabs = [
     {
       id: "next",
-      label: "Next step",
+      label: criminal ? "Preparation" : "Next step",
       node: (
-        <Suspense fallback={<SectionSkeleton label="Preparing next step" />}>
-          <NextStepSection matter={matter} account={account} />
+        <Suspense fallback={<SectionSkeleton label={criminal ? "Preparing workflows" : "Preparing next step"} />}>
+          {criminal ? (
+            <PreparationWorkflowsSection matter={matter} />
+          ) : (
+            <NextStepSection matter={matter} account={account} />
+          )}
         </Suspense>
       ),
     },
@@ -892,15 +921,21 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
         </Suspense>
       ),
     },
-    {
-      id: "plan",
-      label: "Consultation plan",
-      node: (
-        <Suspense fallback={<SectionSkeleton label="Preparing consultation plan" />}>
-          <ConsultationPlanSection matter={matter} />
-        </Suspense>
-      ),
-    },
+    // The Consultation plan is a conveyancing-flow tab; criminal matters use the
+    // Preparation workflows instead.
+    ...(criminal
+      ? []
+      : [
+          {
+            id: "plan",
+            label: "Consultation plan",
+            node: (
+              <Suspense fallback={<SectionSkeleton label="Preparing consultation plan" />}>
+                <ConsultationPlanSection matter={matter} />
+              </Suspense>
+            ),
+          },
+        ]),
   ];
 
   return (
