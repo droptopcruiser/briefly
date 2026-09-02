@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { importDisclosurePack, prepareDisclosureNote, reviewDisclosureNote } from "@/app/disclosure-actions";
+import { importDisclosurePack, importDisclosurePackFromDocument, prepareDisclosureNote, reviewDisclosureNote } from "@/app/disclosure-actions";
 import type { DisclosureNoteRun } from "@/lib/disclosure-service";
 import type { DisclosureNote } from "@/lib/disclosure";
 
@@ -118,34 +118,48 @@ export function DisclosurePanel({
   matterId,
   initialPackCount,
   initialNote,
+  documents = [],
 }: {
   matterId: string;
   initialPackCount: number;
   initialNote: DisclosureNoteRun | null;
+  documents?: { id: string; fileName: string }[];
 }) {
   const router = useRouter();
   const [packCount, setPackCount] = useState(initialPackCount);
   const [note, setNote] = useState<DisclosureNoteRun | null>(initialNote);
   const [text, setText] = useState("");
   const [date, setDate] = useState("");
+  const [docId, setDocId] = useState(documents[0]?.id ?? "");
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+
+  const applyImport = (res: Awaited<ReturnType<typeof importDisclosurePack>>) => {
+    if (res.ok) {
+      setPackCount((n) => Math.max(n, res.packNo));
+      setText("");
+      setDate("");
+      setMsg(`Pack ${res.packNo} imported · ${res.itemCount} ${res.itemCount === 1 ? "item" : "items"}${res.mocked ? " (parsed)" : ""}`);
+      router.refresh();
+    } else {
+      setError(res.reason);
+    }
+  };
+
+  const onImportDoc = () =>
+    start(async () => {
+      setError(null);
+      setMsg(null);
+      if (!docId) return;
+      applyImport(await importDisclosurePackFromDocument(matterId, docId, date || null));
+    });
 
   const onImport = () =>
     start(async () => {
       setError(null);
       setMsg(null);
-      const res = await importDisclosurePack(matterId, text, date || null);
-      if (res.ok) {
-        setPackCount((n) => Math.max(n, res.packNo));
-        setText("");
-        setDate("");
-        setMsg(`Pack ${res.packNo} imported · ${res.itemCount} ${res.itemCount === 1 ? "item" : "items"}${res.mocked ? " (parsed)" : ""}`);
-        router.refresh();
-      } else {
-        setError(res.reason);
-      }
+      applyImport(await importDisclosurePack(matterId, text, date || null));
     });
 
   const onPrepare = () =>
@@ -198,9 +212,38 @@ export function DisclosurePanel({
       <div className="space-y-2 pt-4">
         <label className="text-sm font-medium">Import a disclosure pack</label>
         <p className="text-xs text-muted">
-          Paste the pack&apos;s index (one numbered item per line). Briefly reads only what the index says —
-          it never infers withholding, and it compares this pack against the last.
+          Briefly reads only what the index says — it never infers withholding, and it compares this pack
+          against the last.
         </p>
+
+        {/* From an uploaded index PDF */}
+        {documents.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-raise px-3 py-2">
+            <span className="text-xs font-medium text-muted">From an uploaded index</span>
+            <select
+              value={docId}
+              onChange={(e) => setDocId(e.target.value)}
+              aria-label="Choose an uploaded index PDF"
+              className="min-w-0 flex-1 rounded-md border border-border bg-surface px-2 py-1 text-sm"
+            >
+              {documents.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.fileName}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={onImportDoc}
+              disabled={pending || !docId}
+              className="rounded-md border border-border px-2.5 py-1 text-sm font-medium transition-colors hover:bg-inset disabled:opacity-50"
+            >
+              {pending ? "Reading…" : "Read index"}
+            </button>
+          </div>
+        ) : null}
+
+        <p className="text-xs text-muted">{documents.length > 0 ? "…or paste the index text:" : "Paste the pack's index (one numbered item per line):"}</p>
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}

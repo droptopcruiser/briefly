@@ -355,12 +355,14 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
  * explain what's missing (the charging document + Summary of Facts) before it runs.
  */
 async function PreparationWorkflowsSection({ matter }: { matter: Matter }) {
-  const [run, packs, discNote] = await Promise.all([
+  const [run, packs, discNote, docs] = await Promise.all([
     getActiveFileOpen(matter.id),
     listPacks(matter.id),
     getActiveDisclosureNote(matter.id),
+    listDocuments(matter.id),
   ]);
   const gate = fileOpenGate(matter.result);
+  const pdfDocs = docs.filter((d) => d.mime === "application/pdf").map((d) => ({ id: d.id, fileName: d.fileName }));
   return (
     <div className="space-y-4">
       <FileOpenPanel
@@ -370,7 +372,7 @@ async function PreparationWorkflowsSection({ matter }: { matter: Matter }) {
         gateReason={gate.reason}
         missing={gate.missing}
       />
-      <DisclosurePanel matterId={matter.id} initialPackCount={packs.length} initialNote={discNote} />
+      <DisclosurePanel matterId={matter.id} initialPackCount={packs.length} initialNote={discNote} documents={pdfDocs} />
     </div>
   );
 }

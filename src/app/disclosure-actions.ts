@@ -4,7 +4,8 @@ import { requireUser } from "@/lib/auth";
 import { getMatter } from "@/lib/store";
 import { getCurrentAccount, DEFAULT_ACCOUNT_ID } from "@/lib/metering";
 import { addEvent } from "@/lib/events";
-import { extractPack } from "@/lib/disclosure-ingest";
+import { extractPack, extractPackFromPdf } from "@/lib/disclosure-ingest";
+import { getDocument, downloadDocument } from "@/lib/documents";
 import {
   savePack,
   nextPackNo,
@@ -55,6 +56,43 @@ export async function importDisclosurePack(
     matter.id,
     "disclosure_pack_imported",
     `Disclosure pack ${packNo} imported · ${pack.items.length} index ${pack.items.length === 1 ? "item" : "items"}`,
+  );
+  return { ok: true, packNo, itemCount: pack.items.length, mocked };
+}
+
+/** Import a disclosure index straight from an uploaded PDF on the matter. */
+export async function importDisclosurePackFromDocument(
+  matterId: string,
+  documentId: string,
+  date: string | null,
+): Promise<ImportResult> {
+  await requireUser();
+  const { matter } = await loadMatter(matterId);
+  if (!matter?.result) return { ok: false, reason: "Matter not found." };
+
+  const doc = await getDocument(documentId);
+  if (!doc || doc.matterId !== matterId) return { ok: false, reason: "Document not found on this matter." };
+  if (doc.mime !== "application/pdf") return { ok: false, reason: "The index must be a PDF — paste it instead." };
+
+  const bytes = await downloadDocument(doc);
+  if (!bytes) return { ok: false, reason: "Couldn't open that document." };
+
+  const packNo = await nextPackNo(matterId);
+  let pack, mocked: boolean;
+  try {
+    ({ pack, mocked } = await extractPackFromPdf(bytes, packNo, date?.trim() || null));
+  } catch (err) {
+    console.error("importDisclosurePackFromDocument read failed:", err);
+    return { ok: false, reason: "Couldn't read the index from that PDF — paste it instead." };
+  }
+  if (pack.items.length === 0) return { ok: false, reason: "No index items were found in that document." };
+
+  await savePack(matter, pack);
+  await addEvent(
+    matter.accountId,
+    matter.id,
+    "disclosure_pack_imported",
+    `Disclosure pack ${packNo} imported from ${doc.fileName} · ${pack.items.length} ${pack.items.length === 1 ? "item" : "items"}`,
   );
   return { ok: true, packNo, itemCount: pack.items.length, mocked };
 }
