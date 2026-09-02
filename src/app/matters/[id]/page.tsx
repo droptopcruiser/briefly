@@ -46,6 +46,8 @@ import { CriticalDatesStrip } from "@/app/critical-dates-strip";
 import { getActiveFileOpen, fileOpenGate } from "@/lib/file-open";
 import { isCriminalMatter } from "@/lib/criminal";
 import { FileOpenPanel } from "@/app/file-open-panel";
+import { listPacks, getActiveDisclosureNote } from "@/lib/disclosure-service";
+import { DisclosurePanel } from "@/app/disclosure-panel";
 
 /**
  * Evidence over confidence: show how much of the matter is backed by source
@@ -353,16 +355,23 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
  * explain what's missing (the charging document + Summary of Facts) before it runs.
  */
 async function PreparationWorkflowsSection({ matter }: { matter: Matter }) {
-  const run = await getActiveFileOpen(matter.id);
+  const [run, packs, discNote] = await Promise.all([
+    getActiveFileOpen(matter.id),
+    listPacks(matter.id),
+    getActiveDisclosureNote(matter.id),
+  ]);
   const gate = fileOpenGate(matter.result);
   return (
-    <FileOpenPanel
-      matterId={matter.id}
-      initialRun={run}
-      gateOk={gate.ok}
-      gateReason={gate.reason}
-      missing={gate.missing}
-    />
+    <div className="space-y-4">
+      <FileOpenPanel
+        matterId={matter.id}
+        initialRun={run}
+        gateOk={gate.ok}
+        gateReason={gate.reason}
+        missing={gate.missing}
+      />
+      <DisclosurePanel matterId={matter.id} initialPackCount={packs.length} initialNote={discNote} />
+    </div>
   );
 }
 

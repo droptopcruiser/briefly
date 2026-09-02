@@ -289,3 +289,58 @@ export function mockDisclosureLetter(defendant: string | null, prn: string | nul
     `Yours faithfully,`
   );
 }
+
+// ── Deterministic index parsing (pure; also the model-extract fallback) ────────
+
+function categorize(desc: string): DiscCategory {
+  const d = desc.toLowerCase();
+  if (/charg(?:e|ing)\s+doc|charging/.test(d)) return "charge";
+  if (/summary of facts|\bsof\b/.test(d)) return "sof";
+  if (/statement/.test(d)) return "statement";
+  if (/notebook|job\s?sheet|\bnib\b/.test(d)) return "notebook";
+  if (/interview|caution|dvd|eviden(?:ce|tial) video/.test(d)) return "interview";
+  if (/photo|image|cctv|footage|\bvideo\b/.test(d)) return "photo";
+  if (/exhibit/.test(d)) return "exhibit";
+  if (/index/.test(d)) return "index";
+  return "other";
+}
+
+function statusOf(line: string): DiscStatus {
+  const d = line.toLowerCase();
+  if (/withheld|not disclosed|redact/.test(d)) return "withheld";
+  if (/part[- ]?disclos|partial|extract|excerpt/.test(d)) return "part";
+  if (/\bfull\b|disclosed|provided|attached|enclosed/.test(d)) return "full";
+  return "listed";
+}
+
+function pagesOf(line: string): number | null {
+  const range = line.match(/pp?\.?\s*(\d+)\s*[-–]\s*(\d+)/i);
+  if (range) return Math.abs(Number(range[2]) - Number(range[1])) + 1;
+  const n = line.match(/(\d+)\s*pages?\b/i);
+  if (n) return Number(n[1]);
+  return null;
+}
+
+/** Parse a disclosure index into a pack — one item per numbered line. Grounded:
+ *  status is taken as stated, defaulting to the neutral "listed" when unsaid. */
+export function parseIndexText(text: string, packNo: number, date: string | null): DisclosurePack {
+  const items: DisclosureItem[] = [];
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    const m = line.match(/^(\d+(?:\.\d+)?)[.)\]]?\s+(.+)$/);
+    if (!m) continue;
+    const ref = m[1];
+    const rest = m[2].trim();
+    const description =
+      rest.replace(/\s*[—–-]\s*(full|withheld|part[- ]?disclosed|partial|disclosed|listed)\b.*$/i, "").trim() || rest;
+    items.push({
+      ref,
+      description,
+      category: categorize(rest),
+      status: statusOf(rest),
+      pages: pagesOf(rest),
+      source: line,
+    });
+  }
+  return { packNo, date, items };
+}
