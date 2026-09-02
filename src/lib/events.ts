@@ -30,6 +30,8 @@ export type MatterEventType =
   | "disclosure_pack_imported"
   | "disclosure_note_prepared"
   | "disclosure_note_reviewed"
+  | "correspondence_prepared"
+  | "correspondence_reviewed"
   | "document_attached"
   | "document_read"
   | "document_fact_confirmed"
