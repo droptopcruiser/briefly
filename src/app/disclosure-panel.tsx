@@ -3,10 +3,10 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { importDisclosurePack, importDisclosurePackFromDocument, prepareDisclosureNote, reviewDisclosureNote } from "@/app/disclosure-actions";
-import { exportDisclosureNoteDocx } from "@/app/export-actions";
+import { exportDisclosureNoteDocx, exportDisclosureLetterDocx } from "@/app/export-actions";
 import { downloadDocx } from "@/app/download";
 import type { DisclosureNoteRun } from "@/lib/disclosure-service";
-import type { DisclosureNote } from "@/lib/disclosure";
+import { stripFixtureTags, type DisclosureNote } from "@/lib/disclosure";
 import type { ExportViolation } from "@/lib/source-lock";
 
 /**
@@ -115,7 +115,7 @@ function NoteView({ note }: { note: DisclosureNote }) {
       {note.draftLetter ? (
         <div className="rounded-xl border border-border bg-raise p-4">
           <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">Draft request letter</div>
-          <pre className="whitespace-pre-wrap font-sans text-sm text-foreground">{note.draftLetter}</pre>
+          <pre className="whitespace-pre-wrap font-sans text-sm text-foreground">{stripFixtureTags(note.draftLetter)}</pre>
         </div>
       ) : null}
     </div>
@@ -190,7 +190,22 @@ export function DisclosurePanel({
   const onExport = () =>
     start(async () => {
       setBlocked(null);
+      setError(null);
       const res = await exportDisclosureNoteDocx(matterId);
+      if (res.ok) {
+        downloadDocx(res.fileName, res.base64);
+      } else if ("violations" in res) {
+        setBlocked(res.violations);
+      } else {
+        setError(res.reason);
+      }
+    });
+
+  const onExportLetter = () =>
+    start(async () => {
+      setBlocked(null);
+      setError(null);
+      const res = await exportDisclosureLetterDocx(matterId);
       if (res.ok) {
         downloadDocx(res.fileName, res.base64);
       } else if ("violations" in res) {
@@ -377,14 +392,26 @@ export function DisclosurePanel({
           ) : null}
 
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-            <button
-              type="button"
-              onClick={onExport}
-              disabled={pending}
-              className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-inset disabled:opacity-60"
-            >
-              {pending ? "Checking…" : "Export note (.docx)"}
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={onExport}
+                disabled={pending}
+                className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-inset disabled:opacity-60"
+              >
+                {pending ? "Checking…" : "Export note (.docx)"}
+              </button>
+              {note.content.draftLetter ? (
+                <button
+                  type="button"
+                  onClick={onExportLetter}
+                  disabled={pending}
+                  className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-inset disabled:opacity-60"
+                >
+                  {pending ? "Checking…" : "Export letter (.docx)"}
+                </button>
+              ) : null}
+            </div>
             {approved ? (
               <span className="inline-flex items-center gap-1.5 text-sm font-medium text-accent">
                 <span className="h-2 w-2 rounded-full bg-accent" /> Reviewed

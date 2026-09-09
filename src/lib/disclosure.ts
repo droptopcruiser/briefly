@@ -327,8 +327,18 @@ export function buildDisclosureNote(result: PipelineResult, packs: DisclosurePac
  * only the proper asks, in a short chambers voice; brackets anything not stated. It
  * is a DRAFT — counsel reviews and sends.
  */
+/**
+ * Remove synthetic/demo fixture tags (e.g. "[synthetic]") from letter-shaped text.
+ * These label demo data on the note's chips, but they must never appear inside a block
+ * someone could copy and send. Genuine gap brackets ([defendant not stated], [Chambers])
+ * are left untouched — only the fixture labels are stripped.
+ */
+export function stripFixtureTags(text: string): string {
+  return text.replace(/\s*\[synthetic\]/gi, "");
+}
+
 export function mockDisclosureLetter(defendant: string | null, prn: string | null, asks: Ask[]): string {
-  const re = `${defendant ?? "[defendant not stated]"}${prn ? ` (PRN ${prn})` : ""}`;
+  const re = stripFixtureTags(`${defendant ?? "[defendant not stated]"}${prn ? ` (PRN ${prn})` : ""}`);
   const body = asks.map((a, i) => `${i + 1}. ${a.text}`).join("\n");
   return (
     `Dear Sir/Madam,\n\n` +

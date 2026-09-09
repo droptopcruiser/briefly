@@ -8,7 +8,7 @@ import { exportGate, type ExportViolation } from "@/lib/source-lock";
 import { getActiveCorrespondence } from "@/lib/correspondence-service";
 import { getActiveDisclosureNote } from "@/lib/disclosure-service";
 import { buildDocx, type Block } from "@/lib/docx";
-import type { DisclosureNote } from "@/lib/disclosure";
+import { stripFixtureTags, type DisclosureNote } from "@/lib/disclosure";
 
 /**
  * The EXPORT GATE, wired. A letter or note may only leave the tool if every number,
@@ -40,7 +40,7 @@ function noteToText(n: DisclosureNote): string {
   lines.push("", "INITIAL DISCLOSURE", ...n.initialDisclosureChecklist.map((c) => `  [${c.present ? "x" : " "}] ${c.item}`));
   if (n.clashes.length) lines.push("", "TO CHECK", ...n.clashes.map((c) => `  - ${c}`));
   if (n.asks.length) lines.push("", "REQUESTS", ...n.asks.map((a, i) => `  ${i + 1}. ${a.text}`));
-  if (n.draftLetter) lines.push("", "DRAFT REQUEST LETTER", n.draftLetter);
+  if (n.draftLetter) lines.push("", "DRAFT REQUEST LETTER", stripFixtureTags(n.draftLetter));
   return lines.join("\n");
 }
 
@@ -80,10 +80,16 @@ function stripReviewerFooter(body: string): string {
     .replace(/\s+$/, "");
 }
 
-/** The letter's content (subject + body, reviewer footer removed) → Word paragraphs. */
+/**
+ * A letter's content → Word paragraphs. The reviewer footer is removed and fixture
+ * tags ("[synthetic]") stripped, so nothing letter-shaped carries a demo label. An
+ * optional bold subject heading; omitted when subject is empty (the disclosure request
+ * letter already opens with its own "Re:" line and needs no heading above it).
+ */
 function letterDocxBlocks(subject: string, body: string): Block[] {
-  const blocks: Block[] = [{ text: subject, heading: true }, { text: "" }];
-  for (const line of stripReviewerFooter(body).split("\n")) blocks.push({ text: line });
+  const blocks: Block[] = [];
+  if (subject.trim()) blocks.push({ text: subject, heading: true }, { text: "" });
+  for (const line of stripFixtureTags(stripReviewerFooter(body)).split("\n")) blocks.push({ text: line });
   return blocks;
 }
 
@@ -117,4 +123,27 @@ export async function exportDisclosureNoteDocx(matterId: string): Promise<DocxEx
 
   const bytes = buildDocx(noteDocxBlocks(text));
   return { ok: true, base64: Buffer.from(bytes).toString("base64"), fileName: `disclosure-note-pack-${run.content.packNo}.docx` };
+}
+
+/**
+ * Export the disclosure REQUEST LETTER — the one carrying the same numbered asks as the
+ * note (note.draftLetter), not a soft summary. This is the letter a clerk sends. Gated,
+ * reviewer footer off, fixture tags stripped. Absent when the pack raised no asks.
+ */
+export async function exportDisclosureLetterDocx(matterId: string): Promise<DocxExportResult> {
+  await requireUser();
+  const matter = await loadMatter(matterId);
+  if (!matter?.result) return { ok: false, reason: "Matter not found." };
+  const run = await getActiveDisclosureNote(matterId);
+  if (!run) return { ok: false, reason: "No disclosure note prepared yet." };
+  const letter = run.content.draftLetter;
+  if (!letter) return { ok: false, reason: "No request letter — this pack raised no asks." };
+
+  const body = stripFixtureTags(letter);
+  const list = await matterSourceList(matterId, matter.submission ?? "", matter.result);
+  const violations = exportGate(body, list);
+  if (violations.length) return { ok: false, violations };
+
+  const bytes = buildDocx(letterDocxBlocks("", body));
+  return { ok: true, base64: Buffer.from(bytes).toString("base64"), fileName: "disclosure-request-letter.docx" };
 }

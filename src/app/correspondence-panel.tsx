@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { prepareCorrespondence, reviewCorrespondence } from "@/app/correspondence-actions";
 import { exportCorrespondenceDocx } from "@/app/export-actions";
 import { downloadDocx } from "@/app/download";
+import { stripFixtureTags } from "@/lib/disclosure";
 import type { CorrespondenceRun } from "@/lib/correspondence-service";
 import type { PreSendFlag } from "@/lib/correspondence";
 import type { ExportViolation } from "@/lib/source-lock";
@@ -131,7 +132,7 @@ export function CorrespondencePanel({
             <div className="text-xs text-muted">Subject</div>
             <div className="mb-2 text-sm font-medium">{draft.subject}</div>
             <div className="text-xs text-muted">Draft</div>
-            <pre className="mt-1 whitespace-pre-wrap font-sans text-sm text-foreground">{draft.body}</pre>
+            <pre className="mt-1 whitespace-pre-wrap font-sans text-sm text-foreground">{stripFixtureTags(draft.body)}</pre>
           </div>
 
           {/* Pre-Send check */}
