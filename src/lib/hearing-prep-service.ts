@@ -113,31 +113,39 @@ export type HearingPrepResult = { ok: true; run: HearingPrepRun } | { ok: false;
  */
 export async function createHearingPrep(
   matter: Matter,
-  opts: { manual: Partial<Fixture>; minuteText: string },
+  opts: {
+    manual?: Partial<Fixture>;
+    minuteText?: string;
+    /** A minute already parsed elsewhere (e.g. read from an attached PDF). */
+    parsed?: { fixture: Fixture; directions: string[]; fixtureSource?: string | null };
+  },
 ): Promise<HearingPrepResult> {
   if (!matter.result) return { ok: false, reason: "Matter not found." };
+  const manual = opts.manual ?? {};
   const minuteText = (opts.minuteText ?? "").trim();
-  const parsed = minuteText ? parseMinute(minuteText) : { fixture: { date: null, time: null, court: null, type: null, custody: null } as Fixture, directions: [] };
+  const parsed = opts.parsed ?? (minuteText ? parseMinute(minuteText) : { fixture: { date: null, time: null, court: null, type: null, custody: null } as Fixture, directions: [] });
+  const minuteProvided = !!opts.parsed || !!minuteText;
 
   const fixture: Fixture = {
-    date: opts.manual.date || parsed.fixture.date,
-    time: opts.manual.time || parsed.fixture.time,
-    court: opts.manual.court || parsed.fixture.court,
-    type: opts.manual.type || parsed.fixture.type,
-    custody: opts.manual.custody || parsed.fixture.custody,
+    date: manual.date || parsed.fixture.date,
+    time: manual.time || parsed.fixture.time,
+    court: manual.court || parsed.fixture.court,
+    type: manual.type || parsed.fixture.type,
+    custody: manual.custody || parsed.fixture.custody,
   };
 
   const hasFixture = !!(fixture.date || fixture.court);
-  const gate = hearingGate(hasFixture, !!minuteText);
+  const gate = hearingGate(hasFixture, minuteProvided);
   if (!gate.ok) return { ok: false, reason: gate.reason ?? "Not enough to prepare a hearing folder." };
 
   const packs = await listPacks(matter.id);
   const note = buildHearingPrep({
     fixture,
     directions: parsed.directions,
-    minuteProvided: !!minuteText,
+    minuteProvided,
     documentsPresent: (matter.result as PipelineResult).documentsPresent,
     packCount: packs.length,
+    fixtureSource: opts.parsed?.fixtureSource ?? null,
   });
 
   const latest = await getLatestHearingPrep(matter.id);

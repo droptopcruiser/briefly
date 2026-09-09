@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createMatterFromSubmission } from "../actions";
+import { createCriminalDemoMatter } from "../demo-actions";
 import { listMatters } from "@/lib/store";
 import { SubmissionForm } from "../submission-form";
 import { Greeting } from "../greeting";
@@ -205,6 +206,21 @@ export default async function Dashboard() {
         ) : (
           <SubmissionForm action={createMatterFromSubmission} />
         )}
+
+        {/* Criminal Chambers pilot — a labelled synthetic demo matter for testing. */}
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-accent/50 bg-accent-soft/30 px-4 py-3">
+          <form action={createCriminalDemoMatter}>
+            <button
+              type="submit"
+              className="rounded-lg border border-accent px-4 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent-soft"
+            >
+              Load a Criminal Chambers demo matter
+            </button>
+          </form>
+          <p className="text-xs text-muted">
+            Synthetic test matter — charge, SOF, two disclosure packs, and an attached minute PDF. No client material.
+          </p>
+        </div>
       </section>
     </div>
   );

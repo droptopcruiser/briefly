@@ -79,7 +79,7 @@ function PackView({ pack }: { pack: ReviewPack }) {
       ) : null}
 
       {pack.changed.length ? (
-        <Block title="What changed">
+        <Block title="Recent activity">
           <ul className="space-y-0.5 text-sm text-muted">{pack.changed.map((c, i) => <li key={i}>· {c}</li>)}</ul>
         </Block>
       ) : null}

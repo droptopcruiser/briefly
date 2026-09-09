@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { prepareHearingPrep, reviewHearingPrep } from "@/app/hearing-prep-actions";
+import { prepareHearingPrep, prepareHearingPrepFromDocument, reviewHearingPrep } from "@/app/hearing-prep-actions";
 import type { HearingPrepRun } from "@/lib/hearing-prep-service";
 import type { HearingPrepNote, HearingType } from "@/lib/hearing-prep";
 
@@ -32,6 +32,10 @@ function NoteView({ note }: { note: HearingPrepNote }) {
         <div className="mt-1 text-sm font-medium">{fixtureLine}</div>
         {f.type ? <div className="text-xs text-muted">{TYPES.find((t) => t.value === f.type)?.label}</div> : null}
         <div className="mt-1 text-sm text-foreground/85">{note.custodyLine}</div>
+        {note.fixtureSource ? <div className="mt-1 text-xs italic text-muted">from the minute: &ldquo;{note.fixtureSource}&rdquo;</div> : null}
+        {note.fromMinute && (!f.date || !f.court) ? (
+          <div className="mt-1 text-xs text-awaiting">The minute is silent on anything shown in brackets — confirm it before relying on it.</div>
+        ) : null}
       </div>
 
       {note.directions.length ? (
@@ -69,13 +73,16 @@ function NoteView({ note }: { note: HearingPrepNote }) {
 export function HearingPrepPanel({
   matterId,
   initialRun,
+  documents = [],
 }: {
   matterId: string;
   initialRun: HearingPrepRun | null;
+  documents?: { id: string; fileName: string }[];
 }) {
   const router = useRouter();
   const [run, setRun] = useState<HearingPrepRun | null>(initialRun);
   const [minute, setMinute] = useState("");
+  const [docId, setDocId] = useState(documents[0]?.id ?? "");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [court, setCourt] = useState("");
@@ -92,6 +99,19 @@ export function HearingPrepPanel({
         { date: date || null, time: time || null, court: court || null, type: type || null, custody: custody || null },
         minute,
       );
+      if (res.ok) {
+        setRun(res.run);
+        router.refresh();
+      } else {
+        setError(res.reason);
+      }
+    });
+
+  const onReadMinute = () =>
+    start(async () => {
+      setError(null);
+      if (!docId) return;
+      const res = await prepareHearingPrepFromDocument(matterId, docId);
       if (res.ok) {
         setRun(res.run);
         router.refresh();
@@ -135,7 +155,20 @@ export function HearingPrepPanel({
 
       {/* Inputs */}
       <div className="space-y-2 pt-4">
-        <p className="text-xs text-muted">Enter the fixture, or paste the court minute — Briefly reads what it says and never invents a court detail.</p>
+        <p className="text-xs text-muted">Read an attached minute PDF, enter the fixture, or paste the minute — Briefly reads only what the minute says and never invents a court detail.</p>
+
+        {documents.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-raise px-3 py-2">
+            <span className="text-xs font-medium text-muted">From an attached minute</span>
+            <select value={docId} onChange={(e) => setDocId(e.target.value)} aria-label="Choose an attached minute PDF" className="min-w-0 flex-1 rounded-md border border-border bg-surface px-2 py-1 text-sm">
+              {documents.map((d) => <option key={d.id} value={d.id}>{d.fileName}</option>)}
+            </select>
+            <button type="button" onClick={onReadMinute} disabled={pending || !docId} className="rounded-md border border-border px-2.5 py-1 text-sm font-medium transition-colors hover:bg-inset disabled:opacity-50">
+              {pending ? "Reading…" : "Read minute"}
+            </button>
+          </div>
+        ) : null}
+
         <div className="grid gap-2 sm:grid-cols-2">
           <input value={date} onChange={(e) => setDate(e.target.value)} placeholder="Fixture date (e.g. 12 August 2026)" className="rounded-lg border border-border bg-raise px-3 py-2 text-sm" />
           <input value={time} onChange={(e) => setTime(e.target.value)} placeholder="Time (e.g. 10:00am)" className="rounded-lg border border-border bg-raise px-3 py-2 text-sm" />

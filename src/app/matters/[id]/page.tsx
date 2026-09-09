@@ -419,7 +419,7 @@ async function PreparationWorkflowsSection({ matter }: { matter: Matter }) {
               ) : <div className="mt-1 text-sm text-muted">No admin jobs outstanding.</div>}
             </div>
             <div>
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">What changed</div>
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">Recent activity</div>
               {pulse.changed.length ? (
                 <ul className="mt-1 space-y-0.5 text-sm text-muted">
                   {pulse.changed.map((c, i) => <li key={i}>· {c}</li>)}
@@ -441,7 +441,7 @@ async function PreparationWorkflowsSection({ matter }: { matter: Matter }) {
       />
       <DisclosurePanel matterId={matter.id} initialPackCount={packs.length} initialNote={discNote} documents={pdfDocs} />
       <CorrespondencePanel matterId={matter.id} initialRun={corr} initialFlags={corrFlags} />
-      <HearingPrepPanel matterId={matter.id} initialRun={hearing} />
+      <HearingPrepPanel matterId={matter.id} initialRun={hearing} documents={pdfDocs} />
     </div>
   );
 }

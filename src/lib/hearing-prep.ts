@@ -41,6 +41,8 @@ export interface HearingPrepNote {
   workflowVersion: string;
   fixture: Fixture;
   fromMinute: boolean;
+  /** The verbatim minute quote (and page, where available) the fixture was read from. */
+  fixtureSource: string | null;
   /** Directions read verbatim from the minute — never invented. */
   directions: string[];
   custodyLine: string;
@@ -129,6 +131,7 @@ export interface HearingPrepInput {
   minuteProvided: boolean;
   documentsPresent: string[];
   packCount: number;
+  fixtureSource?: string | null;
 }
 
 export function buildHearingPrep(input: HearingPrepInput): HearingPrepNote {
@@ -163,6 +166,7 @@ export function buildHearingPrep(input: HearingPrepInput): HearingPrepNote {
     workflowVersion: HEARING_PREP_VERSION,
     fixture: input.fixture,
     fromMinute: input.minuteProvided,
+    fixtureSource: input.fixtureSource ?? null,
     directions: input.directions,
     custodyLine,
     folderContents,

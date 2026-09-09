@@ -118,17 +118,19 @@ export function CorrespondencePanel({
 
           {/* Pre-Send check */}
           {flags.length === 0 ? (
-            <div className="flex items-center gap-2 rounded-xl border border-accent/40 bg-accent-soft px-4 py-2.5 text-sm text-accent">
-              <span>✓</span> Pre-send check clear — no unfilled placeholders or unsupported references.
+            <div className="rounded-xl border border-accent/40 bg-accent-soft px-4 py-2.5 text-sm text-accent">
+              <div className="flex items-center gap-2"><span>✓</span> Pre-send check clear on this draft — no unfilled placeholders or unsupported references.</div>
+              <div className="mt-0.5 pl-6 text-xs text-accent/80">Checks the draft as prepared, not the final email — re-check after any edits before sending.</div>
             </div>
           ) : (
             <div className="rounded-xl border border-awaiting/40 bg-awaiting-soft p-4">
               <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-awaiting">
-                Before you send · {flags.length} to check
+                On this draft · {flags.length} to check before sending
               </div>
               <ul className="space-y-1 text-sm text-foreground/85">
                 {flags.map((f, i) => <li key={i}>{f.detail}</li>)}
               </ul>
+              <div className="mt-2 text-xs text-muted">Checks the draft as prepared, not the final email — re-check after any edits.</div>
             </div>
           )}
 
