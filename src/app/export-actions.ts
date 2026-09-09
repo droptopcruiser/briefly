@@ -59,11 +59,31 @@ function noteDocxBlocks(text: string): Block[] {
   });
 }
 
-/** The letter's exact exported content (subject + body) → Word paragraphs. No reviewer
- *  footer is added — the letter is what goes out; brackets (unfilled gaps) stay in. */
+/**
+ * The exported LETTER is what goes out, so the internal reviewer footer comes off it —
+ * a bracketed "[Reviewer note: …]" or a "…before sending" review instruction. Genuine
+ * gap brackets counsel must fill ([Chambers], [addressee], a missing PRN/date) stay in.
+ * The export gate still runs on the ORIGINAL body; this only shapes the rendered letter.
+ */
+function stripReviewerFooter(body: string): string {
+  const isReviewerNote = (line: string): boolean => {
+    const t = line.trim();
+    if (!/^\[[^\]]*\]$/.test(t)) return false; // only a line that is entirely one bracket
+    const inner = t.slice(1, -1);
+    return /^\s*reviewer note\b/i.test(inner) || /\bbefore (?:sending|this letter is sent)\b/i.test(inner);
+  };
+  return body
+    .split("\n")
+    .filter((l) => !isReviewerNote(l))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/\s+$/, "");
+}
+
+/** The letter's content (subject + body, reviewer footer removed) → Word paragraphs. */
 function letterDocxBlocks(subject: string, body: string): Block[] {
   const blocks: Block[] = [{ text: subject, heading: true }, { text: "" }];
-  for (const line of body.split("\n")) blocks.push({ text: line });
+  for (const line of stripReviewerFooter(body).split("\n")) blocks.push({ text: line });
   return blocks;
 }
 
