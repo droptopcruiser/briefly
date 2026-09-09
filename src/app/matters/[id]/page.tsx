@@ -52,6 +52,8 @@ import { getActiveCorrespondence } from "@/lib/correspondence-service";
 import { preSendCheck } from "@/lib/correspondence";
 import { CorrespondencePanel } from "@/app/correspondence-panel";
 import { UseCriminalButton } from "@/app/use-criminal-button";
+import { getActiveHearingPrep } from "@/lib/hearing-prep-service";
+import { HearingPrepPanel } from "@/app/hearing-prep-panel";
 
 /**
  * Evidence over confidence: show how much of the matter is backed by source
@@ -359,12 +361,13 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
  * explain what's missing (the charging document + Summary of Facts) before it runs.
  */
 async function PreparationWorkflowsSection({ matter }: { matter: Matter }) {
-  const [run, packs, discNote, docs, corr] = await Promise.all([
+  const [run, packs, discNote, docs, corr, hearing] = await Promise.all([
     getActiveFileOpen(matter.id),
     listPacks(matter.id),
     getActiveDisclosureNote(matter.id),
     listDocuments(matter.id),
     getActiveCorrespondence(matter.id),
+    getActiveHearingPrep(matter.id),
   ]);
   const gate = fileOpenGate(matter.result);
   const pdfDocs = docs.filter((d) => d.mime === "application/pdf").map((d) => ({ id: d.id, fileName: d.fileName }));
@@ -380,6 +383,7 @@ async function PreparationWorkflowsSection({ matter }: { matter: Matter }) {
       />
       <DisclosurePanel matterId={matter.id} initialPackCount={packs.length} initialNote={discNote} documents={pdfDocs} />
       <CorrespondencePanel matterId={matter.id} initialRun={corr} initialFlags={corrFlags} />
+      <HearingPrepPanel matterId={matter.id} initialRun={hearing} />
     </div>
   );
 }

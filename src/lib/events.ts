@@ -33,6 +33,8 @@ export type MatterEventType =
   | "correspondence_prepared"
   | "correspondence_reviewed"
   | "criminal_workflows_enabled"
+  | "hearing_prep_prepared"
+  | "hearing_prep_reviewed"
   | "document_attached"
   | "document_read"
   | "document_fact_confirmed"
