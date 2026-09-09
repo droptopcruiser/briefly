@@ -74,7 +74,7 @@ export async function exportCorrespondenceDocx(matterId: string): Promise<DocxEx
   const run = await getActiveCorrespondence(matterId);
   if (!run) return { ok: false, reason: "No correspondence prepared yet." };
 
-  const list = await matterSourceList(matterId, matter.submission ?? "");
+  const list = await matterSourceList(matterId, matter.submission ?? "", matter.result);
   const body = run.content.draft.body;
   const violations = exportGate(body, list);
   if (violations.length) return { ok: false, violations };
@@ -91,7 +91,7 @@ export async function exportDisclosureNoteDocx(matterId: string): Promise<DocxEx
   if (!run) return { ok: false, reason: "No disclosure note prepared yet." };
 
   const text = noteToText(run.content);
-  const list = await matterSourceList(matterId, matter.submission ?? "");
+  const list = await matterSourceList(matterId, matter.submission ?? "", matter.result);
   const violations = exportGate(text, list);
   if (violations.length) return { ok: false, violations };
 
