@@ -3,8 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { prepareCorrespondence, reviewCorrespondence } from "@/app/correspondence-actions";
-import { exportCorrespondence } from "@/app/export-actions";
-import { downloadText } from "@/app/download";
+import { exportCorrespondenceDocx } from "@/app/export-actions";
+import { downloadDocx } from "@/app/download";
 import type { CorrespondenceRun } from "@/lib/correspondence-service";
 import type { PreSendFlag } from "@/lib/correspondence";
 import type { ExportViolation } from "@/lib/source-lock";
@@ -39,9 +39,9 @@ export function CorrespondencePanel({
     start(async () => {
       setBlocked(null);
       setError(null);
-      const res = await exportCorrespondence(matterId);
+      const res = await exportCorrespondenceDocx(matterId);
       if (res.ok) {
-        downloadText(res.fileName, res.content);
+        downloadDocx(res.fileName, res.base64);
       } else if ("violations" in res) {
         setBlocked(res.violations);
       } else {
@@ -170,7 +170,7 @@ export function CorrespondencePanel({
               disabled={pending}
               className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-inset disabled:opacity-60"
             >
-              {pending ? "Checking…" : "Export (.txt)"}
+              {pending ? "Checking…" : "Export (.docx)"}
             </button>
             {approved ? (
               <span className="inline-flex items-center gap-1.5 text-sm font-medium text-accent">

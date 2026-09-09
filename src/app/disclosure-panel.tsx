@@ -3,8 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { importDisclosurePack, importDisclosurePackFromDocument, prepareDisclosureNote, reviewDisclosureNote } from "@/app/disclosure-actions";
-import { exportDisclosureNote } from "@/app/export-actions";
-import { downloadText } from "@/app/download";
+import { exportDisclosureNoteDocx } from "@/app/export-actions";
+import { downloadDocx } from "@/app/download";
 import type { DisclosureNoteRun } from "@/lib/disclosure-service";
 import type { DisclosureNote } from "@/lib/disclosure";
 import type { ExportViolation } from "@/lib/source-lock";
@@ -190,9 +190,9 @@ export function DisclosurePanel({
   const onExport = () =>
     start(async () => {
       setBlocked(null);
-      const res = await exportDisclosureNote(matterId);
+      const res = await exportDisclosureNoteDocx(matterId);
       if (res.ok) {
-        downloadText(res.fileName, res.content);
+        downloadDocx(res.fileName, res.base64);
       } else if ("violations" in res) {
         setBlocked(res.violations);
       } else {
@@ -278,7 +278,8 @@ export function DisclosurePanel({
         <label className="text-sm font-medium">Import a disclosure pack</label>
         <p className="text-xs text-muted">
           Briefly reads only what the index says — it never infers withholding, and it compares this pack
-          against the last.
+          against the last. An item the index calls an <span className="italic">extract</span> (or otherwise
+          part-disclosed) is treated as partial and raises a request to confirm the balance.
         </p>
 
         <input
@@ -382,7 +383,7 @@ export function DisclosurePanel({
               disabled={pending}
               className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-inset disabled:opacity-60"
             >
-              {pending ? "Checking…" : "Export note (.txt)"}
+              {pending ? "Checking…" : "Export note (.docx)"}
             </button>
             {approved ? (
               <span className="inline-flex items-center gap-1.5 text-sm font-medium text-accent">
