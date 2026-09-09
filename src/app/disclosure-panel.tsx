@@ -3,8 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { importDisclosurePack, importDisclosurePackFromDocument, prepareDisclosureNote, reviewDisclosureNote } from "@/app/disclosure-actions";
+import { exportDisclosureNote } from "@/app/export-actions";
+import { downloadText } from "@/app/download";
 import type { DisclosureNoteRun } from "@/lib/disclosure-service";
 import type { DisclosureNote } from "@/lib/disclosure";
+import type { ExportViolation } from "@/lib/source-lock";
 
 /**
  * The Disclosure Note panel. Counsel imports a Police disclosure index (pasted), and
@@ -139,7 +142,21 @@ export function DisclosurePanel({
   const [docId, setDocId] = useState(documents[0]?.id ?? "");
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [blocked, setBlocked] = useState<ExportViolation[] | null>(null);
   const [pending, start] = useTransition();
+
+  const onExport = () =>
+    start(async () => {
+      setBlocked(null);
+      const res = await exportDisclosureNote(matterId);
+      if (res.ok) {
+        downloadText(res.fileName, res.content);
+      } else if ("violations" in res) {
+        setBlocked(res.violations);
+      } else {
+        setError(res.reason);
+      }
+    });
 
   const applyImport = (res: Awaited<ReturnType<typeof importDisclosurePack>>) => {
     if (res.ok) {
@@ -305,8 +322,25 @@ export function DisclosurePanel({
             <span>Prepared {new Date(note.createdAt).toLocaleString()}</span>
           </div>
           <NoteView note={note.content} />
+          {blocked && blocked.length ? (
+            <div className="rounded-xl border border-error/40 bg-error-soft p-4">
+              <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-error">Export blocked · {blocked.length} unsourced</div>
+              <ul className="space-y-1 text-sm text-foreground/85">
+                {blocked.map((v, i) => <li key={i}>{v.detail}</li>)}
+              </ul>
+              <div className="mt-2 text-xs text-muted">Remove or [bracket] each item, then export. Bracketed gaps still export.</div>
+            </div>
+          ) : null}
+
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-            <span className="text-xs text-muted">Briefly prepares. You review, decide, and send — every request and letter is yours to approve.</span>
+            <button
+              type="button"
+              onClick={onExport}
+              disabled={pending}
+              className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-inset disabled:opacity-60"
+            >
+              {pending ? "Checking…" : "Export note (.txt)"}
+            </button>
             {approved ? (
               <span className="inline-flex items-center gap-1.5 text-sm font-medium text-accent">
                 <span className="h-2 w-2 rounded-full bg-accent" /> Reviewed

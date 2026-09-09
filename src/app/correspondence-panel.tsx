@@ -3,8 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { prepareCorrespondence, reviewCorrespondence } from "@/app/correspondence-actions";
+import { exportCorrespondence } from "@/app/export-actions";
+import { downloadText } from "@/app/download";
 import type { CorrespondenceRun } from "@/lib/correspondence-service";
 import type { PreSendFlag } from "@/lib/correspondence";
+import type { ExportViolation } from "@/lib/source-lock";
 
 /**
  * The Draft Correspondence panel. Counsel gives the addressee, the matter, and the
@@ -29,7 +32,22 @@ export function CorrespondencePanel({
   const [about, setAbout] = useState(initialRun?.content.request.about ?? "");
   const [point, setPoint] = useState(initialRun?.content.request.point ?? "");
   const [error, setError] = useState<string | null>(null);
+  const [blocked, setBlocked] = useState<ExportViolation[] | null>(null);
   const [pending, start] = useTransition();
+
+  const onExport = () =>
+    start(async () => {
+      setBlocked(null);
+      setError(null);
+      const res = await exportCorrespondence(matterId);
+      if (res.ok) {
+        downloadText(res.fileName, res.content);
+      } else if ("violations" in res) {
+        setBlocked(res.violations);
+      } else {
+        setError(res.reason);
+      }
+    });
 
   const onDraft = () =>
     start(async () => {
@@ -134,8 +152,26 @@ export function CorrespondencePanel({
             </div>
           )}
 
+          {/* Export gate — a letter that asserts an unsourced fact will not export. */}
+          {blocked && blocked.length ? (
+            <div className="rounded-xl border border-error/40 bg-error-soft p-4">
+              <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-error">Export blocked · {blocked.length} unsourced</div>
+              <ul className="space-y-1 text-sm text-foreground/85">
+                {blocked.map((v, i) => <li key={i}>{v.detail}</li>)}
+              </ul>
+              <div className="mt-2 text-xs text-muted">Remove or [bracket] each item, then export. Bracketed gaps still export.</div>
+            </div>
+          ) : null}
+
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-            <span className="text-xs text-muted">Briefly prepares. You review, edit, and send it yourself — nothing leaves on its own.</span>
+            <button
+              type="button"
+              onClick={onExport}
+              disabled={pending}
+              className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-inset disabled:opacity-60"
+            >
+              {pending ? "Checking…" : "Export (.txt)"}
+            </button>
             {approved ? (
               <span className="inline-flex items-center gap-1.5 text-sm font-medium text-accent">
                 <span className="h-2 w-2 rounded-full bg-accent" /> Reviewed
