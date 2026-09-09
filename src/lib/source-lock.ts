@@ -57,8 +57,10 @@ const DATE_RE =
   /\b(\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}|(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}|\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{2,4})\b/gi;
 // A candidate person/party name: two or more consecutive Title-case words (a lone
 // initial like "R." allowed as a token). A word does NOT carry a trailing period, so a
-// sentence-ending period ("Court. We") stops the name rather than joining two sentences.
-const NAME_RE = /\b((?:[A-Z][a-z]+|[A-Z]\.)(?:\s+(?:[A-Z][a-z]+|[A-Z]\.)){1,3})\b/g;
+// sentence-ending period ("Court. We") stops the name; and tokens are joined only by
+// spaces/tabs, never a line break, so a paragraph boundary ("Court\n\nWe") can't fuse
+// the end of one sentence to the start of the next.
+const NAME_RE = /\b((?:[A-Z][a-z]+|[A-Z]\.)(?:[^\S\r\n]+(?:[A-Z][a-z]+|[A-Z]\.)){1,3})\b/g;
 
 // Words that look like names but aren't — salutations, sign-offs, courts, months,
 // and the fixed furniture of a chambers letter. A candidate made ONLY of these is safe.
