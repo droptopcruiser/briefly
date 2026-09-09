@@ -37,6 +37,7 @@ export async function importDisclosurePack(
   matterId: string,
   text: string,
   date: string | null,
+  deliverySource: string | null = null,
 ): Promise<ImportResult> {
   await requireUser();
   const trimmed = (text ?? "").trim();
@@ -50,6 +51,7 @@ export async function importDisclosurePack(
   if (pack.items.length === 0) {
     return { ok: false, reason: "No numbered index items were found in that text." };
   }
+  pack.deliverySource = deliverySource?.trim() || null;
   await savePack(matter, pack);
   await addEvent(
     matter.accountId,
@@ -65,6 +67,7 @@ export async function importDisclosurePackFromDocument(
   matterId: string,
   documentId: string,
   date: string | null,
+  deliverySource: string | null = null,
 ): Promise<ImportResult> {
   await requireUser();
   const { matter } = await loadMatter(matterId);
@@ -87,6 +90,9 @@ export async function importDisclosurePackFromDocument(
   }
   if (pack.items.length === 0) return { ok: false, reason: "No index items were found in that document." };
 
+  // Preserve how the pack was actually delivered — the Police source, if given —
+  // separately from the uploaded working copy's filename.
+  pack.deliverySource = deliverySource?.trim() || `Uploaded: ${doc.fileName}`;
   await savePack(matter, pack);
   await addEvent(
     matter.accountId,

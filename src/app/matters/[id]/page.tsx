@@ -51,6 +51,7 @@ import { DisclosurePanel } from "@/app/disclosure-panel";
 import { getActiveCorrespondence } from "@/lib/correspondence-service";
 import { preSendCheck } from "@/lib/correspondence";
 import { CorrespondencePanel } from "@/app/correspondence-panel";
+import { UseCriminalButton } from "@/app/use-criminal-button";
 
 /**
  * Evidence over confidence: show how much of the matter is backed by source
@@ -1013,6 +1014,9 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
       >
         <OverviewSection matter={matter} account={account} />
       </Suspense>
+
+      {/* Manual switch to the criminal Chambers Workflows (no classifier). */}
+      {!criminal ? <UseCriminalButton matterId={matter.id} /> : null}
 
       {/* Two working views; the evidence is pulled forward on demand, not a tab. */}
       <MatterTabs tabs={tabs} defaultTab={defaultTab} />

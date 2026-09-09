@@ -53,6 +53,13 @@ export interface DisclosurePack {
   packNo: number;
   /** ISO date the pack was provided, or null. */
   date: string | null;
+  /**
+   * How the Police actually DELIVERED this pack — the OneDrive share link or the
+   * delivery reference — kept as provenance even though the chambers' working copy
+   * is filed in Google Drive. The delivery source is never lost just because the
+   * working copy lives elsewhere.
+   */
+  deliverySource?: string | null;
   items: DisclosureItem[];
 }
 
@@ -138,6 +145,8 @@ export interface DisclosureNote {
   workflowVersion: string;
   packNo: number;
   packDate: string | null;
+  /** The Police delivery source of the latest pack (OneDrive link / reference). */
+  deliverySource: string | null;
   identifiers: { defendant: string | null; charge: string | null; court: string | null; prn: string | null };
   /** What changed vs the prior pack — safe, factual language. */
   whatIsNew: string[];
@@ -184,12 +193,19 @@ export function buildDisclosureNote(result: PipelineResult, packs: DisclosurePac
   const prev = ordered.length > 1 ? ordered[ordered.length - 2] : null;
   const diff = diffPacks(prev, curr);
 
-  // What's new — safe, factual language only.
+  // What's new — safe, factual language only. A first pack has no prior to diff
+  // against, so it's summarised (not every item framed as a change).
   const whatIsNew: string[] = [];
-  for (const a of diff.added) whatIsNew.push(`New — ${a.ref}: ${a.description} (${STATUS_LABEL[a.status]})`);
-  for (const u of diff.updated) whatIsNew.push(`Updated — ${u.ref}: ${u.changes.join("; ")}`);
-  for (const r of diff.removed) whatIsNew.push(`No longer on the latest index — ${r.ref}: ${r.description}`);
-  if (!prev && whatIsNew.length === 0) whatIsNew.push("First pack — no prior index to compare against.");
+  if (!prev) {
+    whatIsNew.push(
+      `First pack · ${curr.items.length} ${curr.items.length === 1 ? "item" : "items"} indexed — no prior pack to compare against.`,
+    );
+  } else {
+    for (const a of diff.added) whatIsNew.push(`New — ${a.ref}: ${a.description} (${STATUS_LABEL[a.status]})`);
+    for (const u of diff.updated) whatIsNew.push(`Updated — ${u.ref}: ${u.changes.join("; ")}`);
+    for (const r of diff.removed) whatIsNew.push(`No longer on the latest index — ${r.ref}: ${r.description}`);
+    if (whatIsNew.length === 0) whatIsNew.push("No change to the index since the last pack.");
+  }
 
   // Index summary by category.
   const counts = new Map<DiscCategory, number>();
@@ -256,6 +272,7 @@ export function buildDisclosureNote(result: PipelineResult, packs: DisclosurePac
     workflowVersion: DISCLOSURE_NOTE_VERSION,
     packNo: curr.packNo,
     packDate: curr.date,
+    deliverySource: curr.deliverySource ?? null,
     identifiers: {
       defendant: field(result, "defendant"),
       charge: field(result, "charge"),

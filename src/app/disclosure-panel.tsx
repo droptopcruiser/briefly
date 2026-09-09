@@ -31,6 +31,11 @@ function NoteView({ note }: { note: DisclosureNote }) {
           <span><span className="text-muted">Pack</span> · {note.packNo}{note.packDate ? ` · ${note.packDate}` : ""}</span>
         </div>
         {id.charge ? <div className="mt-1 text-muted">{id.charge}</div> : null}
+        {note.deliverySource ? (
+          <div className="mt-1 text-xs text-muted">
+            <span className="font-medium">Delivered via</span> · {note.deliverySource}
+          </div>
+        ) : null}
       </div>
 
       {/* What's new (the diff) */}
@@ -130,6 +135,7 @@ export function DisclosurePanel({
   const [note, setNote] = useState<DisclosureNoteRun | null>(initialNote);
   const [text, setText] = useState("");
   const [date, setDate] = useState("");
+  const [deliverySrc, setDeliverySrc] = useState("");
   const [docId, setDocId] = useState(documents[0]?.id ?? "");
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -152,14 +158,14 @@ export function DisclosurePanel({
       setError(null);
       setMsg(null);
       if (!docId) return;
-      applyImport(await importDisclosurePackFromDocument(matterId, docId, date || null));
+      applyImport(await importDisclosurePackFromDocument(matterId, docId, date || null, deliverySrc || null));
     });
 
   const onImport = () =>
     start(async () => {
       setError(null);
       setMsg(null);
-      applyImport(await importDisclosurePack(matterId, text, date || null));
+      applyImport(await importDisclosurePack(matterId, text, date || null, deliverySrc || null));
     });
 
   const onPrepare = () =>
@@ -215,6 +221,14 @@ export function DisclosurePanel({
           Briefly reads only what the index says — it never infers withholding, and it compares this pack
           against the last.
         </p>
+
+        <input
+          value={deliverySrc}
+          onChange={(e) => setDeliverySrc(e.target.value)}
+          placeholder="Police delivery source (OneDrive link / how it arrived) — kept as provenance"
+          aria-label="Police delivery source"
+          className="w-full rounded-lg border border-border bg-raise px-3 py-1.5 text-sm"
+        />
 
         {/* From an uploaded index PDF */}
         {documents.length > 0 ? (

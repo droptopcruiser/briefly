@@ -32,6 +32,7 @@ export type MatterEventType =
   | "disclosure_note_reviewed"
   | "correspondence_prepared"
   | "correspondence_reviewed"
+  | "criminal_workflows_enabled"
   | "document_attached"
   | "document_read"
   | "document_fact_confirmed"
