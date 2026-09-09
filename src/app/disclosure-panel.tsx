@@ -122,16 +122,58 @@ function NoteView({ note }: { note: DisclosureNote }) {
   );
 }
 
+type IndexItem = { ref: string; description: string; source: string | null; pages: number | null };
+
+/** Source lock — click any index line to see the exact verbatim index item + page. */
+function SourcedIndex({ items }: { items: IndexItem[] }) {
+  const [open, setOpen] = useState<string | null>(null);
+  return (
+    <div className="rounded-xl border border-border bg-raise p-4">
+      <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
+        Sourced index — click a line to see where it came from
+      </div>
+      <ul className="divide-y divide-border">
+        {items.map((it) => {
+          const on = open === it.ref;
+          return (
+            <li key={it.ref}>
+              <button
+                type="button"
+                onClick={() => setOpen(on ? null : it.ref)}
+                aria-expanded={on}
+                className={`flex w-full items-center gap-2 py-1.5 text-left text-sm transition-colors ${on ? "text-accent" : "hover:text-foreground"}`}
+              >
+                <span className="shrink-0 text-[10px] font-semibold tabular-nums text-muted">{it.ref}</span>
+                <span className="min-w-0 flex-1 truncate">{it.description}</span>
+                {it.pages != null ? <span className="shrink-0 text-[10px] text-muted">p.{it.pages}</span> : null}
+                <span className="shrink-0 text-xs text-muted">{on ? "−" : "source"}</span>
+              </button>
+              {on ? (
+                <div className="mb-1.5 ml-6 rounded-md border border-border bg-surface px-3 py-2 text-xs text-muted">
+                  <span className="italic">&ldquo;{it.source ?? it.description}&rdquo;</span>
+                  <span className="not-italic"> — disclosure index, item {it.ref}{it.pages != null ? `, p.${it.pages}` : ""}</span>
+                </div>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 export function DisclosurePanel({
   matterId,
   initialPackCount,
   initialNote,
   documents = [],
+  indexItems = [],
 }: {
   matterId: string;
   initialPackCount: number;
   initialNote: DisclosureNoteRun | null;
   documents?: { id: string; fileName: string }[];
+  indexItems?: IndexItem[];
 }) {
   const router = useRouter();
   const [packCount, setPackCount] = useState(initialPackCount);
@@ -322,6 +364,7 @@ export function DisclosurePanel({
             <span>Prepared {new Date(note.createdAt).toLocaleString()}</span>
           </div>
           <NoteView note={note.content} />
+          {indexItems.length ? <SourcedIndex items={indexItems} /> : null}
           {blocked && blocked.length ? (
             <div className="rounded-xl border border-error/40 bg-error-soft p-4">
               <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-error">Export blocked · {blocked.length} unsourced</div>

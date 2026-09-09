@@ -22,23 +22,34 @@ function gapText(label: string): string {
 }
 
 function Item({ item }: { item: NoteItem }) {
+  const [open, setOpen] = useState(false);
   const absent = item.value == null;
+  if (absent) {
+    return (
+      <div className="py-1.5">
+        <div className="text-[11px] font-medium uppercase tracking-wide text-muted">{item.label}</div>
+        <div className="text-sm italic text-muted/80">{gapText(item.label)}</div>
+      </div>
+    );
+  }
+  // Source lock — click the fact to see the snippet it came from.
   return (
     <div className="py-1.5">
       <div className="text-[11px] font-medium uppercase tracking-wide text-muted">{item.label}</div>
-      {absent ? (
-        <div className="text-sm italic text-muted/80">{gapText(item.label)}</div>
+      {item.source ? (
+        <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="group flex w-full items-center gap-2 text-left">
+          <span className="text-sm font-medium text-foreground group-hover:text-accent">{item.value}</span>
+          <span className="text-[10px] text-muted">{open ? "− source" : "source"}</span>
+        </button>
       ) : (
-        <>
-          <div className="text-sm font-medium text-foreground">{item.value}</div>
-          {item.source ? (
-            <div className="mt-0.5 text-xs italic text-muted">
-              &ldquo;{item.source}&rdquo;
-              {item.from ? <span className="not-italic"> · {item.from}</span> : null}
-            </div>
-          ) : null}
-        </>
+        <div className="text-sm font-medium text-foreground">{item.value}</div>
       )}
+      {open && item.source ? (
+        <div className="mt-1 rounded-md border border-border bg-surface px-3 py-2 text-xs text-muted">
+          <span className="italic">&ldquo;{item.source}&rdquo;</span>
+          <span className="not-italic"> — {item.from ? item.from : "from the enquiry"}</span>
+        </div>
+      ) : null}
     </div>
   );
 }

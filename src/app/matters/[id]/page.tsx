@@ -439,7 +439,17 @@ async function PreparationWorkflowsSection({ matter }: { matter: Matter }) {
         gateReason={gate.reason}
         missing={gate.missing}
       />
-      <DisclosurePanel matterId={matter.id} initialPackCount={packs.length} initialNote={discNote} documents={pdfDocs} />
+      <DisclosurePanel
+        matterId={matter.id}
+        initialPackCount={packs.length}
+        initialNote={discNote}
+        documents={pdfDocs}
+        indexItems={
+          packs.length
+            ? packs[packs.length - 1].items.map((i) => ({ ref: i.ref, description: i.description, source: i.source ?? null, pages: i.pages ?? null }))
+            : []
+        }
+      />
       <CorrespondencePanel matterId={matter.id} initialRun={corr} initialFlags={corrFlags} />
       <HearingPrepPanel matterId={matter.id} initialRun={hearing} documents={pdfDocs} />
     </div>
