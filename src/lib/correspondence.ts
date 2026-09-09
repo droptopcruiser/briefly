@@ -91,6 +91,8 @@ export function preSendCheck(
   for (const m of body.matchAll(REF_RE)) {
     const value = m[2].toLowerCase().replace(/[.\/-]+$/, "");
     const whole = m[0].replace(/[.\/-]+$/, "");
+    // A real PRN/CRN carries a digit — "PRN reference" / "PRN differs" are prose, not facts.
+    if (!/\d/.test(value)) continue;
     if (value && !hay.includes(value)) {
       flags.push({ kind: "unsupported_ref", detail: `"${whole.trim()}" is stated but not found in the matter — confirm it before sending.` });
     }

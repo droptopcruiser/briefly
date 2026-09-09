@@ -55,9 +55,10 @@ export interface ExportViolation {
 const REF_RE = /\b(PRN|CRN|CRI|MED|QID)\s*[:#]?\s*([A-Z0-9][A-Z0-9./-]{2,})/gi;
 const DATE_RE =
   /\b(\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}|(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}|\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{2,4})\b/gi;
-// A candidate person/party name: two or more consecutive Title-case words (an
-// abbreviation like "Const." or a lone initial like "R." allowed as a token).
-const NAME_RE = /\b((?:[A-Z][a-z]+\.?|[A-Z]\.)(?:\s+(?:[A-Z][a-z]+\.?|[A-Z]\.)){1,3})\b/g;
+// A candidate person/party name: two or more consecutive Title-case words (a lone
+// initial like "R." allowed as a token). A word does NOT carry a trailing period, so a
+// sentence-ending period ("Court. We") stops the name rather than joining two sentences.
+const NAME_RE = /\b((?:[A-Z][a-z]+|[A-Z]\.)(?:\s+(?:[A-Z][a-z]+|[A-Z]\.)){1,3})\b/g;
 
 // Words that look like names but aren't — salutations, sign-offs, courts, months,
 // and the fixed furniture of a chambers letter. A candidate made ONLY of these is safe.
@@ -95,6 +96,8 @@ export function exportGate(text: string, list: SourceList): ExportViolation[] {
   for (const m of body.matchAll(REF_RE)) {
     const value = m[2].replace(/[.\/-]+$/, "");
     const whole = m[0].replace(/[.\/-]+$/, "").trim();
+    // A real PRN/CRN carries a digit — "PRN reference" / "PRN differs" are prose, not facts.
+    if (!/\d/.test(value)) continue;
     if (value && !inHaystack(hay, value) && !seen.has("r:" + value.toLowerCase())) {
       seen.add("r:" + value.toLowerCase());
       out.push({ kind: "unsupported_ref", text: whole, detail: `"${whole}" is not on the sourced list — remove it or bracket it before export.` });
