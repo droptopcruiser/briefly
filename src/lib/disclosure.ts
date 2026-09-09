@@ -215,18 +215,30 @@ export function buildDisclosureNote(result: PipelineResult, packs: DisclosurePac
   // Witnesses.
   const witnesses = curr.items.filter((i) => i.category === "statement").map((i) => i.description);
 
-  // Initial-disclosure checklist — present if any item on the latest pack matches.
-  const present = new Set(curr.items.map((i) => i.category));
+  // Initial-disclosure checklist — ticked ONLY when the item is disclosed in FULL. A
+  // part-disclosed, withheld, not-located, or merely-listed item is NOT satisfied.
+  const fullyDisclosed = new Set(curr.items.filter((i) => i.status === "full").map((i) => i.category));
   const docsPresent = new Set(result.documentsPresent);
   const initialDisclosureChecklist: ChecklistItem[] = EXPECTED.map((e) => ({
     item: e.label,
-    present: present.has(e.category) || (e.category === "charge" && docsPresent.has("charging_document")) || (e.category === "sof" && docsPresent.has("sof")),
+    present:
+      fullyDisclosed.has(e.category) ||
+      (e.category === "charge" && docsPresent.has("charging_document")) ||
+      (e.category === "sof" && docsPresent.has("sof")),
   }));
+
+  // A withholding ground stated on the line ("s 18", "s. 8"), or null.
+  const groundOf = (i: DisclosureItem): string | null => {
+    const m = (i.source ?? i.description).match(/\bs\.?\s?(\d+[A-Za-z]?)\b/);
+    return m ? `s ${m[1]}` : null;
+  };
+  const notLocated = (i: DisclosureItem): boolean =>
+    /not located|not held|cannot be located|no longer held/i.test(`${i.description} ${i.source ?? ""}`);
 
   // Clashes to CHECK (never accusations).
   const clashes: string[] = [];
   for (const i of curr.items) {
-    if (i.status === "part" && !/ground|withh|s\.?\s?\d|section|privileg/i.test(i.source ?? i.description)) {
+    if (i.status === "part" && !groundOf(i)) {
       clashes.push(`${i.ref} is part-disclosed but the index states no ground — confirm the ground with the OC.`);
     }
     if (i.category === "notebook" && /extract|excerpt|pp?\.?\s?\d/i.test(i.description)) {
@@ -234,35 +246,56 @@ export function buildDisclosureNote(result: PipelineResult, packs: DisclosurePac
     }
   }
 
-  // Proper asks (≤ MAX_ASKS): absent expected documents first, then withheld/part
-  // items whose description touches an element of the charge.
+  // Proper asks (≤ MAX_ASKS). Part / withheld (with or without a stated ground) /
+  // not-located / expected-absent each produce an ask. An ask requests the ground or
+  // the material — it NEVER asserts the item was improperly withheld. Ordered:
+  // expected-absent, then not-located, then withheld, then part-disclosed; within each,
+  // items touching an element of the charge rank first.
   const chargeToks = tokens(`${field(result, "charge") ?? ""} ${field(result, "elements") ?? ""}`);
+  const chargeTouch = (i: DisclosureItem) => [...tokens(i.description)].some((t) => chargeToks.has(t));
   const asks: Ask[] = [];
+  const add = (a: Ask) => {
+    if (asks.length >= MAX_ASKS) return;
+    if (!asks.some((x) => x.ref === a.ref && x.text === a.text)) asks.push(a);
+  };
 
+  const askWithheld = (i: DisclosureItem) => {
+    const g = groundOf(i);
+    add({
+      ref: i.ref,
+      reason: `Item ${i.ref} is listed as withheld${g ? ` (${g})` : " with no ground stated"}${chargeTouch(i) ? " and touches an element of the charge" : ""}.`,
+      text: g
+        ? `Please confirm the basis for withholding item ${i.ref} (stated as ${g}) and provide the material, or the part that can be disclosed.`
+        : `Please state the ground on which item ${i.ref} (${i.description}) is withheld.`,
+    });
+  };
+  const askPart = (i: DisclosureItem) => {
+    const g = groundOf(i);
+    add({
+      ref: i.ref,
+      reason: `Item ${i.ref} is part-disclosed${g ? ` (${g})` : " with no ground stated"}${chargeTouch(i) ? " and touches an element of the charge" : ""}.`,
+      text: `Please provide the balance of item ${i.ref} (${i.description}), or state the ground for withholding the remainder${g ? ` beyond ${g}` : ""}.`,
+    });
+  };
+
+  // Priority (cap forces a choice): charge-touching withheld/part first, then
+  // not-located, then remaining withheld, then part, then expected-absent standards.
+  for (const i of curr.items.filter((i) => (i.status === "withheld" || i.status === "part") && chargeTouch(i))) {
+    if (i.status === "withheld") askWithheld(i);
+    else askPart(i);
+  }
+  for (const i of curr.items.filter(notLocated)) {
+    add({ ref: i.ref, reason: `Item ${i.ref} is recorded as not located.`, text: `Please confirm whether item ${i.ref} (${i.description}) exists or is held elsewhere, and provide it if so.` });
+  }
+  for (const i of curr.items.filter((i) => i.status === "withheld")) askWithheld(i);
+  for (const i of curr.items.filter((i) => i.status === "part")) askPart(i);
   for (const e of EXPECTED) {
-    const isPresent = initialDisclosureChecklist.find((c) => c.item === e.label)?.present;
-    if (!isPresent) {
-      asks.push({
+    if (!initialDisclosureChecklist.find((c) => c.item === e.label)?.present) {
+      add({
         ref: null,
-        reason: `${e.label} is a standard initial-disclosure item and is not on the index.`,
+        reason: `${e.label} is a standard initial-disclosure item and is not disclosed in full on the index.`,
         text: `Please confirm whether ${e.label.toLowerCase()} exists in this matter and, if so, provide it or state the ground on which it is withheld.`,
       });
-    }
-    if (asks.length >= MAX_ASKS) break;
-  }
-
-  if (asks.length < MAX_ASKS && chargeToks.size > 0) {
-    for (const i of curr.items) {
-      if (asks.length >= MAX_ASKS) break;
-      if (i.status !== "withheld" && i.status !== "part") continue;
-      const overlap = [...tokens(i.description)].filter((t) => chargeToks.has(t));
-      if (overlap.length >= 1) {
-        asks.push({
-          ref: i.ref,
-          reason: `${i.ref} is ${STATUS_LABEL[i.status]} and its description touches an element of the charge (${overlap.join(", ")}).`,
-          text: `Please provide the ground for ${i.status === "withheld" ? "withholding" : "part-disclosing"} item ${i.ref} (${i.description}), which appears relevant to the charge.`,
-        });
-      }
     }
   }
 
@@ -344,7 +377,9 @@ export function parseIndexText(text: string, packNo: number, date: string | null
   const items: DisclosureItem[] = [];
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.trim();
-    const m = line.match(/^(\d+(?:\.\d+)?)[.)\]]?\s+(.+)$/);
+    // Require a separator after the number (1. / 1) / 1]) so a bare date line like
+    // "5 May 2026" in a messy schedule isn't mistaken for index item 5.
+    const m = line.match(/^(\d+(?:\.\d+)?)[.)\]]\s+(.+)$/);
     if (!m) continue;
     const ref = m[1];
     const rest = m[2].trim();

@@ -31,14 +31,19 @@ const PACK1 = `DISCLOSURE INDEX - 15 April 2026
 4. CCTV footage of the assault - withheld
 9. Preliminary job sheet - listed`;
 
-const PACK2 = `DISCLOSURE INDEX - 5 May 2026
+// A deliberately MESSY (but synthetic / de-identified) second pack: part-disclosure
+// with a stated section, a withheld item with a ground, a notebook extract, a
+// not-located item, and a stray heading the parser ignores.
+const PACK2 = `POLICE DISCLOSURE — SCHEDULE (Pack 2)     [ SYNTHETIC - DEMO ]
+5 May 2026
 1. Charging document - full
 2. Summary of Facts - full
 3. Statement of Witness A - full
-4. CCTV footage of the assault - part-disclosed
+4. CCTV footage of the assault - part-disclosed (s 18)
 5. Officer notebook (extract, pp 3-5)
 6. Statement of Witness B - full
-7. Medical report - part-disclosed`;
+7. Medical report of the complainant - withheld (s 17)
+8. 111 call recording - not located`;
 
 export async function createCriminalDemoMatter(): Promise<void> {
   await requireUser();
