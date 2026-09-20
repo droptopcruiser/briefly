@@ -1,13 +1,13 @@
 /**
  * A tiny, dependency-free .docx (OOXML) writer — pure and client-safe.
  *
- * #3 (export): counsel wants the disclosure note and the request letter as Word files
- * she can open without it "smelling of a chat panel" — Times New Roman, no cover page,
- * no colour. A .docx is just a ZIP of a few XML parts, so we build both the ZIP (stored,
- * uncompressed — Word opens it fine) and the XML by hand. No new runtime dependency.
+ * A reusable export primitive: turn prepared text into a Word file a professional can
+ * open without it "smelling of a chat panel" — Times New Roman, no cover page, no colour.
+ * A .docx is just a ZIP of a few XML parts, so we build both the ZIP (stored, uncompressed
+ * — Word opens it fine) and the XML by hand. No runtime dependency.
  *
- * The content is supplied as a flat list of paragraph Blocks; whoever calls this maps
- * the exact exported text into blocks, so the .docx carries the same content as the .txt.
+ * The content is supplied as a flat list of paragraph Blocks; whoever calls this maps the
+ * exact text into blocks, so the .docx carries the same content the caller intended.
  */
 
 export interface Block {
