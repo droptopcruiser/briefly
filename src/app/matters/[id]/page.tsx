@@ -43,20 +43,6 @@ import { listMessages } from "@/lib/messages";
 import { getMatterDateDecisions, staleDatesEnabled } from "@/lib/critical-dates";
 import { resolveMatterDates } from "@/lib/critical-date-derive";
 import { CriticalDatesStrip } from "@/app/critical-dates-strip";
-import { getActiveFileOpen, fileOpenGate } from "@/lib/file-open";
-import { isCriminalMatter } from "@/lib/criminal";
-import { FileOpenPanel } from "@/app/file-open-panel";
-import { listPacks, getActiveDisclosureNote } from "@/lib/disclosure-service";
-import { DisclosurePanel } from "@/app/disclosure-panel";
-import { getActiveCorrespondence } from "@/lib/correspondence-service";
-import { preSendCheck } from "@/lib/correspondence";
-import { CorrespondencePanel } from "@/app/correspondence-panel";
-import { UseCriminalButton } from "@/app/use-criminal-button";
-import { getActiveHearingPrep } from "@/lib/hearing-prep-service";
-import { HearingPrepPanel } from "@/app/hearing-prep-panel";
-import { buildPulse } from "@/lib/matter-pulse";
-import { getActiveReviewPack } from "@/lib/review-pack-service";
-import { ReviewPackPanel } from "@/app/review-pack-panel";
 
 /**
  * Evidence over confidence: show how much of the matter is backed by source
@@ -357,105 +343,6 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
  * to review and send; Path B (ready) is the Initial Work Brief, reframed to lead
  * with the next step and NOT reprint the facts (those live in the record).
  */
-/**
- * PREPARATION WORKFLOWS — the criminal-chambers counterpart to Next step. For a
- * criminal matter, Briefly prepares source-backed DRAFTS (File Open first); counsel
- * reviews, decides, and sends. The File Open gate is computed here so the panel can
- * explain what's missing (the charging document + Summary of Facts) before it runs.
- */
-async function PreparationWorkflowsSection({ matter }: { matter: Matter }) {
-  const [run, packs, discNote, docs, corr, hearing, events] = await Promise.all([
-    getActiveFileOpen(matter.id),
-    listPacks(matter.id),
-    getActiveDisclosureNote(matter.id),
-    listDocuments(matter.id),
-    getActiveCorrespondence(matter.id),
-    getActiveHearingPrep(matter.id),
-    listEvents(matter.id),
-  ]);
-  const reviewPack = await getActiveReviewPack(matter.id);
-  const gate = fileOpenGate(matter.result);
-  const pdfDocs = docs.filter((d) => d.mime === "application/pdf").map((d) => ({ id: d.id, fileName: d.fileName }));
-  const corrFlags = corr ? preSendCheck(corr.content.draft, matter.result, matter.submission ?? "") : [];
-
-  // Matter Pulse — assembled from the current state of each workflow, so reopening
-  // the file answers "what's waiting, what changed, what's next" in one glance.
-  const recentChanges = [...events]
-    .sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1))
-    .filter((e) => e.detail && !e.type.endsWith("_reviewed"))
-    .slice(0, 5)
-    .map((e) => e.detail as string);
-  const pulse = buildPulse({
-    fileOpen: run ? { exists: true, state: run.state } : null,
-    disclosure: discNote || packs.length ? { exists: true, state: discNote?.state ?? "none", asks: discNote?.content.asks.length ?? 0, packCount: packs.length } : null,
-    correspondence: corr ? { exists: true, state: corr.state, flags: corrFlags.length } : null,
-    hearing: hearing ? { exists: true, state: hearing.state, fixture: hearing.content.fixture.date, missingFolder: hearing.content.missingItems.length } : null,
-    recentChanges,
-  });
-
-  return (
-    <div className="space-y-4">
-      {!pulse.empty ? (
-        <div className="rounded-2xl border border-accent/30 bg-accent-soft/40 p-5">
-          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent" /> Matter Pulse
-          </div>
-          <div className="mt-1 text-sm font-medium text-foreground/90">{pulse.stateLine}</div>
-          <div className="mt-3 grid gap-4 sm:grid-cols-3">
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">Awaiting your review</div>
-              {pulse.awaitingReview.length ? (
-                <ul className="mt-1 space-y-0.5 text-sm text-foreground/85">
-                  {pulse.awaitingReview.map((a) => <li key={a.workflow}>· {a.label}</li>)}
-                </ul>
-              ) : <div className="mt-1 text-sm text-muted">Nothing waiting.</div>}
-            </div>
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">Next</div>
-              {pulse.nextJobs.length ? (
-                <ol className="mt-1 space-y-0.5 text-sm text-foreground/85">
-                  {pulse.nextJobs.map((j, i) => <li key={i}>{i + 1}. {j}</li>)}
-                </ol>
-              ) : <div className="mt-1 text-sm text-muted">No admin jobs outstanding.</div>}
-            </div>
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">Recent activity</div>
-              {pulse.changed.length ? (
-                <ul className="mt-1 space-y-0.5 text-sm text-muted">
-                  {pulse.changed.map((c, i) => <li key={i}>· {c}</li>)}
-                </ul>
-              ) : <div className="mt-1 text-sm text-muted">No recent activity.</div>}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      <ReviewPackPanel matterId={matter.id} initialRun={reviewPack} />
-
-      <FileOpenPanel
-        matterId={matter.id}
-        initialRun={run}
-        gateOk={gate.ok}
-        gateReason={gate.reason}
-        missing={gate.missing}
-      />
-      <DisclosurePanel
-        matterId={matter.id}
-        initialPackCount={packs.length}
-        initialNote={discNote}
-        documents={pdfDocs}
-        indexItems={
-          packs.length
-            ? packs[packs.length - 1].items.map((i) => ({ ref: i.ref, description: i.description, source: i.source ?? null, pages: i.pages ?? null }))
-            : []
-        }
-      />
-      <CorrespondencePanel matterId={matter.id} initialRun={corr} initialFlags={corrFlags} />
-      <HearingPrepPanel matterId={matter.id} initialRun={hearing} documents={pdfDocs} />
-    </div>
-  );
-}
-
 async function NextStepSection({ matter, account }: { matter: Matter; account: Account }) {
   const r = matter.result!;
   // The default outbound subject: the conversation's "Re:" subject when this matter
@@ -986,19 +873,13 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
   // reached only by explicit choice (never by an automatic default or scroll).
   const defaultTab = "next";
 
-  const criminal = isCriminalMatter(r);
-
   const tabs = [
     {
       id: "next",
-      label: criminal ? "Preparation" : "Next step",
+      label: "Next step",
       node: (
-        <Suspense fallback={<SectionSkeleton label={criminal ? "Preparing workflows" : "Preparing next step"} />}>
-          {criminal ? (
-            <PreparationWorkflowsSection matter={matter} />
-          ) : (
-            <NextStepSection matter={matter} account={account} />
-          )}
+        <Suspense fallback={<SectionSkeleton label="Preparing next step" />}>
+          <NextStepSection matter={matter} account={account} />
         </Suspense>
       ),
     },
@@ -1011,21 +892,15 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
         </Suspense>
       ),
     },
-    // The Consultation plan is a conveyancing-flow tab; criminal matters use the
-    // Preparation workflows instead.
-    ...(criminal
-      ? []
-      : [
-          {
-            id: "plan",
-            label: "Consultation plan",
-            node: (
-              <Suspense fallback={<SectionSkeleton label="Preparing consultation plan" />}>
-                <ConsultationPlanSection matter={matter} />
-              </Suspense>
-            ),
-          },
-        ]),
+    {
+      id: "plan",
+      label: "Consultation plan",
+      node: (
+        <Suspense fallback={<SectionSkeleton label="Preparing consultation plan" />}>
+          <ConsultationPlanSection matter={matter} />
+        </Suspense>
+      ),
+    },
   ];
 
   return (
@@ -1086,9 +961,6 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
       >
         <OverviewSection matter={matter} account={account} />
       </Suspense>
-
-      {/* Manual switch to the criminal Chambers Workflows (no classifier). */}
-      {!criminal ? <UseCriminalButton matterId={matter.id} /> : null}
 
       {/* Two working views; the evidence is pulled forward on demand, not a tab. */}
       <MatterTabs tabs={tabs} defaultTab={defaultTab} />
