@@ -47,6 +47,9 @@ import { isMigrationMatter, migrationMatterTitle, groupByPerson, type Party } fr
 import { getBook } from "@/lib/migration-books";
 import { buildMigrationGaps } from "@/lib/migration-gaps";
 import { fillDatesFromText, datesStrip } from "@/lib/migration-dates";
+import { extractMigration } from "@/lib/migration-extract";
+import { buildConsultationPacket, packetSectionList } from "@/lib/migration-packet";
+import { PacketControls } from "@/app/packet-controls";
 import type { MigrationProfile, Gap } from "@/lib/types";
 
 /**
@@ -895,6 +898,42 @@ function MigrationDatesStrip({ profile, submission }: { profile: MigrationProfil
   );
 }
 
+/**
+ * P4 — the consultation packet card. Derived from the matter (source-locked), review-
+ * gated for export. Shows the section summary + held-back count + cover line; the full
+ * artefact is the .docx. Approve → export; new material since approval → stale.
+ */
+function MigrationPacketCard({ matter, profile }: { matter: Matter; profile: MigrationProfile }) {
+  const sub = matter.submission ?? "";
+  const book = getBook(profile.stream);
+  if (!book) return null;
+  const ex = extractMigration(sub);
+  const { gaps, dateSlots } = buildMigrationGaps(book, profile, sub);
+  const keyDates = datesStrip(profile, fillDatesFromText(dateSlots, sub, profile));
+  const packet = buildConsultationPacket({
+    title: migrationMatterTitle(profile), profile, book, facts: ex.facts, gaps, keyDates,
+    consultDate: matter.consultationAt ?? null, version: 1, generated: new Date().toISOString().slice(0, 10),
+  });
+  const approved = !!matter.approvedAt;
+  const stale = !!(approved && matter.updatedAt && matter.updatedAt > matter.approvedAt!);
+  const state = stale ? "stale — re-approve" : approved ? "approved" : "draft — not sent";
+  return (
+    <section className="rounded-2xl border border-border bg-surface p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">Consultation packet</div>
+        <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${stale ? "bg-awaiting-soft text-awaiting" : approved ? "bg-accent-soft text-accent" : "bg-inset text-muted"}`}>{state}</span>
+      </div>
+      <p className="mt-1 text-xs text-muted">Every listed fact is sourced. Missing items are listed as missing.</p>
+      <ul className="mt-3 space-y-0.5 text-sm text-foreground/85">
+        {packetSectionList(packet).map((l, i) => <li key={i}>{l}</li>)}
+      </ul>
+      <div className="mt-3 border-t border-border pt-3">
+        <PacketControls matterId={matter.id} approved={approved} stale={stale} />
+      </div>
+    </section>
+  );
+}
+
 function partyHeading(p: Party): string {
   if (p.kind === "sponsor") return "Sponsor · NZ partner";
   if (p.kind === "employer") return "Employer";
@@ -1049,6 +1088,7 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
       {/* Migration path: key dates strip (P3) + the family of parties. */}
       {isMig && migration ? <MigrationDatesStrip profile={migration} submission={matter.submission} /> : null}
       {isMig && migration ? <MigrationPeopleSection profile={migration} gaps={r.gaps} /> : null}
+      {isMig && migration ? <MigrationPacketCard matter={matter} profile={migration} /> : null}
 
       {/* Critical dates (settlement/finance) — a property-path noun; hidden on migration
           matters (their validity-window dates arrive in P3). */}
