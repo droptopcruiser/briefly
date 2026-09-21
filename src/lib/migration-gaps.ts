@@ -10,8 +10,9 @@
  * Nothing is invented; an item with no applicable party simply doesn't appear.
  */
 
-import type { MigrationProfile, Applicant, Gap, TimelineEvent } from "./types";
+import type { MigrationProfile, Applicant, Gap } from "./types";
 import type { MigBook, MigItem, NaCond } from "./migration-books";
+import type { MigrationDateSlot } from "./migration-dates";
 
 // Kept as a local literal (must match MATTER_PARTY_ID in migration.ts) so this module has
 // only type imports and stays unit-testable headlessly.
@@ -22,8 +23,8 @@ function principalOf(profile: MigrationProfile): Applicant | null {
 
 export interface MigItemsResult {
   gaps: Gap[];
-  /** Empty-but-typed date slots (validity windows, lodgement) for P3. */
-  dateSlots: TimelineEvent[];
+  /** Empty-but-typed date slots (validity windows, lodgement); filled from cited spans in P3. */
+  dateSlots: MigrationDateSlot[];
 }
 
 // Demonym → country, for police-cert labels ("Chinese" → "Police certificate (China)").
@@ -82,7 +83,7 @@ function looksProvided(item: MigItem, submission: string): boolean {
 
 export function buildMigrationGaps(book: MigBook, profile: MigrationProfile, submission: string): MigItemsResult {
   const gaps: Gap[] = [];
-  const dateSlots: TimelineEvent[] = [];
+  const dateSlots: MigrationDateSlot[] = [];
 
   for (const item of book.items) {
     if (item.type === "human_only" || item.type === "party" || item.type === "fact") continue; // never a gap; facts only when sourced (later)
@@ -90,7 +91,7 @@ export function buildMigrationGaps(book: MigBook, profile: MigrationProfile, sub
       if (naApplies(item.na, t, profile)) continue;
 
       if (item.type === "document_valid_until" || item.type === "date") {
-        dateSlots.push({ date: null, description: item.label, source: `(rulebook: ${book.name} — awaiting date)`, personId: t.personId });
+        dateSlots.push({ key: `${item.key}:${t.personId}`, itemKey: item.key, personId: t.personId, label: item.label, candidates: [] });
         continue;
       }
       // document_present → a gap unless already provided

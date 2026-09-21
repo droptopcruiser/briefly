@@ -44,6 +44,9 @@ import { getMatterDateDecisions, staleDatesEnabled } from "@/lib/critical-dates"
 import { resolveMatterDates } from "@/lib/critical-date-derive";
 import { CriticalDatesStrip } from "@/app/critical-dates-strip";
 import { isMigrationMatter, migrationMatterTitle, groupByPerson, type Party } from "@/lib/migration";
+import { getBook } from "@/lib/migration-books";
+import { buildMigrationGaps } from "@/lib/migration-gaps";
+import { fillDatesFromText, datesStrip } from "@/lib/migration-dates";
 import type { MigrationProfile, Gap } from "@/lib/types";
 
 /**
@@ -858,6 +861,40 @@ function SectionSkeleton({ label }: { label: string }) {
 
 // --- Page: only account + matter block the first paint ----------------------
 
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function fmtISO(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return `${d} ${MON[m - 1]} ${y}`;
+}
+
+/**
+ * P3 — the migration key-dates strip. Validity windows + lodgement target, filled only
+ * from cited spans (empty = "—", never guessed). Stale-before-lodge in red; an
+ * unresolved two-source conflict flagged, not silently overwritten. No settlement copy.
+ */
+function MigrationDatesStrip({ profile, submission }: { profile: MigrationProfile; submission: string }) {
+  const book = getBook(profile.stream);
+  if (!book) return null;
+  const slots = fillDatesFromText(buildMigrationGaps(book, profile, submission).dateSlots, submission, profile);
+  const segs = datesStrip(profile, slots);
+  if (!segs.length) return null;
+  return (
+    <div className="rounded-xl border border-border bg-raise p-3">
+      <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">Key dates</div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
+        {segs.map((s, i) => (
+          <span key={i} className={s.stale ? "text-error" : s.conflict ? "text-awaiting" : "text-foreground/85"}>
+            <span className="text-muted">{s.label}</span>{" "}
+            {s.conflict ? "conflict — resolve" : s.value ? fmtISO(s.value) : "—"}
+            {s.stale ? " · stale before lodge" : ""}
+            {i < segs.length - 1 ? " ·" : ""}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function partyHeading(p: Party): string {
   if (p.kind === "sponsor") return "Sponsor · NZ partner";
   if (p.kind === "employer") return "Employer";
@@ -1009,7 +1046,8 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
         </div>
       </header>
 
-      {/* Migration path: the family of parties, with a visible Unassigned bucket. */}
+      {/* Migration path: key dates strip (P3) + the family of parties. */}
+      {isMig && migration ? <MigrationDatesStrip profile={migration} submission={matter.submission} /> : null}
       {isMig && migration ? <MigrationPeopleSection profile={migration} gaps={r.gaps} /> : null}
 
       {/* Critical dates (settlement/finance) — a property-path noun; hidden on migration
