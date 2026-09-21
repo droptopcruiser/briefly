@@ -49,6 +49,8 @@ export interface PacketInput {
   consultDate: string | null;
   version: number;
   generated: string;
+  /** True once counsel has approved the packet for consult — flips "draft" to "approved". */
+  approved?: boolean;
 }
 
 /** Ordered addressable parties: applicants → sponsor → employer (+ matter for lookups). */
@@ -115,7 +117,7 @@ export function buildConsultationPacket(input: PacketInput): PacketContent {
       streamDetail: profile.streamDetail,
       consultDate: input.consultDate,
       version: input.version,
-      status: "draft — not sent",
+      status: input.approved ? "approved · not sent" : "draft — not sent",
       generated: input.generated,
     },
     people,

@@ -47,7 +47,7 @@ function assemble(submission: string, result: NonNullable<Awaited<ReturnType<typ
   const generated = new Date().toISOString().slice(0, 10);
   const packet = buildConsultationPacket({
     title: migrationMatterTitle(profile), profile, book, facts: ex.facts, gaps, keyDates,
-    consultDate: consultAt, version: 1, generated,
+    consultDate: consultAt, version: 1, generated, approved: true,
   });
   const facts: SourcedFact[] = ex.facts.filter((f) => f.source && f.value).map((f) => ({ value: f.value!, tag: "", kind: "enquiry_snippet" }));
   const sourceList = buildSourceList(facts, [submission, packet.header.title, generated, consultAt ?? "", ...ex.facts.map((f) => f.source ?? "")]);

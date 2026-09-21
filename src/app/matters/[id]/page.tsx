@@ -43,7 +43,7 @@ import { listMessages } from "@/lib/messages";
 import { getMatterDateDecisions, staleDatesEnabled } from "@/lib/critical-dates";
 import { resolveMatterDates } from "@/lib/critical-date-derive";
 import { CriticalDatesStrip } from "@/app/critical-dates-strip";
-import { isMigrationMatter, migrationMatterTitle, groupByPerson, type Party } from "@/lib/migration";
+import { isMigrationMatter, migrationMatterTitle, groupByPerson, STREAM_LABEL, type Party } from "@/lib/migration";
 import { getBook } from "@/lib/migration-books";
 import { buildMigrationGaps } from "@/lib/migration-gaps";
 import { fillDatesFromText, datesStrip } from "@/lib/migration-dates";
@@ -910,12 +910,13 @@ function MigrationPacketCard({ matter, profile }: { matter: Matter; profile: Mig
   const ex = extractMigration(sub);
   const { gaps, dateSlots } = buildMigrationGaps(book, profile, sub);
   const keyDates = datesStrip(profile, fillDatesFromText(dateSlots, sub, profile));
+  const approved = !!matter.approvedAt;
+  const stale = !!(approved && matter.updatedAt && matter.updatedAt > matter.approvedAt!);
   const packet = buildConsultationPacket({
     title: migrationMatterTitle(profile), profile, book, facts: ex.facts, gaps, keyDates,
     consultDate: matter.consultationAt ?? null, version: 1, generated: new Date().toISOString().slice(0, 10),
+    approved: approved && !stale,
   });
-  const approved = !!matter.approvedAt;
-  const stale = !!(approved && matter.updatedAt && matter.updatedAt > matter.approvedAt!);
   const state = stale ? "stale — re-approve" : approved ? "approved" : "draft — not sent";
   return (
     <section className="rounded-2xl border border-border bg-surface p-5">
@@ -1060,7 +1061,7 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
             {isMig && migration ? migrationMatterTitle(migration) : (r.clientName ?? "Unnamed client")}
           </h1>
           <span className="text-sm text-muted">
-            {r.rubricName} · {r.vertical}
+            {isMig && migration?.stream ? STREAM_LABEL[migration.stream] : `${r.rubricName} · ${r.vertical}`}
           </span>
           <div className="ml-auto flex items-center gap-2">
             <OpenEvidenceButton />

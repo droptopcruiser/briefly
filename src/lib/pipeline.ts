@@ -5,6 +5,8 @@ import { runMockPipeline } from "./mock";
 import { extractMigration } from "./migration-extract";
 import { getBook } from "./migration-books";
 import { buildMigrationGaps } from "./migration-gaps";
+import { buildMigrationChase } from "./migration-chase";
+import { STREAM_LABEL } from "./migration";
 import type {
   Rubric,
   PipelineResult,
@@ -376,7 +378,14 @@ function augmentWithMigration(submission: string, result: PipelineResult): Pipel
   // visitor) → fall back to the P1 text-driven gaps. Facts/dates handled in P3.
   const book = getBook(stream);
   const gaps = book ? buildMigrationGaps(book, migration, submission).gaps : ex.gaps;
-  return { ...result, migration, gaps };
+  // Kill demo/"Spousal Visa" copy on the migration path — stream language only.
+  const streamLabel = STREAM_LABEL[stream];
+  const n = migration.applicants.length;
+  const summary = `${streamLabel}${n ? ` — ${n} applicant${n > 1 ? "s" : ""}` : ""}${migration.sponsor ? `, sponsor ${migration.sponsor.fullName}` : ""}.`;
+  // The chase is the migration outreach (person-grouped), replacing the generic follow-up.
+  const chase = buildMigrationChase(migration, gaps, { originalSubject: result.emailThread?.subject ?? null, streamLabel });
+  const draftEmail = gaps.length ? { to: result.clientEmail, subject: chase.subject, body: chase.body } : null;
+  return { ...result, migration, gaps, summary, draftEmail };
 }
 
 /** Run the full pipeline for one submission against the given rubric set. */
