@@ -44,6 +44,13 @@ export interface MatterDocument {
   createdAt: string;
   /** Extracted facts awaiting confirmation — never merged until the pro confirms. */
   pendingFacts: PendingDocFact[];
+  /** Migration path: the party this file is filed under (Applicant | Sponsor | Employer
+   *  id), or undefined = Unassigned (no cue → never the principal). */
+  personId?: string;
+  /** Migration path: the rubric item key this file satisfies (e.g. "passport"). */
+  itemKey?: string;
+  /** Sensitive document (passport / police cert / medical) — default on for those. */
+  sensitive?: boolean;
 }
 
 const BUCKET = "matter-docs";
@@ -120,6 +127,7 @@ export async function uploadDocument(
   fileName: string,
   mime: string,
   bytes: Uint8Array,
+  attach?: { personId?: string; itemKey?: string; sensitive?: boolean },
 ): Promise<MatterDocument> {
   const id = randomUUID();
   const storagePath = `${accountId}/${matterId}/${id}-${safeName(fileName)}`;
@@ -137,6 +145,11 @@ export async function uploadDocument(
     costCents: 0,
     createdAt: new Date().toISOString(),
     pendingFacts: [],
+    // Attachment metadata (migration path). Persisted in-memory; the prod `documents`
+    // row shape is unchanged (columns added when prod immigration goes live).
+    personId: attach?.personId || undefined,
+    itemKey: attach?.itemKey || undefined,
+    sensitive: attach?.sensitive || undefined,
   };
 
   const db = getSupabase();

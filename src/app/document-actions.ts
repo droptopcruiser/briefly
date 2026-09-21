@@ -37,8 +37,16 @@ export async function uploadMatterDocument(
   try {
     const bytes = new Uint8Array(await file.arrayBuffer());
     const owner = matter.accountId ?? accountId;
-    const doc = await uploadDocument(owner, matter.id, file.name, file.type, bytes);
-    await addEvent(owner, matter.id, "document_attached", `Attached ${doc.fileName}`);
+    // Migration attach: file goes to a party (Applicant | Sponsor | Employer) + rubric
+    // item. No person picked → Unassigned (never the principal). Sensitive on for the
+    // identity/clearance docs.
+    const personId = (formData.get("personId") as string | null)?.trim() || undefined;
+    const itemKey = (formData.get("itemKey") as string | null)?.trim() || undefined;
+    const SENSITIVE = new Set(["passport", "police_cert", "emedical"]);
+    const attach = personId || itemKey ? { personId, itemKey, sensitive: itemKey ? SENSITIVE.has(itemKey) : undefined } : undefined;
+    const doc = await uploadDocument(owner, matter.id, file.name, file.type, bytes, attach);
+    const note = itemKey ? `${itemKey}${personId ? ` · ${personId}` : ""}` : "unassigned";
+    await addEvent(owner, matter.id, "document_attached", `Attached ${doc.fileName} → ${note}`);
     return { ok: true };
   } catch (err) {
     console.error("uploadMatterDocument failed:", err);

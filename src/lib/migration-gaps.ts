@@ -81,7 +81,13 @@ function looksProvided(item: MigItem, submission: string): boolean {
   return /\b(attached|enclosed|provided|uploaded|here is|i've sent|have sent)\b/.test(s);
 }
 
-export function buildMigrationGaps(book: MigBook, profile: MigrationProfile, submission: string): MigItemsResult {
+export function buildMigrationGaps(
+  book: MigBook,
+  profile: MigrationProfile,
+  submission: string,
+  /** `${itemKey}:${personId}` for documents already attached — those items are satisfied. */
+  attached: Set<string> = new Set(),
+): MigItemsResult {
   const gaps: Gap[] = [];
   const dateSlots: MigrationDateSlot[] = [];
 
@@ -94,7 +100,9 @@ export function buildMigrationGaps(book: MigBook, profile: MigrationProfile, sub
         dateSlots.push({ key: `${item.key}:${t.personId}`, itemKey: item.key, personId: t.personId, label: item.label, candidates: [] });
         continue;
       }
-      // document_present → a gap unless already provided
+      // document_present → a gap unless a document is attached for this item+person, or
+      // it's stated as provided in the enquiry.
+      if (attached.has(`${item.key}:${t.personId}`)) continue;
       if (looksProvided(item, submission)) continue;
       const country = item.perCountry ? countryOf(t.applicant) : null;
       const label = country ? `${item.label} (${country})` : item.label;

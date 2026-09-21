@@ -50,6 +50,8 @@ import { fillDatesFromText, datesStrip } from "@/lib/migration-dates";
 import { extractMigration } from "@/lib/migration-extract";
 import { buildConsultationPacket, packetSectionList } from "@/lib/migration-packet";
 import { PacketControls } from "@/app/packet-controls";
+import { MigrationDocuments } from "@/app/migration-docs";
+import { migrationSinceReview } from "@/lib/migration-review";
 import type { MigrationProfile, Gap } from "@/lib/types";
 
 /**
@@ -903,12 +905,12 @@ function MigrationDatesStrip({ profile, submission }: { profile: MigrationProfil
  * gated for export. Shows the section summary + held-back count + cover line; the full
  * artefact is the .docx. Approve → export; new material since approval → stale.
  */
-function MigrationPacketCard({ matter, profile }: { matter: Matter; profile: MigrationProfile }) {
+function MigrationPacketCard({ matter, profile, attached }: { matter: Matter; profile: MigrationProfile; attached: Set<string> }) {
   const sub = matter.submission ?? "";
   const book = getBook(profile.stream);
   if (!book) return null;
   const ex = extractMigration(sub);
-  const { gaps, dateSlots } = buildMigrationGaps(book, profile, sub);
+  const { gaps, dateSlots } = buildMigrationGaps(book, profile, sub, attached);
   const keyDates = datesStrip(profile, fillDatesFromText(dateSlots, sub, profile));
   const approved = !!matter.approvedAt;
   const stale = !!(approved && matter.updatedAt && matter.updatedAt > matter.approvedAt!);
@@ -1007,6 +1009,24 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
   const isMig = isMigrationMatter(r);
   const migration = r.migration ?? null;
 
+  // Migration documents → attached set → live gaps (attached items drop from Outstanding).
+  const migDocs = isMig && migration ? await listDocuments(matter.id) : [];
+  const attached = new Set(migDocs.filter((d) => d.personId && d.itemKey).map((d) => `${d.itemKey}:${d.personId}`));
+  const migBook = isMig && migration ? getBook(migration.stream) : null;
+  const liveGaps = migBook && migration ? buildMigrationGaps(migBook, migration, matter.submission ?? "", attached).gaps : r.gaps;
+  const partyOpts = migration
+    ? [
+        ...migration.applicants.map((a) => ({ id: a.id, label: `${a.fullName} · ${a.role}` })),
+        ...(migration.sponsor ? [{ id: migration.sponsor.id, label: `${migration.sponsor.fullName} · sponsor` }] : []),
+        ...(migration.employer ? [{ id: migration.employer.id, label: `${migration.employer.legalName} · employer` }] : []),
+      ]
+    : [];
+  const itemOpts = migBook
+    ? [...new Map(migBook.items.filter((i) => i.type === "document_present").map((i) => [i.key, { key: i.key, label: i.label }])).values()]
+    : [];
+  const migBaseline = isMig && migration ? await getBaselineReview(matter.id) : null;
+  const since = migBaseline && migration ? migrationSinceReview(migBaseline.snapshot.gaps, liveGaps, migration) : null;
+
   // A matter always opens on Next step — where the immediate decision and the
   // prepared client communication live. The Consultation plan is a secondary tab,
   // reached only by explicit choice (never by an automatic default or scroll).
@@ -1088,8 +1108,25 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
 
       {/* Migration path: key dates strip (P3) + the family of parties. */}
       {isMig && migration ? <MigrationDatesStrip profile={migration} submission={matter.submission} /> : null}
-      {isMig && migration ? <MigrationPeopleSection profile={migration} gaps={r.gaps} /> : null}
-      {isMig && migration ? <MigrationPacketCard matter={matter} profile={migration} /> : null}
+      {isMig && since && since.resolved.length ? (
+        <div className="rounded-xl border border-accent/30 bg-accent-soft/30 p-3 text-sm">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">Since your last review</div>
+          <ul className="mt-1 space-y-0.5 text-accent">
+            {since.resolved.map((l, i) => <li key={i}>{l}</li>)}
+          </ul>
+          {since.stillMissing.length ? <div className="mt-1 text-xs text-muted">{since.stillMissing.length} still missing</div> : null}
+        </div>
+      ) : null}
+      {isMig && migration ? <MigrationPeopleSection profile={migration} gaps={liveGaps} /> : null}
+      {isMig && migration ? <MigrationPacketCard matter={matter} profile={migration} attached={attached} /> : null}
+      {isMig && migration ? (
+        <MigrationDocuments
+          matterId={matter.id}
+          parties={partyOpts}
+          items={itemOpts}
+          docs={migDocs.map((d) => ({ id: d.id, fileName: d.fileName, personId: d.personId, itemKey: d.itemKey, sensitive: d.sensitive }))}
+        />
+      ) : null}
 
       {/* Critical dates (settlement/finance) — a property-path noun; hidden on migration
           matters (their validity-window dates arrive in P3). */}

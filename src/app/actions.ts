@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { ingestSubmission } from "@/lib/ingest";
+import { isMigrationMatter } from "@/lib/migration";
 import { getMatter, saveMatter } from "@/lib/store";
 import { requireUser } from "@/lib/auth";
 import { createServerSupabase } from "@/lib/supabase-server";
@@ -172,7 +173,12 @@ export async function approveAndSendMatter(
   matter.nudgeCount = 0;
   await saveMatter(matter);
   await addEvent(matter.accountId, matter.id, "approved", "You approved the follow-up");
-  await addEvent(matter.accountId, matter.id, "sent", `Follow-up sent to ${draft.to}`);
+  // File note (migration): who/when is on the event; record WHICH items were requested.
+  const requested = isMigrationMatter(matter.result) ? matter.result!.gaps.map((g) => g.label) : [];
+  const sentNote = requested.length
+    ? `Chase sent to ${draft.to} · requested: ${requested.join("; ")}`
+    : `Follow-up sent to ${draft.to}`;
+  await addEvent(matter.accountId, matter.id, "sent", sentNote);
   await addMessage(matter.accountId, matter.id, "outbound", bodyToSend, editedSubject);
   // Sending the follow-up is a review of the matter as it stands — set the
   // baseline so the client's reply surfaces as "since the last review".
