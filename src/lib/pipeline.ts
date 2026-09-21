@@ -2,6 +2,7 @@ import { jsonCall, isConfigured } from "./anthropic";
 import { SEED_RUBRICS } from "./rubrics";
 import { computeGaps, computeReadiness } from "./gaps";
 import { runMockPipeline } from "./mock";
+import { extractMigration } from "./migration-extract";
 import type {
   Rubric,
   PipelineResult,
@@ -9,6 +10,7 @@ import type {
   TimelineEvent,
   Gap,
   DraftEmail,
+  MigrationProfile,
 } from "./types";
 
 /**
@@ -353,6 +355,25 @@ async function buildResult(
   };
 }
 
+/**
+ * Keyless migration augmentation (P1). For a matter classified to the Immigration
+ * vertical, run the deterministic party-splitter and attach the MigrationProfile +
+ * person-scoped gaps. Gated on the BOOK (vertical), never keywords — wrong-book routing
+ * is P5. Never touches a non-immigration result; conveyancing extraction is untouched.
+ * The model path stays unwired this pass (keyless only).
+ */
+function augmentWithMigration(submission: string, result: PipelineResult): PipelineResult {
+  if (result.vertical !== "Immigration") return result;
+  const ex = extractMigration(submission);
+  const stream = ex.profile.stream;
+  // No confident stream or no party → leave the matter generic (do not assume "partner").
+  if (!stream || ex.profile.applicants.length === 0) return result;
+  const migration: MigrationProfile = { ...ex.profile, stream };
+  // P1: person-scoped gaps from the enquiry replace the generic rubric gaps (rubric
+  // packs with per-person items are P2). Facts/dates stay as-is this pass.
+  return { ...result, migration, gaps: ex.gaps };
+}
+
 /** Run the full pipeline for one submission against the given rubric set. */
 export async function runPipeline(
   submission: string,
@@ -361,7 +382,7 @@ export async function runPipeline(
   const activeRubrics = rubrics.length > 0 ? rubrics : SEED_RUBRICS;
 
   if (!isConfigured()) {
-    return runMockPipeline(submission, activeRubrics);
+    return augmentWithMigration(submission, runMockPipeline(submission, activeRubrics));
   }
 
   const { out: cls, costCents: c1 } = await classify(submission, activeRubrics);
@@ -383,6 +404,6 @@ export async function rescoreWithRubric(
   submission: string,
   rubric: Rubric,
 ): Promise<PipelineResult> {
-  if (!isConfigured()) return runMockPipeline(submission, [rubric]);
+  if (!isConfigured()) return augmentWithMigration(submission, runMockPipeline(submission, [rubric]));
   return buildResult(submission, rubric, { classificationConfidence: 1, costBefore: 0 });
 }
