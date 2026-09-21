@@ -43,6 +43,8 @@ import { listMessages } from "@/lib/messages";
 import { getMatterDateDecisions, staleDatesEnabled } from "@/lib/critical-dates";
 import { resolveMatterDates } from "@/lib/critical-date-derive";
 import { CriticalDatesStrip } from "@/app/critical-dates-strip";
+import { isMigrationMatter, migrationMatterTitle, groupByPerson, type Party } from "@/lib/migration";
+import type { MigrationProfile, Gap } from "@/lib/types";
 
 /**
  * Evidence over confidence: show how much of the matter is backed by source
@@ -856,6 +858,63 @@ function SectionSkeleton({ label }: { label: string }) {
 
 // --- Page: only account + matter block the first paint ----------------------
 
+function partyHeading(p: Party): string {
+  if (p.kind === "sponsor") return "Sponsor · NZ partner";
+  if (p.kind === "employer") return "Employer";
+  return `Applicant · ${p.sub}`;
+}
+
+/**
+ * Migration path (P1): the matter as a family of parties. Sections run applicants →
+ * sponsor → employer → Unassigned. The Unassigned bucket is deliberately VISIBLE — an
+ * item Briefly could not confidently place stays here rather than being guessed onto the
+ * principal. Each party shows only its own outstanding items (never flattened).
+ */
+function MigrationPeopleSection({ profile, gaps }: { profile: MigrationProfile; gaps: Gap[] }) {
+  const groups = groupByPerson(profile, gaps);
+  return (
+    <section className="rounded-2xl border border-border bg-surface p-5">
+      <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">Applicants &amp; parties</div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {groups.map((g) => {
+          const unassigned = !g.party;
+          const applicant = g.party?.kind === "applicant" ? profile.applicants.find((a) => a.id === g.party!.id) : null;
+          return (
+            <div
+              key={g.party?.id ?? "unassigned"}
+              className={`rounded-xl border p-4 ${unassigned ? "border-awaiting/50 bg-awaiting-soft/40" : "border-border bg-raise"}`}
+            >
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="font-medium text-foreground">{unassigned ? "Unassigned" : g.party!.name}</span>
+                <span className="text-[11px] uppercase tracking-wide text-muted">{unassigned ? "not yet linked to a person" : partyHeading(g.party!)}</span>
+              </div>
+              {applicant ? (
+                <div className="mt-0.5 text-xs text-muted">
+                  {[applicant.location !== "unknown" ? applicant.location : null, applicant.nationality, applicant.passportExpiry ? `passport exp ${applicant.passportExpiry}` : null]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </div>
+              ) : null}
+              {g.items.length ? (
+                <ul className="mt-2 space-y-1 text-sm text-foreground/85">
+                  {g.items.map((gap, i) => (
+                    <li key={i}>· {gap.label}</li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="mt-2 text-sm text-muted">Nothing outstanding.</div>
+              )}
+              {unassigned ? (
+                <div className="mt-2 text-[11px] text-awaiting">Assign to a person before relying on readiness — Briefly won&apos;t guess.</div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 export default async function MatterPage({ params }: { params: Promise<{ id: string }> }) {
   const t0 = Date.now();
   const { id } = await params;
@@ -867,6 +926,8 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
   if (!matter || !matter.result || matter.accountId !== account.id) notFound();
 
   const r = matter.result;
+  const isMig = isMigrationMatter(r);
+  const migration = r.migration ?? null;
 
   // A matter always opens on Next step — where the immediate decision and the
   // prepared client communication live. The Consultation plan is a secondary tab,
@@ -918,7 +979,9 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
           Now hero below, so it isn't competing with badges up here. */}
       <header className="space-y-2">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-serif text-2xl font-medium tracking-tight">{r.clientName ?? "Unnamed client"}</h1>
+          <h1 className="font-serif text-2xl font-medium tracking-tight">
+            {isMig && migration ? migrationMatterTitle(migration) : (r.clientName ?? "Unnamed client")}
+          </h1>
           <span className="text-sm text-muted">
             {r.rubricName} · {r.vertical}
           </span>
@@ -945,10 +1008,16 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
         </div>
       </header>
 
-      {/* Critical dates (settlement) — deferred; only a confirmed date drives urgency */}
-      <Suspense fallback={null}>
-        <CriticalDatesSection matter={matter} />
-      </Suspense>
+      {/* Migration path: the family of parties, with a visible Unassigned bucket. */}
+      {isMig && migration ? <MigrationPeopleSection profile={migration} gaps={r.gaps} /> : null}
+
+      {/* Critical dates (settlement/finance) — a property-path noun; hidden on migration
+          matters (their validity-window dates arrive in P3). */}
+      {!isMig ? (
+        <Suspense fallback={null}>
+          <CriticalDatesSection matter={matter} />
+        </Suspense>
+      ) : null}
 
       {/* Returning client — deferred */}
       <Suspense fallback={null}>
