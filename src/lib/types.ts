@@ -72,6 +72,9 @@ export interface ExtractedField {
   source: string | null;
   /** True when this fact was carried forward from a prior matter (not this one). */
   carried?: boolean;
+  /** Migration path: the applicant this fact belongs to (Applicant.id). Absent =
+   *  matter-level / shared (e.g. fees, application number). See MigrationProfile. */
+  personId?: string;
   /**
    * Set when this fact was confirmed from a read document (not the enquiry text).
    * `page` is null for image-only/scanned PDFs, which can't be page-cited.
@@ -86,6 +89,9 @@ export interface TimelineEvent {
   description: string;
   /** Verbatim snippet the event was drawn from. */
   source: string;
+  /** Migration path: the applicant this date belongs to (Applicant.id), or absent
+   *  for a matter-level date (lodgement target, PPI due). */
+  personId?: string;
 }
 
 /** A missing required field or document. */
@@ -94,6 +100,9 @@ export interface Gap {
   label: string;
   kind: "field" | "document";
   reason: string;
+  /** Migration path: the applicant this gap belongs to (Applicant.id). Absent =
+   *  matter-level. A family's gaps MUST stay scoped per person, never flattened. */
+  personId?: string;
 }
 
 export interface DraftEmail {
@@ -128,6 +137,66 @@ export interface PipelineResult {
    *  (In-Reply-To / References). Null for form-originated matters. Carried across
    *  re-scores; updated from each inbound message's headers. */
   emailThread?: EmailThread | null;
+  /** Migration path only: the stream + people + sponsor/employer + INZ refs. Absent
+   *  on non-migration matters. When present, fields/gaps/timeline scope to its
+   *  applicants by Applicant.id, and property nouns are hidden in the UI. */
+  migration?: MigrationProfile | null;
+}
+
+// ── Immigration (NZ) — the migration path's matter shape ──────────────────────
+// The keystone of the immigration pivot: a matter is a FAMILY of applicants under a
+// visa stream, not a single property file. Every person carries their own documents
+// and dates; gaps/facts/dates reference an Applicant by id so readiness never flattens
+// a family into one list. Absent on conveyancing matters (fully additive).
+
+/** Visa stream a migration matter runs under. */
+export type MigrationStream = "partner" | "aewv" | "student" | "resident" | "visitor";
+
+/** Where the person is when the application is made. */
+export type ApplicantLocation = "onshore" | "offshore";
+
+/** A person's role on the matter. Principal is the lead applicant; children are
+ *  applicants too; the NZ partner on a partner stream is the Sponsor, not an applicant. */
+export type ApplicantRole = "principal" | "partner" | "child" | "other";
+
+/** A person on the matter. Docs, facts, gaps and dates are scoped to their `id`. */
+export interface Applicant {
+  id: string;
+  role: ApplicantRole;
+  fullName: string;
+  dob: string | null;
+  nationality: string | null;
+  passportNo: string | null;
+  location: ApplicantLocation;
+}
+
+/** The NZ partner sponsoring a partner-category application. Evidence of their status
+ *  is a rubric item (document_present), never asserted here. First-class, optional. */
+export interface Sponsor {
+  fullName: string;
+  /** e.g. "NZ citizen" / "resident" — a fact to evidence, not a judgment. */
+  status: string | null;
+}
+
+/** The accredited employer on an AEWV matter. First-class, optional. */
+export interface Employer {
+  name: string;
+  accreditationStatus: string | null;
+  jobCheckOrToken: string | null;
+}
+
+/** The migration profile carried on a matter's result (present only on migration matters). */
+export interface MigrationProfile {
+  stream: MigrationStream;
+  /** applicants[0] is the principal; partner (on non-partner streams) + children follow. */
+  applicants: Applicant[];
+  /** Partner streams: the NZ sponsor. */
+  sponsor: Sponsor | null;
+  /** AEWV: the accredited employer. */
+  employer: Employer | null;
+  inzClientNumber: string | null;
+  applicationNumber: string | null;
+  currentVisa: { type: string; expiry: string | null } | null;
 }
 
 /** What we need to keep an email conversation threaded in the client's mailbox. */
