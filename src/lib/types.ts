@@ -149,54 +149,69 @@ export interface PipelineResult {
 // and dates; gaps/facts/dates reference an Applicant by id so readiness never flattens
 // a family into one list. Absent on conveyancing matters (fully additive).
 
-/** Visa stream a migration matter runs under. */
+/** Visa stream a migration matter runs under. Coarse; the rubric book is chosen by
+ *  `streamDetail` ("partner" is not a rubric — partner-of-citizen vs -resident differ). */
 export type MigrationStream = "partner" | "aewv" | "student" | "resident" | "visitor";
 
 /** Where the person is when the application is made. */
-export type ApplicantLocation = "onshore" | "offshore";
+export type ApplicantLocation = "onshore" | "offshore" | "unknown";
 
-/** A person's role on the matter. Principal is the lead applicant; children are
- *  applicants too; the NZ partner on a partner stream is the Sponsor, not an applicant. */
-export type ApplicantRole = "principal" | "partner" | "child" | "other";
+/** A person's role on the matter. Principal is the lead applicant; children/dependents
+ *  are applicants too; the NZ partner on a partner stream is the Sponsor, not an applicant. */
+export type ApplicantRole = "principal" | "partner" | "child" | "dependent";
 
-/** A person on the matter. Docs, facts, gaps and dates are scoped to their `id`. */
+/**
+ * A person on the matter. Docs, facts, gaps and dates are scoped to their `id`.
+ * Visa state (client number, current visa, passport expiry) is PER-APPLICANT, not
+ * file-level: on a real family the principal and partner routinely have different INZ
+ * client numbers and different current visas. Passport expiry is denormalised here so
+ * the dates strip can read it without walking documents.
+ */
 export interface Applicant {
   id: string;
   role: ApplicantRole;
   fullName: string;
-  dob: string | null;
-  nationality: string | null;
-  passportNo: string | null;
+  dob?: string;
+  nationality?: string;
+  passportNo?: string;
+  passportExpiry?: string;
   location: ApplicantLocation;
+  inzClientNumber?: string;
+  currentVisa?: { type?: string; expiry?: string };
 }
 
 /** The NZ partner sponsoring a partner-category application. Evidence of their status
- *  is a rubric item (document_present), never asserted here. First-class, optional. */
+ *  is a rubric item (document_present), never asserted here. First-class, has its own id
+ *  so partner-visa gaps ("residence evidence") attach to the sponsor, not an applicant. */
 export interface Sponsor {
+  id: string;
   fullName: string;
-  /** e.g. "NZ citizen" / "resident" — a fact to evidence, not a judgment. */
-  status: string | null;
+  status?: "nz_citizen" | "resident" | "other";
 }
 
-/** The accredited employer on an AEWV matter. First-class, optional. */
+/** The accredited employer on an AEWV matter. First-class, has its own id so AEWV gaps
+ *  ("job token", "employment agreement") attach to the employer. The job check/token and
+ *  agreement themselves are rubric items scoped to this id, not fields asserted here. */
 export interface Employer {
-  name: string;
-  accreditationStatus: string | null;
-  jobCheckOrToken: string | null;
+  id: string;
+  legalName: string;
+  nzbn?: string;
+  accreditationStatus?: "unknown" | "accredited" | "in_progress" | "none";
 }
 
 /** The migration profile carried on a matter's result (present only on migration matters). */
 export interface MigrationProfile {
   stream: MigrationStream;
+  /** The book selector, e.g. "partner_of_nz_citizen" | "partner_of_resident" | "aewv_worker". */
+  streamDetail?: string;
   /** applicants[0] is the principal; partner (on non-partner streams) + children follow. */
   applicants: Applicant[];
   /** Partner streams: the NZ sponsor. */
   sponsor: Sponsor | null;
-  /** AEWV: the accredited employer. */
+  /** AEWV: the accredited employer (one matter — worker in applicants[0], employer here). */
   employer: Employer | null;
-  inzClientNumber: string | null;
-  applicationNumber: string | null;
-  currentVisa: { type: string; expiry: string | null } | null;
+  /** File-level INZ application number when one exists (per-person client numbers live on Applicant). */
+  applicationNumber?: string;
 }
 
 /** What we need to keep an email conversation threaded in the client's mailbox. */
