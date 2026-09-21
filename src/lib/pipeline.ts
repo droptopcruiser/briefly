@@ -3,6 +3,8 @@ import { SEED_RUBRICS } from "./rubrics";
 import { computeGaps, computeReadiness } from "./gaps";
 import { runMockPipeline } from "./mock";
 import { extractMigration } from "./migration-extract";
+import { getBook } from "./migration-books";
+import { buildMigrationGaps } from "./migration-gaps";
 import type {
   Rubric,
   PipelineResult,
@@ -369,9 +371,12 @@ function augmentWithMigration(submission: string, result: PipelineResult): Pipel
   // No confident stream or no party → leave the matter generic (do not assume "partner").
   if (!stream || ex.profile.applicants.length === 0) return result;
   const migration: MigrationProfile = { ...ex.profile, stream };
-  // P1: person-scoped gaps from the enquiry replace the generic rubric gaps (rubric
-  // packs with per-person items are P2). Facts/dates stay as-is this pass.
-  return { ...result, migration, gaps: ex.gaps };
+  // P2: if a rubric book exists for the stream, gaps come from expanding the book across
+  // the parties (per-person, N/A-aware, human_only never emitted). No book (resident/
+  // visitor) → fall back to the P1 text-driven gaps. Facts/dates handled in P3.
+  const book = getBook(stream);
+  const gaps = book ? buildMigrationGaps(book, migration, submission).gaps : ex.gaps;
+  return { ...result, migration, gaps };
 }
 
 /** Run the full pipeline for one submission against the given rubric set. */

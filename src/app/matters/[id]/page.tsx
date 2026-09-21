@@ -861,6 +861,7 @@ function SectionSkeleton({ label }: { label: string }) {
 function partyHeading(p: Party): string {
   if (p.kind === "sponsor") return "Sponsor · NZ partner";
   if (p.kind === "employer") return "Employer";
+  if (p.kind === "matter") return "File-level";
   return `Applicant · ${p.sub}`;
 }
 

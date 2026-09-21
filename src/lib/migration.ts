@@ -35,8 +35,13 @@ export function principalApplicant(profile: MigrationProfile): Applicant | null 
   return profile.applicants.find((a) => a.role === "principal") ?? profile.applicants[0] ?? null;
 }
 
-/** A party a `personId` can point at — an applicant, the sponsor, or the employer. */
-export type PartyKind = "applicant" | "sponsor" | "employer";
+/** Reserved personId for intentional matter-level items (fees, forms, lodgement) —
+ *  distinct from truly-unassigned items (no personId), which are the "Unassigned" bucket. */
+export const MATTER_PARTY_ID = "matter";
+
+/** A party a `personId` can point at — an applicant, the sponsor, the employer, or the
+ *  matter-level bucket. */
+export type PartyKind = "applicant" | "sponsor" | "employer" | "matter";
 export interface Party {
   id: string;
   kind: PartyKind;
@@ -85,10 +90,12 @@ export function migrationMatterTitle(profile: MigrationProfile): string {
 }
 
 /**
- * Group person-scoped items by party, in matter order (applicants first, then sponsor,
- * then employer), with a trailing "matter-level" bucket (party: null) for items with no
- * personId or an unknown one (fees, application number). The shape brief / packet / chase
- * all use so a family — and the sponsor/employer — never collapse into one list.
+ * Group person-scoped items into buckets in order: each party (applicants → sponsor →
+ * employer), then a "Matter" bucket (personId === MATTER_PARTY_ID — fees, forms,
+ * lodgement), then "Unassigned" (party: null) for items with no personId or an
+ * unrecognised one. Matter and Unassigned are DISTINCT: matter-level is intentional;
+ * unassigned means Briefly couldn't place it and a human must. Empty buckets are dropped,
+ * except party buckets which always render so each person is visible.
  */
 export function groupByPerson<T extends { personId?: string }>(
   profile: MigrationProfile,
@@ -99,8 +106,12 @@ export function groupByPerson<T extends { personId?: string }>(
     party: p,
     items: items.filter((it) => it.personId === p.id),
   }));
-  const known = new Set(ps.map((p) => p.id));
-  const matterLevel = items.filter((it) => !it.personId || !known.has(it.personId));
-  if (matterLevel.length) groups.push({ party: null, items: matterLevel });
+  const matterItems = items.filter((it) => it.personId === MATTER_PARTY_ID);
+  if (matterItems.length) {
+    groups.push({ party: { id: MATTER_PARTY_ID, kind: "matter", name: "Matter", sub: "matter" }, items: matterItems });
+  }
+  const known = new Set([...ps.map((p) => p.id), MATTER_PARTY_ID]);
+  const unassigned = items.filter((it) => !it.personId || !known.has(it.personId));
+  if (unassigned.length) groups.push({ party: null, items: unassigned });
   return groups;
 }
