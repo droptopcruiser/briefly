@@ -3,6 +3,7 @@ import { SEED_RUBRICS } from "./rubrics";
 import { computeGaps, computeReadiness } from "./gaps";
 import { runMockPipeline } from "./mock";
 import { extractMigration } from "./migration-extract";
+import { extractMigrationGuarded } from "./migration-llm";
 import { getBook } from "./migration-books";
 import { buildMigrationGaps } from "./migration-gaps";
 import { buildMigrationChase } from "./migration-chase";
@@ -380,12 +381,12 @@ function applicantEmail(submission: string): string | null {
   return null;
 }
 
-export function augmentWithMigration(
+export async function augmentWithMigration(
   submission: string,
   result: PipelineResult,
   forceStream?: MigrationProfile["stream"],
   immigrationFirm?: boolean,
-): PipelineResult {
+): Promise<PipelineResult> {
   const routing = forceStream ? ({ status: "routed", stream: forceStream, cue: "moved by you" } as const) : classifyMigration(submission);
   if (!routing) {
     // No visa/purchase signal. On an immigration firm nothing falls to the leftover
@@ -398,7 +399,11 @@ export function augmentWithMigration(
     return { ...result, migration: null, migrationRouting: { status: "unrouted", reason: routing.reason } };
   }
 
-  const ex = extractMigration(submission, routing.stream);
+  // Keyed → guarded Haiku (handles any real phrasing, with the code bars + a
+  // deterministic fallback). Keyless → the deterministic extractor.
+  const ex = isConfigured()
+    ? await extractMigrationGuarded(submission, routing.stream)
+    : extractMigration(submission, routing.stream);
   if (ex.profile.applicants.length === 0) {
     return { ...result, migration: null, migrationRouting: { status: "unrouted", reason: "no applicant identified" } };
   }
@@ -437,7 +442,7 @@ export async function runPipeline(
   // EVERY enquiry goes deterministic — the leftover Legal/conveyancing books are
   // unreachable; anything without a stream lands on Unrouted, not a Legal matter.
   if (immigrationFirm || classifyMigration(submission) || !isConfigured()) {
-    return augmentWithMigration(submission, runMockPipeline(submission, activeRubrics), undefined, immigrationFirm);
+    return await augmentWithMigration(submission, runMockPipeline(submission, activeRubrics), undefined, immigrationFirm);
   }
 
   const { out: cls, costCents: c1 } = await classify(submission, activeRubrics);
@@ -461,6 +466,6 @@ export async function rescoreWithRubric(
   immigrationFirm = false,
 ): Promise<PipelineResult> {
   if (immigrationFirm || classifyMigration(submission) || !isConfigured())
-    return augmentWithMigration(submission, runMockPipeline(submission, [rubric]), undefined, immigrationFirm);
+    return await augmentWithMigration(submission, runMockPipeline(submission, [rubric]), undefined, immigrationFirm);
   return buildResult(submission, rubric, { classificationConfidence: 1, costBefore: 0 });
 }

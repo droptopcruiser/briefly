@@ -18,7 +18,7 @@ export async function moveMigrationBook(matterId: string, stream: MigrationStrea
   await requireUser();
   const matter = await load(matterId);
   if (!matter?.result) return { ok: false };
-  matter.result = augmentWithMigration(matter.submission ?? "", matter.result, stream);
+  matter.result = await augmentWithMigration(matter.submission ?? "", matter.result, stream);
   matter.updatedAt = new Date().toISOString();
   await saveMatter(matter);
   return { ok: true };
