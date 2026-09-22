@@ -10,6 +10,8 @@ import { getCurrentProfile } from "@/lib/profile";
 import { getAccountRubrics } from "@/lib/rubric-store";
 import { getChangesMap, describeChanges } from "@/lib/reviews";
 import { computeUrgency, isSnoozed, PRIORITY_ORDER, PRIORITY_META } from "@/lib/urgency";
+import { computeMigrationUrgency } from "@/lib/migration-urgency";
+import { isMigrationMatter } from "@/lib/migration";
 import { getAccountDateDecisions, staleDatesEnabled } from "@/lib/critical-dates";
 import { resolveMatterDates } from "@/lib/critical-date-derive";
 import { listMembers } from "@/lib/team";
@@ -55,6 +57,12 @@ export default async function Dashboard() {
   const scored = matters
     .filter((m) => m.status !== "completed")
     .map((m) => {
+      const changes = changesMap.get(m.id) ?? null;
+      // Migration matters run the P5d ladder, NOT the conveyancing scorer — no
+      // settlement/finance windows, no "waiting on N client details".
+      if (isMigrationMatter(m.result)) {
+        return { m, u: computeMigrationUrgency(m, changes, now), effDates: [] };
+      }
       const effDates = resolveMatterDates(m.result, dateDecisions.get(m.id) ?? {}, { staleEnabled });
       const dateInputs = effDates.map((d) => ({
         kind: d.kind,
@@ -64,7 +72,7 @@ export default async function Dashboard() {
         source: d.source,
         stale: d.stale,
       }));
-      return { m, u: computeUrgency(m, changesMap.get(m.id) ?? null, now, dateInputs), effDates };
+      return { m, u: computeUrgency(m, changes, now, dateInputs), effDates };
     });
 
   const snoozed = scored
