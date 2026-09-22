@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { createMatterFromSubmission } from "../actions";
+import { createMatterFromSubmission, loadSampleMatter } from "../actions";
+import { SubmitButton } from "../pending-button";
 import { listMatters } from "@/lib/store";
 import { SubmissionForm } from "../submission-form";
 import { Greeting } from "../greeting";
@@ -40,6 +41,11 @@ export default async function Dashboard() {
   ]);
   const hasOwnRubric = (await getAccountRubrics(account.id)).length > 0;
   const firstName = profile?.name?.split(/\s+/)[0] ?? null;
+  // Immigration firms run on built-in books, not account rubrics — so the "finish
+  // setup" nudge doesn't apply, and they get the one-click sample partner file
+  // (hidden once one already exists).
+  const isImmigration = account.practiceType === "immigration";
+  const hasSample = matters.some((m) => m.sample);
 
   const labelFor = (uid: string | null) => {
     if (!uid) return null;
@@ -151,7 +157,22 @@ export default async function Dashboard() {
         <p className="mt-1 text-muted">{subline}</p>
       </header>
 
-      {!hasOwnRubric ? (
+      {isImmigration && !hasSample ? (
+        <form action={loadSampleMatter}>
+          <div className="glass-card flex flex-wrap items-center justify-between gap-3 rounded-2xl border-accent/50 px-5 py-4">
+            <div>
+              <div className="text-sm font-medium text-accent">See it work</div>
+              <div className="text-sm text-muted">
+                Load a sample partner file — one enquiry becomes a prepared, source-locked matter you
+                can walk end to end. You can delete it any time.
+              </div>
+            </div>
+            <SubmitButton idleLabel="Load sample partner file" pendingLabel="Preparing the sample…" />
+          </div>
+        </form>
+      ) : null}
+
+      {!hasOwnRubric && !isImmigration ? (
         <Link
           href="/app/welcome"
           className="glass-card glass-sheen flex flex-wrap items-center justify-between gap-3 rounded-2xl border-accent/60 px-5 py-4 transition-transform hover:-translate-y-0.5"

@@ -234,6 +234,11 @@ export function MatterRow({
             {matter.result ? (
               <span className="text-sm text-muted"> · {matter.result.rubricName}</span>
             ) : null}
+            {matter.sample ? (
+              <span className="ml-2 rounded-full bg-inset px-2 py-0.5 align-middle text-[11px] font-medium text-muted">
+                Sample
+              </span>
+            ) : null}
           </div>
           {decisionMode && snippet ? (
             <div className="mt-0.5 truncate text-sm text-foreground/75">{snippet}</div>

@@ -49,6 +49,10 @@ export interface Account {
   replyToEmail: string | null;
   /** IANA timezone for "this month" boundaries (usage + stats). Null = UTC. */
   timezone: string | null;
+  /** What this firm runs — 'immigration' | 'conveyancing'. Null on a legacy account. */
+  practiceType: string | null;
+  /** The rulebooks this firm started with (immigration book ids, e.g. partner_of_nz_citizen). */
+  firmBooks: string[];
 }
 
 interface AccountRow {
@@ -63,10 +67,12 @@ interface AccountRow {
   reply_to_mode: string | null;
   reply_to_email: string | null;
   timezone: string | null;
+  practice_type: string | null;
+  firm_books: string[] | null;
 }
 
 const ACCOUNT_COLS =
-  "id,name,plan,credits,slug,inbound_token,owner_user_id,email_signature,reply_to_mode,reply_to_email,timezone";
+  "id,name,plan,credits,slug,inbound_token,owner_user_id,email_signature,reply_to_mode,reply_to_email,timezone,practice_type,firm_books";
 
 function rowToAccount(r: AccountRow): Account {
   return {
@@ -81,6 +87,8 @@ function rowToAccount(r: AccountRow): Account {
     replyToMode: r.reply_to_mode === "firm" || r.reply_to_mode === "intake" ? r.reply_to_mode : null,
     replyToEmail: r.reply_to_email,
     timezone: r.timezone,
+    practiceType: r.practice_type ?? null,
+    firmBooks: r.firm_books ?? [],
   };
 }
 
@@ -110,7 +118,51 @@ export async function requireAccount(): Promise<Account> {
   await requireUser();
   const account = await getCurrentAccount();
   if (!isOnboarded(account)) redirect("/app/welcome");
+  // The firm has a name but the person hasn't finished the welcome flow (practice +
+  // books) → keep them in onboarding. onboarded_at is the completion gate.
+  if (!(await isUserOnboarded())) redirect("/app/welcome");
   return account;
+}
+
+/** Has the current user finished the welcome flow? (account_members.onboarded_at set.)
+ *  In-memory dev (no DB) is treated as onboarded so the app is usable without Supabase. */
+export async function isUserOnboarded(): Promise<boolean> {
+  const db = getSupabase();
+  if (!db) return true;
+  const user = await getAuthUser();
+  if (!user) return false;
+  const { data } = await db
+    .from("account_members")
+    .select("onboarded_at")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  return Boolean((data as { onboarded_at?: string | null } | null)?.onboarded_at);
+}
+
+/** Stamp the current user's onboarding as complete. */
+export async function markOnboarded(userId: string): Promise<void> {
+  const db = getSupabase();
+  if (!db) return;
+  const { error } = await db
+    .from("account_members")
+    .update({ onboarded_at: new Date().toISOString() })
+    .eq("user_id", userId);
+  if (error) throw new Error(`markOnboarded: ${error.message}`);
+}
+
+/** Finish onboarding: record the practice type and the firm's starting rulebooks. */
+export async function savePractice(
+  accountId: string,
+  practiceType: "immigration" | "conveyancing",
+  firmBooks: string[] = [],
+): Promise<void> {
+  const db = getSupabase();
+  if (!db) return;
+  const { error } = await db
+    .from("accounts")
+    .update({ practice_type: practiceType, firm_books: firmBooks })
+    .eq("id", accountId);
+  if (error) throw new Error(`savePractice: ${error.message}`);
 }
 
 /**

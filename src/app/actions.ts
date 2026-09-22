@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { ingestSubmission } from "@/lib/ingest";
 import { isMigrationMatter } from "@/lib/migration";
-import { getMatter, saveMatter } from "@/lib/store";
+import { getMatter, saveMatter, setMatterSample, deleteMatter } from "@/lib/store";
 import { requireUser } from "@/lib/auth";
 import { createServerSupabase } from "@/lib/supabase-server";
 import {
@@ -47,6 +47,45 @@ export async function createMatterFromSubmission(formData: FormData): Promise<vo
   }
   revalidatePath("/app");
   redirect(`/matters/${matter.id}`);
+}
+
+/**
+ * The seeded sample partner file — one enquiry that the deterministic migration
+ * engine splits into Hua (principal, onshore, Chinese passport), Leo (child), and
+ * Wei (NZ-citizen sponsor), with a lodgement target, a stale-before-lodge medical,
+ * and a passport-date conflict — so a brand-new account can see P1–P5 without
+ * pasting anything. Third-person date lines are deliberate: they bind each date to
+ * a named person for the (cited-span-only) date resolver.
+ */
+const HUA_SAMPLE = `Hi, I'm Hua Chen and I'd like to apply for a Partner of a New Zealander visa so I can stay in New Zealand with my husband. Hua is currently in Auckland and holds a Chinese passport. My husband Wei Ropata is a New Zealand citizen. Our son Leo Chen would be included in the application.
+
+A few dates for the file: Hua's medical was completed on 1 September 2026. Hua's passport is valid until 5 May 2030. Hua's passport expires on 6 June 2031. We plan to lodge by 1 October 2026.
+
+Hua still needs to provide her police certificate from China.`;
+
+/**
+ * Load the sample partner file from the dashboard (immigration firms only). Creates
+ * the matter through the normal pipeline, flags it as the sample, opens it.
+ */
+export async function loadSampleMatter(): Promise<void> {
+  const account = await requireAccount();
+  const matter = await ingestSubmission({ submission: HUA_SAMPLE, account });
+  await setMatterSample(account.id, matter.id, true);
+  revalidatePath("/app");
+  redirect(`/matters/${matter.id}`);
+}
+
+/** Delete the seeded sample matter (guarded — only ever removes a `sample` matter). */
+export async function deleteSampleMatter(formData: FormData): Promise<void> {
+  const account = await requireAccount();
+  const id = String(formData.get("id") ?? "");
+  const matter = await getMatter(id, account.id);
+  if (matter?.sample) {
+    await deleteMatter(account.id, id);
+    revalidatePath("/app");
+    redirect("/app");
+  }
+  redirect(`/matters/${id}`);
 }
 
 /**

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getMatterById } from "@/lib/store";
 import type { Matter } from "@/lib/types";
-import { approveMatter, approveAndSendMatter } from "@/app/actions";
+import { approveMatter, approveAndSendMatter, deleteSampleMatter } from "@/app/actions";
 import { StatusChip } from "@/app/ui";
 import { StickyNow } from "@/app/sticky-now";
 import { ApproveButton } from "@/app/approve-button";
@@ -1084,7 +1084,18 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
           <span className="text-sm text-muted">
             {isMig && migration?.stream ? STREAM_LABEL[migration.stream] : `${r.rubricName} · ${r.vertical}`}
           </span>
+          {matter.sample ? (
+            <span className="rounded-full bg-inset px-2 py-0.5 text-[11px] font-medium text-muted">Sample</span>
+          ) : null}
           <div className="ml-auto flex items-center gap-2">
+            {matter.sample ? (
+              <form action={deleteSampleMatter}>
+                <input type="hidden" name="id" value={matter.id} />
+                <button type="submit" className="btn-control rounded-md px-3 py-1.5 text-sm text-muted hover:text-error">
+                  Delete sample
+                </button>
+              </form>
+            ) : null}
             <OpenEvidenceButton />
             <form action={markMatterReviewed}>
               <input type="hidden" name="id" value={matter.id} />

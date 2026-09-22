@@ -8,9 +8,14 @@ import {
   provisionAccount,
   completeOnboarding,
   requireAccount,
+  savePractice,
+  markOnboarded,
 } from "@/lib/metering";
+import { saveProfileName } from "@/lib/profile";
 import { saveRubric as storeSaveRubric } from "@/lib/rubric-store";
 import { draftRubricFromDescription, type DraftRubric } from "@/lib/rubric-draft";
+import { CONVEYANCING_SEED } from "@/lib/rubrics";
+import { randomUUID as uuid } from "crypto";
 import type { Rubric, FieldType } from "@/lib/types";
 
 export type OnboardResult = { ok: boolean; error?: string };
@@ -84,6 +89,60 @@ export async function completeOnboardingAction(
   // NOTE: no revalidatePath here — revalidating /app/welcome would re-render the
   // server page and fight the client wizard's step state. The wizard advances
   // itself; the account is picked up on the next natural navigation.
+  return { ok: true };
+}
+
+// ── P6: the three-screen practice onboarding ─────────────────────────────────
+
+/** Screen 1 — firm name + the person's display name. */
+export async function saveFirmStep(input: { firmName: string; displayName: string }): Promise<OnboardResult> {
+  const user = await requireUser();
+  const account = await getCurrentAccount();
+  if (!account) return { ok: false, error: "Enter your invite code first." };
+
+  const firmName = input.firmName.replace(/["\r\n]/g, "").trim();
+  if (!firmName) return { ok: false, error: "Enter your firm name." };
+  if (firmName.length > 80) return { ok: false, error: "Keep the firm name under 80 characters." };
+
+  try {
+    await completeOnboarding(account, firmName);
+    const displayName = input.displayName.replace(/["\r\n]/g, "").trim();
+    if (displayName) await saveProfileName(user.id, displayName);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not save." };
+  }
+  return { ok: true };
+}
+
+/**
+ * Final screen — record the practice type + starting books and stamp onboarding
+ * complete. Immigration books are built-in (partner/AEWV/student), so nothing is
+ * cloned; the Property path clones the conveyancing starter so the firm lands on a
+ * working rulebook. After this the welcome gate lets them into the app.
+ */
+export async function finishOnboarding(input: {
+  practiceType: "immigration" | "conveyancing";
+  books?: string[];
+}): Promise<OnboardResult> {
+  const user = await requireUser();
+  const account = await getCurrentAccount();
+  if (!account) return { ok: false, error: "Enter your firm name first." };
+
+  try {
+    if (input.practiceType === "immigration") {
+      const books = (input.books ?? []).filter(Boolean);
+      // Partner is always on — never let the firm finish with no book.
+      if (!books.includes("partner_of_nz_citizen")) books.unshift("partner_of_nz_citizen");
+      await savePractice(account.id, "immigration", books);
+    } else {
+      await savePractice(account.id, "conveyancing", []);
+      await storeSaveRubric(account.id, { ...CONVEYANCING_SEED, id: uuid() });
+    }
+    await markOnboarded(user.id);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not finish setup." };
+  }
+  revalidatePath("/app");
   return { ok: true };
 }
 

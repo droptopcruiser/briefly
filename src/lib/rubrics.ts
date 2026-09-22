@@ -242,6 +242,34 @@ export const SEED_RUBRICS: Rubric[] = [
   },
 ];
 
+/**
+ * The conveyancing starter — cloned into a firm that picks "Property" during
+ * onboarding, so they land on a working purchase rulebook instead of an empty app.
+ * Plugs into the intact critical-dates/settlement/Work-Brief engine.
+ */
+export const CONVEYANCING_SEED: Rubric = {
+  id: "conveyancing-purchase",
+  name: "Property Purchase",
+  vertical: "Conveyancing",
+  description:
+    "A client buying a residential property — a purchaser (and any co-purchaser), a purchase price, and the key dates (settlement, finance) that drive the file.",
+  prepareBriefWhenReady: true,
+  nextActionIntent: "A prepared purchase file — parties, price, and key dates confirmed against the agreement.",
+  fields: [
+    { key: "property_address", label: "Property address", description: "The address of the property being purchased.", required: true, type: "string" },
+    { key: "purchaser_name", label: "Purchaser full name", description: "Full legal name of the buyer (and any co-purchaser).", required: true, type: "string" },
+    { key: "vendor_name", label: "Vendor full name", description: "Full legal name of the seller.", required: false, type: "string" },
+    { key: "purchase_price", label: "Purchase price", description: "The agreed purchase price.", required: true, type: "string" },
+    { key: "settlement_date", label: "Settlement date", description: "The date settlement is due.", required: true, type: "date" },
+    { key: "finance_date", label: "Finance condition date", description: "The date the finance condition must be satisfied, if any.", required: false, type: "date" },
+  ],
+  documents: [
+    { key: "sale_and_purchase_agreement", label: "Sale & purchase agreement", description: "The signed agreement.", required: true },
+    { key: "record_of_title", label: "Record of title", description: "The title / computer register for the property.", required: true },
+    { key: "lim_report", label: "LIM report", description: "Land information memorandum from the council.", required: false },
+  ],
+};
+
 export function getRubric(id: string): Rubric | undefined {
   return SEED_RUBRICS.find((r) => r.id === id);
 }

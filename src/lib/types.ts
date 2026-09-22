@@ -300,4 +300,7 @@ export interface Matter {
   /** Queue: pin this matter to a priority bucket, overriding the computed one.
    *  Null/absent = automatic. Backed by matters.priority_override (queue.sql). */
   priorityOverride?: QueuePriority | null;
+  /** True for the seeded demo matter ("Load sample partner file"). Backed by
+   *  matters.sample (onboarding-p6.sql); badged in the list, deletable. */
+  sample?: boolean;
 }

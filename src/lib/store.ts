@@ -52,6 +52,7 @@ function rowToMatter(r: MatterRow): Matter {
     snoozedUntil: (r as { snoozed_until?: string | null }).snoozed_until ?? null,
     priorityOverride:
       ((r as { priority_override?: Matter["priorityOverride"] }).priority_override ?? null) || null,
+    sample: Boolean((r as { sample?: boolean }).sample),
   };
 }
 
@@ -105,6 +106,33 @@ export async function setMatterSnooze(
     await db.from("matters").update({ snoozed_until: until }).eq("id", id).eq("account_id", accountId);
   } catch (err) {
     console.error("setMatterSnooze failed (run queue.sql?):", err);
+  }
+}
+
+/** Permanently remove a matter (account-scoped). Used to delete the seeded sample. */
+export async function deleteMatter(accountId: string, id: string): Promise<void> {
+  const db = getSupabase();
+  if (!db) {
+    const m = memory.get(id);
+    if (m && m.accountId === accountId) memory.delete(id);
+    return;
+  }
+  const { error } = await db.from("matters").delete().eq("id", id).eq("account_id", accountId);
+  if (error) throw new Error(`deleteMatter: ${error.message}`);
+}
+
+/** Flag a matter as the seeded sample (targeted write, like the queue columns). */
+export async function setMatterSample(accountId: string, id: string, sample: boolean): Promise<void> {
+  const db = getSupabase();
+  if (!db) {
+    const m = memory.get(id);
+    if (m && m.accountId === accountId) m.sample = sample;
+    return;
+  }
+  try {
+    await db.from("matters").update({ sample }).eq("id", id).eq("account_id", accountId);
+  } catch (err) {
+    console.error("setMatterSample failed (run onboarding-p6.sql?):", err);
   }
 }
 
