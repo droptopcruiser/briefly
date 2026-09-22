@@ -127,6 +127,9 @@ export function extractMigration(submission: string, forceStream?: MigrationStre
     text.match(new RegExp(`\\bI['’]?\\s?a?m\\s+(${NAME})`))?.[1] ??
     text.match(new RegExp(`\\b[Mm]y name is\\s+(${NAME})`))?.[1] ??
     text.match(new RegExp(`\\b(?:[Ww]orker|[Aa]pplicant|[Pp]rincipal applicant)\\s+(${NAME})`))?.[1] ??
+    // "Luqman Faisal here, …" / "This is Luqman Faisal" — common real-world openers.
+    text.match(new RegExp(`\\b(${NAME}),?\\s+here\\b`))?.[1] ??
+    text.match(new RegExp(`\\b(?:This is|It'?s)\\s+(${NAME})`))?.[1] ??
     null;
   if (principalName) {
     applicants.push({ id: "a1", role: "principal", fullName: principalName, location: "unknown" });

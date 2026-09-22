@@ -89,20 +89,43 @@ export function fillDatesFromText(
     ...(profile.sponsor ? [{ id: profile.sponsor.id, first: profile.sponsor.fullName.trim().split(/\s+/)[0] }] : []),
   ];
 
+  // A second date about the SAME item in a follow-on sentence ("Also seeing 14 March
+  // 2031 on another copy, not sure which is right.") continues the previous dated item,
+  // so it lands on the same slot — that's how a conflict gets detected from real prose.
+  const CONTINUES = /\b(?:also|another copy|other copy|on another|not sure which|the other one)\b/i;
+  let lastKey: string | null = null;
+  let lastPerson: string | null = null;
+
   for (const s of sentences(submission)) {
     const iso = parseDate(s);
     if (!iso) continue;
-    const itemKey = itemKeyOf(s);
-    if (!itemKey) continue;
-    let personId: string | null = itemKey === LODGEMENT_ITEM ? "matter" : null;
-    if (!personId) {
-      const hits = named.filter((n) => new RegExp(`\\b${n.first}(?:'s)?\\b`, "i").test(s));
-      if (hits.length === 1) personId = hits[0].id; // exactly one named party, else leave unfilled
+    let itemKey = itemKeyOf(s);
+    let personId: string | null = null;
+
+    if (!itemKey) {
+      if (lastKey && lastPerson && CONTINUES.test(s)) {
+        itemKey = lastKey;
+        personId = lastPerson;
+      } else continue;
+    } else {
+      personId = itemKey === LODGEMENT_ITEM ? "matter" : null;
+      if (!personId) {
+        const hits = named.filter((n) => new RegExp(`\\b${n.first}(?:'s)?\\b`, "i").test(s));
+        if (hits.length === 1) personId = hits[0].id; // exactly one named party, else leave unfilled
+      }
+      // A validity date with no named party in a SINGLE-applicant matter is the
+      // applicant's — "My passport …", "Medical done …" bind to the sole applicant
+      // (no ambiguity). In a family (2+ applicants) it stays unfilled: unset > wrong.
+      if (!personId && VALIDITY_ITEMS.has(itemKey) && profile.applicants.length === 1) {
+        personId = profile.applicants[0].id;
+      }
     }
     if (!personId) continue;
     const slot = out.find((sl) => sl.itemKey === itemKey && sl.personId === personId);
     if (!slot) continue;
     if (!slot.candidates.some((c) => c.value === iso)) slot.candidates.push({ value: iso, source: s });
+    lastKey = itemKey;
+    lastPerson = personId;
   }
   return out;
 }

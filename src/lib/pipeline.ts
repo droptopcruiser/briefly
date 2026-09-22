@@ -404,11 +404,12 @@ export async function runPipeline(
 ): Promise<PipelineResult> {
   const activeRubrics = rubrics.length > 0 ? rubrics : SEED_RUBRICS;
 
-  // A migration-routed enquiry runs the DETERMINISTIC engine in every environment —
-  // even when a model key is set — so keyed production shows the migration file with
-  // zero migration tokens. The placement rules and human_only bars live in code, not
-  // in an unguarded prompt. Conveyancing (and everything unrouted) keeps the model.
-  if (classifyMigration(submission)?.status === "routed" || !isConfigured()) {
+  // Any immigration-relevant enquiry (routed OR unrouted — a visa/purchase signal)
+  // runs the DETERMINISTIC engine in every environment, so keyed production shows the
+  // migration surface (file, or the Unrouted "pick a book" banner) and a work-visa
+  // email is never eaten by the Legal/conveyancing model book. Non-immigration text
+  // (classifyMigration → null) keeps the model. Placement lives in code, not a prompt.
+  if (classifyMigration(submission) || !isConfigured()) {
     return augmentWithMigration(submission, runMockPipeline(submission, activeRubrics));
   }
 
@@ -431,7 +432,7 @@ export async function rescoreWithRubric(
   submission: string,
   rubric: Rubric,
 ): Promise<PipelineResult> {
-  if (classifyMigration(submission)?.status === "routed" || !isConfigured())
+  if (classifyMigration(submission) || !isConfigured())
     return augmentWithMigration(submission, runMockPipeline(submission, [rubric]));
   return buildResult(submission, rubric, { classificationConfidence: 1, costBefore: 0 });
 }

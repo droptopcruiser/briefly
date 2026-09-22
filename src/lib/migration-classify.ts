@@ -30,7 +30,18 @@ const CUES: { stream: MigrationStream; re: RegExp; cue: string }[] = [
 
 export function classifyMigration(text: string): MigrationRouting | null {
   const purchase = PURCHASE.test(text);
-  const hits = CUES.filter((c) => c.re.test(text));
+  // A visa named as the applicant's CURRENT status ("on a visitor visa", "currently on
+  // a student visa") is NOT a target book — it must not read as a competing stream when
+  // a real target (AEWV, partner, …) is present.
+  const cur = text.match(/\b(?:on|currently on|currently|hold|holding|current)\s+(?:a\s+|an\s+|my\s+)?(visitor|student|working holiday|work)\s+visa/i);
+  const currentStream: MigrationStream | null = cur
+    ? (/visitor/i.test(cur[1]) ? "visitor" : /student/i.test(cur[1]) ? "student" : null)
+    : null;
+  let hits = CUES.filter((c) => c.re.test(text));
+  // Drop the current-status stream unless it's the only signal (then it IS the target).
+  if (currentStream && hits.some((h) => h.stream !== currentStream)) {
+    hits = hits.filter((h) => h.stream !== currentStream);
+  }
   const streams = [...new Set(hits.map((h) => h.stream))];
 
   if (purchase && hits.length) return { status: "unrouted", reason: "mixed signals — purchase and visa cues; pick the book" };
