@@ -43,7 +43,7 @@ import { listMessages } from "@/lib/messages";
 import { getMatterDateDecisions, staleDatesEnabled } from "@/lib/critical-dates";
 import { resolveMatterDates } from "@/lib/critical-date-derive";
 import { CriticalDatesStrip } from "@/app/critical-dates-strip";
-import { isMigrationMatter, migrationMatterTitle, groupByPerson, STREAM_LABEL, type Party } from "@/lib/migration";
+import { isMigrationMatter, migrationMatterTitle, groupByPerson, type Party } from "@/lib/migration";
 import { getBook } from "@/lib/migration-books";
 import { buildMigrationGaps } from "@/lib/migration-gaps";
 import { fillDatesFromText, datesStrip } from "@/lib/migration-dates";
@@ -929,31 +929,20 @@ function MigrationPacketCard({ matter, profile, attached }: { matter: Matter; pr
         <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">Consultation packet</div>
         <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${stale ? "bg-awaiting-soft text-awaiting" : approved ? "bg-accent-soft text-accent" : "bg-inset text-muted"}`}>{state}</span>
       </div>
-      <p className="mt-1 text-xs text-muted">Every listed fact is sourced. Missing items are listed as missing.</p>
-      <div className="mt-3 space-y-3 text-sm">
-        {packet.outstanding.length ? (
-          <div className="space-y-1.5">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">Outstanding by person</div>
-            {packet.outstanding.map((g, i) => (
-              <div key={i} className="leading-snug">
-                <span className={`font-medium ${g.unassigned ? "text-awaiting" : "text-foreground"}`}>{g.who}</span>
-                <span className="text-muted"> — {g.items.join(", ")}</span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-foreground/70">Nothing outstanding — ready to lodge.</p>
-        )}
+      <p className="mt-1 text-xs text-muted">Every listed fact is sourced.</p>
+      {/* The outstanding-by-person list is the People tiles above — not repeated here.
+          The packet's own contribution is the agenda: what only a human can settle. */}
+      <div className="mt-3 space-y-1">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">Ask in the room</div>
         {packet.askInRoom.length ? (
-          <div className="space-y-1">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">Ask in the room</div>
-            <ul className="space-y-0.5 text-foreground/80">
-              {packet.askInRoom.map((a, i) => <li key={i}>· {a}</li>)}
-            </ul>
-          </div>
-        ) : null}
+          <ul className="space-y-0.5 text-sm text-foreground/80">
+            {packet.askInRoom.map((a, i) => <li key={i}>· {a}</li>)}
+          </ul>
+        ) : (
+          <p className="text-sm text-foreground/70">Nothing needs the adviser&apos;s judgment yet.</p>
+        )}
         {packet.heldBackCount > 0 ? (
-          <p className="text-xs text-muted">{packet.heldBackCount} item(s) held back (no source) — not exported.</p>
+          <p className="pt-1 text-xs text-muted">{packet.heldBackCount} item(s) held back (no source) — not exported.</p>
         ) : null}
       </div>
       <div className="mt-3 border-t border-border pt-3">
@@ -1068,6 +1057,23 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
         </Suspense>
       ),
     },
+    // Migration files live in a tab, not a chapter between packet and chase.
+    ...(isMig && migration
+      ? [
+          {
+            id: "files",
+            label: "Files",
+            node: (
+              <MigrationDocuments
+                matterId={matter.id}
+                parties={partyOpts}
+                items={itemOpts}
+                docs={migDocs.map((d) => ({ id: d.id, fileName: d.fileName, personId: d.personId, itemKey: d.itemKey, sensitive: d.sensitive }))}
+              />
+            ),
+          },
+        ]
+      : []),
     {
       id: "conversation",
       label: "Conversation",
@@ -1106,9 +1112,9 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
           <h1 className="font-serif text-2xl font-medium tracking-tight">
             {isMig && migration ? migrationMatterTitle(migration) : (r.clientName ?? "Unnamed client")}
           </h1>
-          <span className="text-sm text-muted">
-            {isMig && migration?.stream ? STREAM_LABEL[migration.stream] : `${r.rubricName} · ${r.vertical}`}
-          </span>
+          {isMig ? null : (
+            <span className="text-sm text-muted">{`${r.rubricName} · ${r.vertical}`}</span>
+          )}
           {matter.sample ? (
             <span className="rounded-full bg-inset px-2 py-0.5 text-[11px] font-medium text-muted">Sample</span>
           ) : null}
@@ -1166,14 +1172,6 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
       ) : null}
       {isMig && migration ? <MigrationPeopleSection profile={migration} gaps={liveGaps} /> : null}
       {isMig && migration ? <MigrationPacketCard matter={matter} profile={migration} attached={attached} /> : null}
-      {isMig && migration ? (
-        <MigrationDocuments
-          matterId={matter.id}
-          parties={partyOpts}
-          items={itemOpts}
-          docs={migDocs.map((d) => ({ id: d.id, fileName: d.fileName, personId: d.personId, itemKey: d.itemKey, sensitive: d.sensitive }))}
-        />
-      ) : null}
 
       {/* Critical dates (settlement/finance) — a property-path noun; hidden on migration
           matters (their validity-window dates arrive in P3). */}
@@ -1188,12 +1186,16 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
         <ReturningClientSection matter={matter} />
       </Suspense>
 
-      {/* The "Now" — the matter's centre of gravity, above the tabs */}
-      <Suspense
-        fallback={<div className="h-40 w-full animate-pulse rounded-xl border border-border bg-surface" />}
-      >
-        <OverviewSection matter={matter} account={account} />
-      </Suspense>
+      {/* The "Now" — the matter's centre of gravity, above the tabs. Migration reads as
+          a FILE (banner · dates · people · packet · chase), so the decision-now hero —
+          which duplicated the chase — is not shown on that path. */}
+      {!isMig ? (
+        <Suspense
+          fallback={<div className="h-40 w-full animate-pulse rounded-xl border border-border bg-surface" />}
+        >
+          <OverviewSection matter={matter} account={account} />
+        </Suspense>
+      ) : null}
 
       {/* Two working views; the evidence is pulled forward on demand, not a tab. */}
       <MatterTabs tabs={tabs} defaultTab={defaultTab} />

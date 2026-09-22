@@ -12,7 +12,7 @@ import { getAccountRubrics } from "@/lib/rubric-store";
 import { getChangesMap, describeChanges } from "@/lib/reviews";
 import { computeUrgency, isSnoozed, PRIORITY_ORDER, PRIORITY_META } from "@/lib/urgency";
 import { computeMigrationUrgency } from "@/lib/migration-urgency";
-import { isMigrationMatter, migrationMatterTitle, STREAM_LABEL } from "@/lib/migration";
+import { isMigrationMatter, migrationMatterTitle } from "@/lib/migration";
 import { getAccountDateDecisions, staleDatesEnabled } from "@/lib/critical-dates";
 import { resolveMatterDates } from "@/lib/critical-date-derive";
 import { listMembers } from "@/lib/team";
@@ -117,8 +117,13 @@ export default async function Dashboard() {
         return {
           id: m.id,
           href: `/matters/${m.id}`,
-          clientName: mig ? migrationMatterTitle(mig) : (m.clientName ?? "Unnamed client"),
-          rubricName: mig ? (mig.stream ? STREAM_LABEL[mig.stream] : "Immigration") : (m.result?.rubricName ?? null),
+          // Card title carries the family + stream once ("Chen / Partner of a New
+          // Zealander"); drop the onshore/offshore suffix and don't repeat the stream
+          // as a subtitle.
+          clientName: mig
+            ? migrationMatterTitle(mig).replace(/ \/ (onshore|offshore|unknown)$/, "")
+            : (m.clientName ?? "Unnamed client"),
+          rubricName: mig ? null : (m.result?.rubricName ?? null),
           status: m.status,
           readiness: mig ? null : (typeof m.result?.readiness === "number" ? m.result.readiness : null),
           gapsCount: mig ? 0 : (m.result?.gaps.length ?? 0),

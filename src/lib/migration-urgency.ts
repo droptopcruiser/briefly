@@ -97,7 +97,7 @@ function actionFor(rule: number, ctx: { newDocs: number; newMsgs: number }): str
     case 1:
       return "Prepare response";
     case 2:
-      return "Review lodgement";
+      return "Open file";
     case 3:
       return "Approve packet";
     case 4:
@@ -111,9 +111,9 @@ function actionFor(rule: number, ctx: { newDocs: number; newMsgs: number }): str
     case 5:
       return "Resolve date conflict";
     case 6:
-      return "Open matter";
+      return "Open file";
     default:
-      return "Open matter";
+      return "Open file";
   }
 }
 
