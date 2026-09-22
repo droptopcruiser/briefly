@@ -26,7 +26,7 @@ const DETAIL_LABEL: Record<string, string> = {
 const bookLabel = (id?: string) => (id && DETAIL_LABEL[id]) || id || "this book";
 
 export function MigrationRoutingBanner({
-  matterId, status, streamDetail, cue, reason, confirmed,
+  matterId, status, streamDetail, reason, confirmed,
 }: { matterId: string; status: "routed" | "unrouted"; streamDetail?: string; cue?: string; reason?: string; confirmed?: boolean }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -39,7 +39,7 @@ export function MigrationRoutingBanner({
   if (status === "routed" && confirmed) {
     return (
       <div className="rounded-xl border border-accent/25 bg-accent-soft/25 px-3 py-2 text-sm text-muted">
-        Routed to <b className="text-accent-ink">{bookLabel(streamDetail)}</b> · confirmed
+        <b className="text-accent-ink">{bookLabel(streamDetail)}</b> · confirmed
       </div>
     );
   }
@@ -48,7 +48,7 @@ export function MigrationRoutingBanner({
     <div className={`rounded-xl border p-3 ${status === "routed" ? "border-accent/40 bg-accent-soft/40" : "border-awaiting/50 bg-awaiting-soft"}`}>
       <div className="text-sm">
         {status === "routed" ? (
-          <>Routed to <b className="text-accent-ink">{bookLabel(streamDetail)}</b> because {cue}.</>
+          <b className="text-accent-ink">{bookLabel(streamDetail)}</b>
         ) : (
           <><b className="text-awaiting">Unrouted</b> — {reason}. No book is assumed; gaps wait until you pick one.</>
         )}

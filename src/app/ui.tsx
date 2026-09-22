@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Matter, MatterStatus } from "@/lib/types";
+import { isMigrationMatter, migrationMatterTitle } from "@/lib/migration";
 import type { Usage } from "@/lib/metering";
 import type { MonthStats } from "@/lib/stats";
 
@@ -229,9 +230,11 @@ export function MatterRow({
         <div className="min-w-0 flex-1">
           <div className="truncate">
             <span className="font-serif text-[15px] font-medium tracking-tight">
-              {matter.clientName ?? "Unnamed client"}
+              {isMigrationMatter(matter.result) && matter.result?.migration
+                ? migrationMatterTitle(matter.result.migration).replace(/ \/ (onshore|offshore|unknown)$/, "")
+                : (matter.clientName ?? "Unnamed client")}
             </span>
-            {matter.result ? (
+            {matter.result && !isMigrationMatter(matter.result) ? (
               <span className="text-sm text-muted"> · {matter.result.rubricName}</span>
             ) : null}
             {matter.sample ? (

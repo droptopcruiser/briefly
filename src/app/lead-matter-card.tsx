@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Matter, Rubric } from "@/lib/types";
 import type { WorkBrief } from "@/lib/work-brief";
 import { workflowStatus, statusTone, firstSentence } from "@/lib/matter-status";
+import { isMigrationMatter, migrationMatterTitle } from "@/lib/migration";
 import { StatusChip } from "@/app/ui";
 
 /**
@@ -30,6 +31,10 @@ export function LeadMatterCard({
     rawInsight && typeof rawInsight === "object" && rawInsight.consequence ? rawInsight : null;
 
   const status = workflowStatus(matter, rubric, false);
+  const mig = isMigrationMatter(r) ? r?.migration ?? null : null;
+  const title = mig
+    ? migrationMatterTitle(mig).replace(/ \/ (onshore|offshore|unknown)$/, "")
+    : (matter.clientName ?? "Unnamed client");
   const oneLiner = insight?.consequence || (r ? firstSentence(r.summary) : "");
   const decision =
     brief?.content.suggestedNextStep?.trim() || rubric?.nextActionIntent?.trim() || null;
@@ -45,9 +50,9 @@ export function LeadMatterCard({
       </div>
 
       <h2 className="mt-3 font-serif text-2xl font-medium leading-tight tracking-tight">
-        {matter.clientName ?? "Unnamed client"}
+        {title}
       </h2>
-      {r ? <div className="mt-0.5 text-sm text-muted">{r.rubricName}</div> : null}
+      {r && !mig ? <div className="mt-0.5 text-sm text-muted">{r.rubricName}</div> : null}
 
       {oneLiner ? (
         <div className="mt-3">
