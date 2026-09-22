@@ -46,7 +46,7 @@ import { CriticalDatesStrip } from "@/app/critical-dates-strip";
 import { isMigrationMatter, migrationMatterTitle, groupByPerson, type Party } from "@/lib/migration";
 import { getBook } from "@/lib/migration-books";
 import { buildMigrationGaps } from "@/lib/migration-gaps";
-import { fillDatesFromText, datesStrip } from "@/lib/migration-dates";
+import { fillDatesFromText, slotStatus, staleSlotKeys, datesStrip } from "@/lib/migration-dates";
 import { extractMigration } from "@/lib/migration-extract";
 import { buildConsultationPacket } from "@/lib/migration-packet";
 import { PacketControls } from "@/app/packet-controls";
@@ -692,6 +692,102 @@ function humanizeKey(key: string): string {
  */
 async function RecordPanel({ matter, timezone }: { matter: Matter; timezone: string | null }) {
   const r = matter.result!;
+
+  // Migration: the proof drawer, grouped by the SAME people as the cover tiles — never
+  // the old single-applicant rubric keys (which read "Applicant full name — missing"
+  // when the names are right there on the cover). No "Spousal Visa Application" noun.
+  const migration = isMigrationMatter(r) ? r.migration ?? null : null;
+  if (migration) {
+    const sub = matter.submission ?? "";
+    const book = getBook(migration.stream);
+    const facts = extractMigration(sub).facts;
+    const docs = await listDocuments(matter.id);
+    const attached = new Set(docs.filter((d) => d.personId && d.itemKey).map((d) => `${d.itemKey}:${d.personId}`));
+    const liveGaps = book ? buildMigrationGaps(book, migration, sub, attached).gaps : r.gaps;
+    const slots = book ? fillDatesFromText(buildMigrationGaps(book, migration, sub).dateSlots, sub, migration) : [];
+    const factGroups = groupByPerson(migration, facts).filter((g) => g.items.length);
+    const gapGroups = groupByPerson(migration, liveGaps).filter((g) => g.items.length);
+    const dated = slots.map((s) => ({ s, st: slotStatus(s) })).filter((x) => x.st.state !== "empty");
+    const who = (party: Party | null) => (party ? party.name : "Unassigned");
+    return (
+      <div className="space-y-8">
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold tracking-tight">On file</h2>
+          {factGroups.length === 0 ? (
+            <p className="text-sm text-muted">No sourced facts captured yet.</p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {factGroups.map((g, i) => (
+                <div key={i} className="rounded-lg border border-border bg-surface p-4">
+                  <div className="text-sm font-medium">{who(g.party)}</div>
+                  <dl className="mt-2 space-y-2">
+                    {g.items.map((f) => (
+                      <div key={f.key} data-evi-fact={factSlug(f.label)}>
+                        <dt className="text-xs uppercase tracking-wide text-muted">{f.label}</dt>
+                        <dd className="font-medium">{f.value}</dd>
+                        {f.source ? <dd className="mt-0.5 text-xs italic text-foreground/70">“{f.source}”</dd> : null}
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {dated.length ? (
+          <section className="space-y-3">
+            <h2 className="text-lg font-semibold tracking-tight">Dates on file</h2>
+            <ul className="rounded-lg border border-border bg-surface divide-y divide-border text-sm">
+              {dated.map(({ s, st }) => (
+                <li key={s.key} className="px-4 py-3">
+                  <div className="font-medium">{slotLabel(migration, s.personId, s.itemKey)}</div>
+                  {st.state === "set" ? (
+                    <div className="text-foreground/80"><span className="tabular-nums">{fmtISO(st.value)}</span> — <span className="italic text-foreground/70">“{st.source}”</span></div>
+                  ) : st.state === "conflict" ? (
+                    <ul className="mt-0.5 space-y-0.5 text-awaiting">
+                      {st.candidates.map((c, j) => (
+                        <li key={j}><span className="tabular-nums">{fmtISO(c.value)}</span> — <span className="italic">“{c.source}”</span></li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        <Suspense fallback={<div className="h-16 animate-pulse rounded-lg border border-border bg-surface" />}>
+          <AttachedFilesSection matter={matter} />
+        </Suspense>
+
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold tracking-tight">
+            Outstanding <span className="text-muted font-normal text-base">({liveGaps.length})</span>
+          </h2>
+          {gapGroups.length === 0 ? (
+            <p className="rounded-lg border border-accent bg-surface px-4 py-3 text-sm text-accent">Nothing outstanding — ready to lodge.</p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {gapGroups.map((g, i) => (
+                <div key={i} className={`rounded-lg border p-4 ${g.party ? "border-border bg-surface" : "border-awaiting/40 bg-awaiting-soft"}`}>
+                  <div className={`text-sm font-medium ${g.party ? "" : "text-awaiting"}`}>{who(g.party)}</div>
+                  <ul className="mt-1.5 space-y-1 text-sm text-foreground/85">
+                    {g.items.map((gap) => <li key={gap.key}>· {gap.label}</li>)}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <Suspense fallback={null}>
+          <ActivitySection matterId={matter.id} timezone={timezone} />
+        </Suspense>
+      </div>
+    );
+  }
+
   const outstandingDocs = r.gaps.filter((g) => g.kind === "document");
 
   // Which facts fed the "Briefly noticed" insight — so the record can point back.
@@ -880,23 +976,75 @@ function fmtISO(iso: string): string {
  * from cited spans (empty = "—", never guessed). Stale-before-lodge in red; an
  * unresolved two-source conflict flagged, not silently overwritten. No settlement copy.
  */
+/** Short person+item label for a date slot, e.g. "Hua medical". */
+function slotLabel(profile: MigrationProfile, personId: string, itemKey: string): string {
+  const SHORT: Record<string, string> = { passport_expiry: "passport", police_cert_validity: "NZPC", emedical_validity: "medical" };
+  const first = (full: string) => full.trim().split(/\s+/)[0] || full;
+  let who = "";
+  if (personId !== "matter") {
+    const a = profile.applicants.find((x) => x.id === personId);
+    who = a ? first(a.fullName) : profile.sponsor?.id === personId ? first(profile.sponsor.fullName) : "";
+  }
+  return `${who} ${SHORT[itemKey] ?? itemKey.replace(/_/g, " ")}`.trim();
+}
+
+/**
+ * The key-dates board — NOT a ticker. Empty slots are noise, so it shows only the
+ * three chips that carry a fact: the lodgement target, any validity that dies before
+ * it (stale), and any date with two sourced values (conflict, expandable to both).
+ */
 function MigrationDatesStrip({ profile, submission }: { profile: MigrationProfile; submission: string }) {
   const book = getBook(profile.stream);
   if (!book) return null;
   const slots = fillDatesFromText(buildMigrationGaps(book, profile, submission).dateSlots, submission, profile);
-  const segs = datesStrip(profile, slots);
-  if (!segs.length) return null;
+  const stale = staleSlotKeys(slots);
+  const lodge = slots.find((s) => s.itemKey === "lodgement_target");
+  const lodgeSt = lodge ? slotStatus(lodge) : { state: "empty" as const };
+  const lodgeIso = lodgeSt.state === "set" ? lodgeSt.value : null;
+
+  const staleChips: { label: string; value: string }[] = [];
+  const conflictChips: { label: string; candidates: { value: string; source: string }[] }[] = [];
+  for (const s of slots) {
+    if (s.itemKey === "lodgement_target") continue;
+    const st = slotStatus(s);
+    if (st.state === "conflict") conflictChips.push({ label: slotLabel(profile, s.personId, s.itemKey), candidates: st.candidates });
+    else if (st.state === "set" && stale.has(s.key)) staleChips.push({ label: slotLabel(profile, s.personId, s.itemKey), value: st.value });
+  }
+
+  if (!lodgeIso && staleChips.length === 0 && conflictChips.length === 0) return null;
+
   return (
     <div className="rounded-xl border border-border bg-raise p-3">
-      <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">Key dates</div>
-      <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
-        {segs.map((s, i) => (
-          <span key={i} className={s.stale ? "text-error" : s.conflict ? "text-awaiting" : "text-foreground/85"}>
-            <span className="text-muted">{s.label}</span>{" "}
-            {s.conflict ? "conflict — resolve" : s.value ? fmtISO(s.value) : "—"}
-            {s.stale ? " · stale before lodge" : ""}
-            {i < segs.length - 1 ? " ·" : ""}
+      <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">Key dates</div>
+      <div className="flex flex-wrap items-start gap-2 text-sm">
+        {lodgeIso ? (
+          <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 py-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">Lodge</span>
+            <span className="font-medium tabular-nums">{fmtISO(lodgeIso)}</span>
           </span>
+        ) : null}
+        {staleChips.map((c, i) => (
+          <span key={`s${i}`} className="inline-flex items-center gap-1.5 rounded-lg border border-error/40 bg-error/10 px-2.5 py-1 text-error">
+            <span className="text-[10px] font-semibold uppercase tracking-wide">Stale</span>
+            <span className="font-medium">{c.label} {fmtISO(c.value)} — dies before lodge</span>
+          </span>
+        ))}
+        {conflictChips.map((c, i) => (
+          <details key={`c${i}`} className="group rounded-lg border border-awaiting/50 bg-awaiting-soft px-2.5 py-1 text-awaiting">
+            <summary className="flex cursor-pointer list-none items-center gap-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wide">Conflict</span>
+              <span className="font-medium">{c.label} — two dates, pick one</span>
+              <span aria-hidden="true" className="text-xs">▸</span>
+            </summary>
+            <ul className="mt-1.5 space-y-1 border-t border-awaiting/30 pt-1.5 text-xs text-foreground/85">
+              {c.candidates.map((cand, j) => (
+                <li key={j}>
+                  <span className="font-medium tabular-nums">{fmtISO(cand.value)}</span>
+                  <span className="text-muted"> — “{cand.source}”</span>
+                </li>
+              ))}
+            </ul>
+          </details>
         ))}
       </div>
     </div>
@@ -1083,15 +1231,21 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
         </Suspense>
       ),
     },
-    {
-      id: "plan",
-      label: "Consultation plan",
-      node: (
-        <Suspense fallback={<SectionSkeleton label="Preparing consultation plan" />}>
-          <ConsultationPlanSection matter={matter} />
-        </Suspense>
-      ),
-    },
+    // Consultation plan is the conveyancing appraisal flow; on migration the packet
+    // card is the consult artifact, so the tab is not shown.
+    ...(isMig
+      ? []
+      : [
+          {
+            id: "plan",
+            label: "Consultation plan",
+            node: (
+              <Suspense fallback={<SectionSkeleton label="Preparing consultation plan" />}>
+                <ConsultationPlanSection matter={matter} />
+              </Suspense>
+            ),
+          },
+        ]),
   ];
 
   return (
