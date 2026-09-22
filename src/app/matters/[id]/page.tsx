@@ -51,6 +51,7 @@ import { extractMigration } from "@/lib/migration-extract";
 import { buildConsultationPacket, packetSectionList } from "@/lib/migration-packet";
 import { PacketControls } from "@/app/packet-controls";
 import { MigrationDocuments } from "@/app/migration-docs";
+import { MigrationRoutingBanner } from "@/app/migration-routing-banner";
 import { migrationSinceReview } from "@/lib/migration-review";
 import type { MigrationProfile, Gap } from "@/lib/types";
 
@@ -1106,7 +1107,17 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
         </div>
       </header>
 
-      {/* Migration path: key dates strip (P3) + the family of parties. */}
+      {/* Migration path: visible routing (P5c) → key dates strip (P3) + the family of parties. */}
+      {r.migrationRouting ? (
+        <MigrationRoutingBanner
+          matterId={matter.id}
+          status={r.migrationRouting.status}
+          streamDetail={r.migrationRouting.streamDetail}
+          cue={r.migrationRouting.cue}
+          reason={r.migrationRouting.reason}
+          confirmed={r.migrationRouting.confirmed}
+        />
+      ) : null}
       {isMig && migration ? <MigrationDatesStrip profile={migration} submission={matter.submission} /> : null}
       {isMig && since && since.resolved.length ? (
         <div className="rounded-xl border border-accent/30 bg-accent-soft/30 p-3 text-sm">

@@ -141,6 +141,20 @@ export interface PipelineResult {
    *  on non-migration matters. When present, fields/gaps/timeline scope to its
    *  applicants by Applicant.id, and property nouns are hidden in the UI. */
   migration?: MigrationProfile | null;
+  /** Visible routing decision (P5c). "routed" carries the book + the cue that chose it;
+   *  "unrouted" means the cue was weak/mixed/absent — no book is assumed (a purchase-
+   *  shaped email never becomes partner or conveyancing). Counsel can Keep / Move / Unroute. */
+  migrationRouting?: {
+    status: "routed" | "unrouted";
+    /** Book id shown in the banner, e.g. "partner_of_nz_citizen" / "aewv_worker". */
+    streamDetail?: string;
+    /** The phrase that triggered routing (for "Routed … because {cue}"). */
+    cue?: string;
+    /** Why it's unrouted (weak / mixed / no visa stream). */
+    reason?: string;
+    /** Counsel accepted the routing (banner collapses). */
+    confirmed?: boolean;
+  } | null;
 }
 
 // ── Immigration (NZ) — the migration path's matter shape ──────────────────────

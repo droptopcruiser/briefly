@@ -103,7 +103,7 @@ function slug(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
 }
 
-export function extractMigration(submission: string): MigrationExtraction {
+export function extractMigration(submission: string, forceStream?: MigrationStream): MigrationExtraction {
   const text = submission.trim();
   const segs = sentences(text);
   const applicants: Applicant[] = [];
@@ -113,7 +113,10 @@ export function extractMigration(submission: string): MigrationExtraction {
   const gaps: Gap[] = [];
   const dates: TimelineEvent[] = [];
 
-  const { stream } = detectStream(text);
+  // P5c: a Move forces the stream; otherwise detect it. Party TYPES follow the stream —
+  // a sponsor exists only on the partner stream, an employer only on AEWV — so moving to
+  // another book never leaves a sponsor- or employer-shaped party without a cue for it.
+  const stream = forceStream ?? detectStream(text).stream;
 
   // ── Rule 1/2: build parties from cues, principal first ──────────────────────
   // Principal: first-person self, or an explicit worker/applicant cue.
@@ -131,19 +134,21 @@ export function extractMigration(submission: string): MigrationExtraction {
   // Spouse: NZ side → sponsor; explicitly applying → partner applicant; else (partner
   // stream) → sponsor, since a "Partner of a New Zealander" matter's other adult is the
   // NZ partner. Never placed in applicants without an applying signal (rule 2/5).
-  const spouse = text.match(new RegExp(`\\b[Mm]y (?:husband|wife|partner)\\s+(${NAME})`));
+  // Sponsor/partner only exist on the partner stream — on AEWV/Student a named spouse is
+  // NOT a party (no sponsor-shaped leftover after a Move).
+  const spouse = stream === "partner" ? text.match(new RegExp(`\\b[Mm]y (?:husband|wife|partner)\\s+(${NAME})`)) : null;
   if (spouse) {
     const spouseName = spouse[1];
     const spouseCtx = segs.filter((s) => mentions(s, spouseName)).join(" ");
     const applying = /\b(also apply|is applying|are applying|will apply|include (?:him|her|them)|joint)\b/i.test(spouseCtx);
     const nz = NZ_STATUS.test(spouseCtx);
-    if (nz || (stream === "partner" && !applying)) {
+    if (applying && !nz) {
+      applicants.push({ id: `a${applicants.length + 1}`, role: "partner", fullName: spouseName, location: "unknown" });
+    } else {
       const status = /\b(nz citizen|new zealand citizen|kiwi citizen)\b/i.test(spouseCtx)
         ? "nz_citizen"
         : /\b(permanent resident|\bpr\b|\bresident\b)\b/i.test(spouseCtx) ? "resident" : undefined;
       sponsor = { id: "sp", fullName: spouseName, status };
-    } else if (applying) {
-      applicants.push({ id: `a${applicants.length + 1}`, role: "partner", fullName: spouseName, location: "unknown" });
     }
   }
 
@@ -160,9 +165,11 @@ export function extractMigration(submission: string): MigrationExtraction {
   }
 
   // Employer (AEWV): job offer / employer cue.
-  const emp = text.match(new RegExp(`\\b(?:[Jj]ob offer from|[Oo]ffer from|[Ee]mployer|[Ww]ork for|[Ee]mployed by)\\s+(${COMPANY})`))
-    ?? text.match(new RegExp(`\\b(${COMPANY})`));
-  if (emp && (stream === "aewv" || /employer|job offer|job check/i.test(text))) {
+  // Employer only exists on AEWV, and only when one is actually named.
+  const emp = stream === "aewv"
+    ? (text.match(new RegExp(`\\b(?:[Jj]ob offer from|[Oo]ffer from|[Ee]mployer|[Ww]ork for|[Ee]mployed by)\\s+(${COMPANY})`)) ?? text.match(new RegExp(`\\b(${COMPANY})`)))
+    : null;
+  if (emp) {
     employer = { id: "emp", legalName: emp[1].trim(), accreditationStatus: "unknown" };
   }
 

@@ -6,6 +6,7 @@ import { extractMigration } from "./migration-extract";
 import { getBook } from "./migration-books";
 import { buildMigrationGaps } from "./migration-gaps";
 import { buildMigrationChase } from "./migration-chase";
+import { classifyMigration } from "./migration-classify";
 import { STREAM_LABEL } from "./migration";
 import type {
   Rubric,
@@ -360,32 +361,35 @@ async function buildResult(
 }
 
 /**
- * Keyless migration augmentation (P1). For a matter classified to the Immigration
- * vertical, run the deterministic party-splitter and attach the MigrationProfile +
- * person-scoped gaps. Gated on the BOOK (vertical), never keywords — wrong-book routing
- * is P5. Never touches a non-immigration result; conveyancing extraction is untouched.
- * The model path stays unwired this pass (keyless only).
+ * Keyless migration augmentation (P1–P5c). The visible classifier (P5c) routes: a clean
+ * single visa cue → that book; a weak/mixed/absent cue (incl. a purchase-shaped email) →
+ * UNROUTED (no book assumed, gaps wait); no immigration OR purchase signal → left as a
+ * normal matter, untouched. On a routed matter the deterministic party-splitter runs
+ * against the ROUTED book's stream (a Move re-runs this with a forced stream). The model
+ * path stays unwired this pass (keyless only).
  */
-function augmentWithMigration(submission: string, result: PipelineResult): PipelineResult {
-  if (result.vertical !== "Immigration") return result;
-  const ex = extractMigration(submission);
-  const stream = ex.profile.stream;
-  // No confident stream or no party → leave the matter generic (do not assume "partner").
-  if (!stream || ex.profile.applicants.length === 0) return result;
-  const migration: MigrationProfile = { ...ex.profile, stream };
-  // P2: if a rubric book exists for the stream, gaps come from expanding the book across
-  // the parties (per-person, N/A-aware, human_only never emitted). No book (resident/
-  // visitor) → fall back to the P1 text-driven gaps. Facts/dates handled in P3.
-  const book = getBook(stream);
+export function augmentWithMigration(submission: string, result: PipelineResult, forceStream?: MigrationProfile["stream"]): PipelineResult {
+  const routing = forceStream ? ({ status: "routed", stream: forceStream, cue: "moved by you" } as const) : classifyMigration(submission);
+  if (!routing) return result; // not immigration-relevant → normal matter, no banner
+  if (routing.status === "unrouted") {
+    return { ...result, migration: null, migrationRouting: { status: "unrouted", reason: routing.reason } };
+  }
+
+  const ex = extractMigration(submission, routing.stream);
+  if (ex.profile.applicants.length === 0) {
+    return { ...result, migration: null, migrationRouting: { status: "unrouted", reason: "no applicant identified" } };
+  }
+  const migration: MigrationProfile = { ...ex.profile, stream: routing.stream };
+  const book = getBook(routing.stream);
   const gaps = book ? buildMigrationGaps(book, migration, submission).gaps : ex.gaps;
-  // Kill demo/"Spousal Visa" copy on the migration path — stream language only.
-  const streamLabel = STREAM_LABEL[stream];
+  // Stream language only (no demo / "Spousal Visa" copy).
+  const streamLabel = STREAM_LABEL[routing.stream];
   const n = migration.applicants.length;
   const summary = `${streamLabel}${n ? ` — ${n} applicant${n > 1 ? "s" : ""}` : ""}${migration.sponsor ? `, sponsor ${migration.sponsor.fullName}` : ""}.`;
-  // The chase is the migration outreach (person-grouped), replacing the generic follow-up.
   const chase = buildMigrationChase(migration, gaps, { originalSubject: result.emailThread?.subject ?? null, streamLabel });
   const draftEmail = gaps.length ? { to: result.clientEmail, subject: chase.subject, body: chase.body } : null;
-  return { ...result, migration, gaps, summary, draftEmail };
+  const migrationRouting = { status: "routed" as const, streamDetail: migration.streamDetail ?? routing.stream, cue: routing.cue };
+  return { ...result, migration, gaps, summary, draftEmail, migrationRouting };
 }
 
 /** Run the full pipeline for one submission against the given rubric set. */
