@@ -48,7 +48,7 @@ import { getBook } from "@/lib/migration-books";
 import { buildMigrationGaps } from "@/lib/migration-gaps";
 import { fillDatesFromText, datesStrip } from "@/lib/migration-dates";
 import { extractMigration } from "@/lib/migration-extract";
-import { buildConsultationPacket, packetSectionList } from "@/lib/migration-packet";
+import { buildConsultationPacket } from "@/lib/migration-packet";
 import { PacketControls } from "@/app/packet-controls";
 import { MigrationDocuments } from "@/app/migration-docs";
 import { MigrationRoutingBanner } from "@/app/migration-routing-banner";
@@ -177,6 +177,7 @@ async function ReturningClientSection({ matter }: { matter: Matter }) {
  */
 async function OverviewSection({ matter, account }: { matter: Matter; account: Account }) {
   const r = matter.result!;
+  const isMig = isMigrationMatter(r);
   const [brief, packet, rubrics] = await Promise.all([
     r.draftEmail ? Promise.resolve(null) : getActiveBrief(matter.id),
     getActivePacket(matter.id),
@@ -316,8 +317,9 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
         </div>
       ) : null}
 
-      {/* Path A — the follow-up's full editor lives in Next step. */}
-      {!completed && r.draftEmail ? (
+      {/* Path A — the follow-up's full editor lives in Next step. On migration the
+          per-person chase is the ONE chase (in Next step), so no duplicate preview here. */}
+      {!completed && !isMig && r.draftEmail ? (
         <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-[var(--shadow-sm)]">
           <div className="flex items-center gap-2 border-b border-border bg-inset px-4 py-2 text-xs text-muted">
             <span aria-hidden="true">✉</span>
@@ -928,9 +930,32 @@ function MigrationPacketCard({ matter, profile, attached }: { matter: Matter; pr
         <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${stale ? "bg-awaiting-soft text-awaiting" : approved ? "bg-accent-soft text-accent" : "bg-inset text-muted"}`}>{state}</span>
       </div>
       <p className="mt-1 text-xs text-muted">Every listed fact is sourced. Missing items are listed as missing.</p>
-      <ul className="mt-3 space-y-0.5 text-sm text-foreground/85">
-        {packetSectionList(packet).map((l, i) => <li key={i}>{l}</li>)}
-      </ul>
+      <div className="mt-3 space-y-3 text-sm">
+        {packet.outstanding.length ? (
+          <div className="space-y-1.5">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">Outstanding by person</div>
+            {packet.outstanding.map((g, i) => (
+              <div key={i} className="leading-snug">
+                <span className={`font-medium ${g.unassigned ? "text-awaiting" : "text-foreground"}`}>{g.who}</span>
+                <span className="text-muted"> — {g.items.join(", ")}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-foreground/70">Nothing outstanding — ready to lodge.</p>
+        )}
+        {packet.askInRoom.length ? (
+          <div className="space-y-1">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">Ask in the room</div>
+            <ul className="space-y-0.5 text-foreground/80">
+              {packet.askInRoom.map((a, i) => <li key={i}>· {a}</li>)}
+            </ul>
+          </div>
+        ) : null}
+        {packet.heldBackCount > 0 ? (
+          <p className="text-xs text-muted">{packet.heldBackCount} item(s) held back (no source) — not exported.</p>
+        ) : null}
+      </div>
       <div className="mt-3 border-t border-border pt-3">
         <PacketControls matterId={matter.id} approved={approved} stale={stale} />
       </div>

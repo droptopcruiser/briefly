@@ -12,7 +12,7 @@ import { getAccountRubrics } from "@/lib/rubric-store";
 import { getChangesMap, describeChanges } from "@/lib/reviews";
 import { computeUrgency, isSnoozed, PRIORITY_ORDER, PRIORITY_META } from "@/lib/urgency";
 import { computeMigrationUrgency } from "@/lib/migration-urgency";
-import { isMigrationMatter } from "@/lib/migration";
+import { isMigrationMatter, migrationMatterTitle, STREAM_LABEL } from "@/lib/migration";
 import { getAccountDateDecisions, staleDatesEnabled } from "@/lib/critical-dates";
 import { resolveMatterDates } from "@/lib/critical-date-derive";
 import { listMembers } from "@/lib/team";
@@ -100,6 +100,9 @@ export default async function Dashboard() {
       .sort((a, b) => b.u.score - a.u.score)
       .map(({ m, u, effDates }) => {
         const c = changesMap.get(m.id);
+        // Migration cards speak the migration language: the family title, the stream,
+        // and NO readiness percent or "N items missing" (that's conveyancing chrome).
+        const mig = isMigrationMatter(m.result) ? m.result?.migration ?? null : null;
         // A confirmed date close enough that snoozing it should warn (any kind).
         let settlementWarning: string | null = null;
         for (const d of effDates) {
@@ -114,11 +117,11 @@ export default async function Dashboard() {
         return {
           id: m.id,
           href: `/matters/${m.id}`,
-          clientName: m.clientName ?? "Unnamed client",
-          rubricName: m.result?.rubricName ?? null,
+          clientName: mig ? migrationMatterTitle(mig) : (m.clientName ?? "Unnamed client"),
+          rubricName: mig ? (mig.stream ? STREAM_LABEL[mig.stream] : "Immigration") : (m.result?.rubricName ?? null),
           status: m.status,
-          readiness: typeof m.result?.readiness === "number" ? m.result.readiness : null,
-          gapsCount: m.result?.gaps.length ?? 0,
+          readiness: mig ? null : (typeof m.result?.readiness === "number" ? m.result.readiness : null),
+          gapsCount: mig ? 0 : (m.result?.gaps.length ?? 0),
           reason: u.reason,
           detail: c ? describeChanges(c) : null,
           actionLabel: u.actionLabel,

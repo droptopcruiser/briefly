@@ -1,4 +1,6 @@
 import type { Matter, Rubric } from "./types";
+import { isMigrationMatter } from "./migration";
+import { computeMigrationUrgency } from "./migration-urgency";
 
 /** Stable id shared by a fact (in the evidence drawer) and a factor's source that
  *  points at it, so the workspace and the drawer can highlight the same thing. */
@@ -28,6 +30,12 @@ export function firstSentence(text: string): string {
  * doesn't load packets, so it passes false and shows the pre-consultation status.
  */
 export function workflowStatus(matter: Matter, rubric: Rubric | undefined, planReady = false): string {
+  // Migration matters speak the ladder reason (P5d), never "Waiting on N client
+  // details" — that's a conveyancing/readiness phrasing that was banned on this path.
+  if (isMigrationMatter(matter.result)) {
+    if (matter.status === "completed") return "Completed";
+    return computeMigrationUrgency(matter, null).reason;
+  }
   const intent = rubric?.nextActionIntent?.trim();
   switch (matter.status) {
     case "ready_for_review": {
