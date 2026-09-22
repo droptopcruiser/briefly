@@ -70,12 +70,6 @@ export function partyById(profile: MigrationProfile, personId: string | undefine
   return parties(profile).find((p) => p.id === personId) ?? null;
 }
 
-/** Surname for titling — the last whitespace-separated token of the full name. */
-function surname(fullName: string): string {
-  const parts = fullName.trim().split(/\s+/).filter(Boolean);
-  return parts.length ? parts[parts.length - 1] : fullName.trim();
-}
-
 /**
  * Matter title in the locked format, e.g. "Chen / Partner of a New Zealander / offshore"
  * (principal surname · stream label · principal location). If another applicant differs
@@ -84,7 +78,7 @@ function surname(fullName: string): string {
  */
 export function migrationMatterTitle(profile: MigrationProfile): string {
   const p = principalApplicant(profile);
-  const name = p ? surname(p.fullName) : "Applicant";
+  const name = p ? p.fullName.trim() : "Applicant";
   const loc = p ? p.location : "unknown";
   return `${name} / ${STREAM_LABEL[profile.stream]} / ${loc}`;
 }

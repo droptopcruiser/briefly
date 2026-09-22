@@ -79,7 +79,8 @@ export async function ingestSubmission(opts: {
   // Classify + extract against this firm's own rubrics (BYOR), or the built-in
   // set if they haven't authored any yet.
   const rubrics = await getEffectiveRubrics(account?.id ?? null);
-  const result = await runPipeline(submission, rubrics);
+  const immigrationFirm = account?.practiceType === "immigration";
+  const result = await runPipeline(submission, rubrics, immigrationFirm);
 
   // Resolve the client identity, then make the result authoritative so the UI
   // (which reads `result`) and the drafted email agree with the matter record.
@@ -177,7 +178,7 @@ export async function ingestReply(opts: {
   const combined = `${matter.submission}\n\n--- Client reply (${new Date()
     .toISOString()
     .slice(0, 10)}) ---\n${message}`;
-  const result = await rescoreWithRubric(combined, rubric);
+  const result = await rescoreWithRubric(combined, rubric, account?.practiceType === "immigration");
 
   // Keep the original client identity.
   result.clientName = matter.clientName ?? result.clientName;

@@ -115,6 +115,8 @@ export async function readDocumentPdf(
     max_tokens: 4000,
     system: `You read a document for a professional and extract grounded facts. Read the attached PDF and return the facts actually present — never infer or invent. For each fact, "quote" is the tightest verbatim snippet of the document text that carries it.
 
+Never map a PLACE OF BIRTH to a current-location, residence, or address field. A passport's "Place of birth" / "TEMPAT LAHIR" / "Lieu de naissance" is where the holder was born, NOT where they live now — do not return it as location or residence. Only fill a location/residence field from an actual current-address or residence statement.
+
 ${fieldSpec}`,
     output_config: {
       format: {

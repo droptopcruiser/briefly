@@ -76,6 +76,9 @@ interface DocRow {
   cost_cents: number | null;
   created_at: string;
   pending_facts: PendingDocFact[] | null;
+  person_id: string | null;
+  item_key: string | null;
+  sensitive: boolean | null;
 }
 
 function rowToDoc(r: DocRow): MatterDocument {
@@ -93,6 +96,9 @@ function rowToDoc(r: DocRow): MatterDocument {
     costCents: Number(r.cost_cents ?? 0),
     createdAt: r.created_at,
     pendingFacts: Array.isArray(r.pending_facts) ? r.pending_facts : [],
+    personId: r.person_id ?? undefined,
+    itemKey: r.item_key ?? undefined,
+    sensitive: r.sensitive ?? undefined,
   };
 }
 
@@ -111,6 +117,9 @@ function docToRow(d: MatterDocument): DocRow {
     cost_cents: d.costCents,
     created_at: d.createdAt,
     pending_facts: d.pendingFacts,
+    person_id: d.personId ?? null,
+    item_key: d.itemKey ?? null,
+    sensitive: d.sensitive ?? false,
   };
 }
 

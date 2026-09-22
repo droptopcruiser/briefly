@@ -1300,10 +1300,14 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
             </Suspense>
           </div>
         </div>
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
-          <span>{evidenceLabel(r.fields)}</span>
-          {r.clientEmail ? <span>{r.clientEmail}</span> : null}
-        </div>
+        {/* Conveyancing meta line — evidence count + client email. Hidden on migration:
+            the people tiles carry identity, and a stray HR email must not sit on the title row. */}
+        {!isMig ? (
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
+            <span>{evidenceLabel(r.fields)}</span>
+            {r.clientEmail ? <span>{r.clientEmail}</span> : null}
+          </div>
+        ) : null}
       </header>
 
       {/* Migration path: visible routing (P5c) → key dates strip (P3) + the family of parties. */}

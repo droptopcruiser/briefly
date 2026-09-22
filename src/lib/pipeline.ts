@@ -368,9 +368,32 @@ async function buildResult(
  * against the ROUTED book's stream (a Move re-runs this with a forced stream). The model
  * path stays unwired this pass (keyless only).
  */
-export function augmentWithMigration(submission: string, result: PipelineResult, forceStream?: MigrationProfile["stream"]): PipelineResult {
+/** The applicant's own email, never the employer/HR contact ("HR contact is …, priya@…"
+ *  must not become the chase recipient). Null when only an employer-side email appears. */
+function applicantEmail(submission: string): string | null {
+  for (const sent of submission.split(/(?<=[.!?])\s+|\n+/)) {
+    const em = sent.match(/[\w.+-]+@[\w-]+\.[\w.-]+/)?.[0];
+    if (!em) continue;
+    if (/\b(HR|human resources|recruiter|employer|hiring|manager|contact is|reach (?:us|the office))\b/i.test(sent)) continue;
+    return em;
+  }
+  return null;
+}
+
+export function augmentWithMigration(
+  submission: string,
+  result: PipelineResult,
+  forceStream?: MigrationProfile["stream"],
+  immigrationFirm?: boolean,
+): PipelineResult {
   const routing = forceStream ? ({ status: "routed", stream: forceStream, cue: "moved by you" } as const) : classifyMigration(submission);
-  if (!routing) return result; // not immigration-relevant → normal matter, no banner
+  if (!routing) {
+    // No visa/purchase signal. On an immigration firm nothing falls to the leftover
+    // Legal/conveyancing model book — surface Unrouted so counsel picks a book.
+    if (immigrationFirm)
+      return { ...result, migration: null, migrationRouting: { status: "unrouted", reason: "no visa stream detected — pick a book" } };
+    return result; // non-immigration firm → normal matter, no banner
+  }
   if (routing.status === "unrouted") {
     return { ...result, migration: null, migrationRouting: { status: "unrouted", reason: routing.reason } };
   }
@@ -393,7 +416,9 @@ export function augmentWithMigration(submission: string, result: PipelineResult,
   // and capture a stated contact email so the client record upserts on ingest.
   const principal = principalApplicant(migration);
   const clientName = principal ? principal.fullName : result.clientName;
-  const clientEmail = result.clientEmail ?? submission.match(/[\w.+-]+@[\w-]+\.[\w.-]+/)?.[0] ?? null;
+  // The chase goes to the APPLICANT, never the employer/HR contact; null → counsel sends
+  // it from their own mail client rather than to the wrong inbox.
+  const clientEmail = applicantEmail(submission) ?? null;
   return { ...result, migration, gaps, summary, draftEmail: draftEmail ? { ...draftEmail, to: clientEmail } : null, migrationRouting, clientName, clientEmail };
 }
 
@@ -401,16 +426,18 @@ export function augmentWithMigration(submission: string, result: PipelineResult,
 export async function runPipeline(
   submission: string,
   rubrics: Rubric[] = SEED_RUBRICS,
+  immigrationFirm = false,
 ): Promise<PipelineResult> {
   const activeRubrics = rubrics.length > 0 ? rubrics : SEED_RUBRICS;
 
   // Any immigration-relevant enquiry (routed OR unrouted — a visa/purchase signal)
   // runs the DETERMINISTIC engine in every environment, so keyed production shows the
   // migration surface (file, or the Unrouted "pick a book" banner) and a work-visa
-  // email is never eaten by the Legal/conveyancing model book. Non-immigration text
-  // (classifyMigration → null) keeps the model. Placement lives in code, not a prompt.
-  if (classifyMigration(submission) || !isConfigured()) {
-    return augmentWithMigration(submission, runMockPipeline(submission, activeRubrics));
+  // email is never eaten by the Legal/conveyancing model book. On an IMMIGRATION firm,
+  // EVERY enquiry goes deterministic — the leftover Legal/conveyancing books are
+  // unreachable; anything without a stream lands on Unrouted, not a Legal matter.
+  if (immigrationFirm || classifyMigration(submission) || !isConfigured()) {
+    return augmentWithMigration(submission, runMockPipeline(submission, activeRubrics), undefined, immigrationFirm);
   }
 
   const { out: cls, costCents: c1 } = await classify(submission, activeRubrics);
@@ -431,8 +458,9 @@ export async function runPipeline(
 export async function rescoreWithRubric(
   submission: string,
   rubric: Rubric,
+  immigrationFirm = false,
 ): Promise<PipelineResult> {
-  if (classifyMigration(submission) || !isConfigured())
-    return augmentWithMigration(submission, runMockPipeline(submission, [rubric]));
+  if (immigrationFirm || classifyMigration(submission) || !isConfigured())
+    return augmentWithMigration(submission, runMockPipeline(submission, [rubric]), undefined, immigrationFirm);
   return buildResult(submission, rubric, { classificationConfidence: 1, costBefore: 0 });
 }
