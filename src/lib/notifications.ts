@@ -1,5 +1,7 @@
-import { getCurrentAccount, getCurrentMembership } from "./metering";
+import { getCurrentAccount } from "./metering";
 import { listMatters } from "./store";
+import { isMigrationMatter, migrationMatterTitle } from "./migration";
+import { computeMigrationUrgency } from "./migration-urgency";
 
 /**
  * In-app notification feed: what needs the signed-in user's attention right now,
@@ -14,6 +16,8 @@ export interface NotifItem {
   clientName: string | null;
   rubricName: string | null;
   reason: NotifReason;
+  /** Migration: the ladder reason shown in place of the generic NotifReason. */
+  reasonText?: string;
 }
 
 const PRIORITY: Record<NotifReason, number> = {
@@ -35,11 +39,13 @@ export async function getNotifications(): Promise<{ count: number; items: NotifI
     else if (m.status === "ready_for_review") reason = "Ready to send";
     else if (m.status === "awaiting_client" && m.lastNudgedAt) reason = "Follow-up ready";
     if (!reason) continue;
+    const mig = isMigrationMatter(m.result) ? m.result?.migration ?? null : null;
     items.push({
       id: m.id,
-      clientName: m.clientName,
-      rubricName: m.result?.rubricName ?? null,
+      clientName: mig ? migrationMatterTitle(mig).replace(/ \/ (onshore|offshore|unknown)$/, "") : m.clientName,
+      rubricName: mig ? null : (m.result?.rubricName ?? null),
       reason,
+      reasonText: mig ? computeMigrationUrgency(m, null).reason : undefined,
     });
   }
 

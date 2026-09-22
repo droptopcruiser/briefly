@@ -9,6 +9,7 @@ import { ensureBriefOnReady } from "./work-brief";
 import { recordReview } from "./reviews";
 import { listMembers } from "./team";
 import { upsertClient, getKnownFacts } from "./clients";
+import { isMigrationMatter } from "./migration";
 import { isEmailConfigured, sendMatterReadyEmail, baseSubject } from "./email";
 import {
   getUsage,
@@ -117,7 +118,12 @@ export async function ingestSubmission(opts: {
 
   await saveMatter(matter);
   if (account) await consumeCreditIfOverCap(account, usedBefore);
-  await addEvent(matter.accountId, matter.id, "created", `New matter · ${result.readiness}% ready`);
+  await addEvent(
+    matter.accountId,
+    matter.id,
+    "created",
+    isMigrationMatter(result) ? "New matter" : `New matter · ${result.readiness}% ready`,
+  );
   await upsertClient(matter.accountId, clientEmail, clientName);
   // Log the enquiry as the first message in the conversation (strip the "Subject:"
   // line an inbound email prepends — the subject rides alongside).
@@ -209,7 +215,9 @@ export async function ingestReply(opts: {
   // One line per reply — the readiness move rides along, instead of a redundant
   // "Client replied" then "Readiness x → y" pair stacking up over a negotiation.
   const delta =
-    result.readiness !== prevReadiness ? ` · ${prevReadiness}% → ${result.readiness}%` : "";
+    isMigrationMatter(result) || result.readiness === prevReadiness
+      ? ""
+      : ` · ${prevReadiness}% → ${result.readiness}%`;
   await addEvent(acct, matter.id, "client_replied", `Client replied${delta}`);
 
   const becameReady =

@@ -61,7 +61,7 @@ const HUA_SAMPLE = `Hi, I'm Hua Chen and I'd like to apply for a Partner of a Ne
 
 A few dates for the file: Hua's medical was completed on 1 September 2026. Hua's passport is valid until 5 May 2030. Hua's passport expires on 6 June 2031. We plan to lodge by 1 October 2026.
 
-Hua still needs to provide her police certificate from China.`;
+Hua still needs to provide her police certificate from China. You can reach Hua at hua.chen@example.com.`;
 
 /**
  * Load the sample partner file from the dashboard (immigration firms only). Creates

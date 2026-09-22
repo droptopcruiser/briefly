@@ -14,6 +14,17 @@ const BOOKS: { stream: MigrationStream; label: string }[] = [
   { stream: "student", label: "Student" },
 ];
 
+// Human label for a streamDetail/book id — counsel never sees "partner_of_nz_citizen".
+const DETAIL_LABEL: Record<string, string> = {
+  partner_of_nz_citizen: "Partner of a New Zealander",
+  partner_of_resident: "Partner of a resident",
+  partner: "Partner of a New Zealander",
+  aewv_worker: "AEWV",
+  aewv: "AEWV",
+  student: "Student",
+};
+const bookLabel = (id?: string) => (id && DETAIL_LABEL[id]) || id || "this book";
+
 export function MigrationRoutingBanner({
   matterId, status, streamDetail, cue, reason, confirmed,
 }: { matterId: string; status: "routed" | "unrouted"; streamDetail?: string; cue?: string; reason?: string; confirmed?: boolean }) {
@@ -28,7 +39,7 @@ export function MigrationRoutingBanner({
   if (status === "routed" && confirmed) {
     return (
       <div className="rounded-xl border border-accent/25 bg-accent-soft/25 px-3 py-2 text-sm text-muted">
-        Routed to <b className="text-accent-ink">{streamDetail}</b> · confirmed
+        Routed to <b className="text-accent-ink">{bookLabel(streamDetail)}</b> · confirmed
       </div>
     );
   }
@@ -37,7 +48,7 @@ export function MigrationRoutingBanner({
     <div className={`rounded-xl border p-3 ${status === "routed" ? "border-accent/40 bg-accent-soft/40" : "border-awaiting/50 bg-awaiting-soft"}`}>
       <div className="text-sm">
         {status === "routed" ? (
-          <>Routed to <b className="text-accent-ink">{streamDetail}</b> because {cue}.</>
+          <>Routed to <b className="text-accent-ink">{bookLabel(streamDetail)}</b> because {cue}.</>
         ) : (
           <><b className="text-awaiting">Unrouted</b> — {reason}. No book is assumed; gaps wait until you pick one.</>
         )}

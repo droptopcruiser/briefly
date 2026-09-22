@@ -60,8 +60,9 @@ function mentions(sentence: string, full: string): boolean {
 }
 
 function locationFromText(ctx: string): ApplicantLocation {
-  // Only that person's own location words; "want to move to NZ" is not onshore.
-  const m = ctx.match(/\b(?:currently |already |now |based )?(?:in|living in)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/);
+  // A PRESENT-location cue only. "stay in New Zealand" / "move to NZ" are intent, not a
+  // current location, and must not prove onshore — better unknown than a false citation.
+  const m = ctx.match(/\b(?:currently|now|already|based|living|located|residing)\s+(?:in|at)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/i);
   if (!m) return "unknown";
   const place = m[1].toLowerCase();
   if (NZ_PLACES.some((p) => place.includes(p))) return "onshore";
@@ -176,12 +177,20 @@ export function extractMigration(submission: string, forceStream?: MigrationStre
   // ── Rules 8/9: bind per-person attributes from that person's own sentences ───
   for (const a of applicants) {
     const ctx = segs.filter((s) => mentions(s, a.fullName));
-    const ctxJoined = ctx.join(" ");
-    const nat = ctxJoined.match(/\b([A-Z][a-z]+)\s+passport\b/)?.[1] ?? ctxJoined.match(/\bnationality[:\s]+([A-Z][a-z]+)/)?.[1];
-    if (nat) { a.nationality = nat; facts.push({ key: `${a.id}_nationality`, label: "Nationality", value: nat, present: true, source: ctx[0] ?? null, personId: a.id }); }
-    const loc = locationFromText(ctxJoined);
-    if (loc !== "unknown") { a.location = loc; facts.push({ key: `${a.id}_location`, label: "Location", value: loc, present: true, source: ctx.find((s) => /\bin\b/.test(s)) ?? null, personId: a.id }); }
-    const pno = ctxJoined.match(/passport (?:no\.?|number)[:\s#]*([A-Z0-9]{5,})/i)?.[1];
+    // Nationality — ONLY from a sentence that actually states "<X> passport" or a
+    // nationality; the source is that exact sentence, never a nearby first mention.
+    const natSent = ctx.find((s) => /\b[A-Z][a-z]+\s+passport\b/.test(s) || /\bnationality[:\s]/i.test(s));
+    const nat = natSent
+      ? (natSent.match(/\b([A-Z][a-z]+)\s+passport\b/)?.[1] ?? natSent.match(/\bnationality[:\s]+([A-Z][a-z]+)/)?.[1])
+      : undefined;
+    if (nat) { a.nationality = nat; facts.push({ key: `${a.id}_nationality`, label: "Nationality", value: nat, present: true, source: natSent ?? null, personId: a.id }); }
+    // Location — the first sentence with a present-location cue is both the value and
+    // the source; intent sentences ("stay in NZ") yield nothing.
+    let loc: ApplicantLocation = "unknown";
+    let locSent: string | undefined;
+    for (const s of ctx) { const l = locationFromText(s); if (l !== "unknown") { loc = l; locSent = s; break; } }
+    if (loc !== "unknown") { a.location = loc; facts.push({ key: `${a.id}_location`, label: "Location", value: loc, present: true, source: locSent ?? null, personId: a.id }); }
+    const pno = ctx.join(" ").match(/passport (?:no\.?|number)[:\s#]*([A-Z0-9]{5,})/i)?.[1];
     if (pno) a.passportNo = pno;
   }
   if (sponsor) {

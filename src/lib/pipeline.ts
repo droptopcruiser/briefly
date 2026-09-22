@@ -7,7 +7,7 @@ import { getBook } from "./migration-books";
 import { buildMigrationGaps } from "./migration-gaps";
 import { buildMigrationChase } from "./migration-chase";
 import { classifyMigration } from "./migration-classify";
-import { STREAM_LABEL } from "./migration";
+import { STREAM_LABEL, principalApplicant } from "./migration";
 import type {
   Rubric,
   PipelineResult,
@@ -389,7 +389,12 @@ export function augmentWithMigration(submission: string, result: PipelineResult,
   const chase = buildMigrationChase(migration, gaps, { originalSubject: result.emailThread?.subject ?? null, streamLabel });
   const draftEmail = gaps.length ? { to: result.clientEmail, subject: chase.subject, body: chase.body } : null;
   const migrationRouting = { status: "routed" as const, streamDetail: migration.streamDetail ?? routing.stream, cue: routing.cue };
-  return { ...result, migration, gaps, summary, draftEmail, migrationRouting };
+  // Attribute the matter to the PRINCIPAL (so Clients/notifications name the person),
+  // and capture a stated contact email so the client record upserts on ingest.
+  const principal = principalApplicant(migration);
+  const clientName = principal ? principal.fullName : result.clientName;
+  const clientEmail = result.clientEmail ?? submission.match(/[\w.+-]+@[\w-]+\.[\w.-]+/)?.[0] ?? null;
+  return { ...result, migration, gaps, summary, draftEmail: draftEmail ? { ...draftEmail, to: clientEmail } : null, migrationRouting, clientName, clientEmail };
 }
 
 /** Run the full pipeline for one submission against the given rubric set. */

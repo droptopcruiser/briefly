@@ -1062,7 +1062,10 @@ function MigrationPacketCard({ matter, profile, attached }: { matter: Matter; pr
   if (!book) return null;
   const ex = extractMigration(sub);
   const { gaps, dateSlots } = buildMigrationGaps(book, profile, sub, attached);
-  const keyDates = datesStrip(profile, fillDatesFromText(dateSlots, sub, profile));
+  // Only meaningful dates reach the packet — the lodgement target, stales, and
+  // conflicts. Empty slots are noise (they must not print "Hua NZPC: —").
+  const keyDates = datesStrip(profile, fillDatesFromText(dateSlots, sub, profile))
+    .filter((s) => (s.label === "Lodge" ? !!s.value : s.stale || s.conflict));
   const approved = !!matter.approvedAt;
   const stale = !!(approved && matter.updatedAt && matter.updatedAt > matter.approvedAt!);
   const packet = buildConsultationPacket({

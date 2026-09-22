@@ -63,7 +63,7 @@ export function NotificationBell({ count, items }: { count: number; items: Notif
                             : "text-accent"
                         }`}
                       >
-                        {i.reason}
+                        {i.reasonText ?? i.reason}
                       </div>
                     </Link>
                   </li>

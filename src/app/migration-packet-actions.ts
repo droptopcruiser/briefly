@@ -43,7 +43,8 @@ function assemble(submission: string, result: NonNullable<Awaited<ReturnType<typ
   if (!book) return null;
   const { gaps, dateSlots } = buildMigrationGaps(book, profile, submission);
   const slots = fillDatesFromText(dateSlots, submission, profile);
-  const keyDates = datesStrip(profile, slots);
+  // Match the UI strip: lodgement + stale + conflict only; empty slots never print.
+  const keyDates = datesStrip(profile, slots).filter((s) => (s.label === "Lodge" ? !!s.value : s.stale || s.conflict));
   const generated = new Date().toISOString().slice(0, 10);
   const packet = buildConsultationPacket({
     title: migrationMatterTitle(profile), profile, book, facts: ex.facts, gaps, keyDates,
