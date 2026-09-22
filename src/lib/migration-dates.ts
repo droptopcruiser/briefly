@@ -130,6 +130,43 @@ export function fillDatesFromText(
   return out;
 }
 
+/** A date READ from an attached document (bio page / MRZ), bound to person + item. */
+export interface DocDate {
+  itemKey: string;
+  personId: string;
+  value: string; // ISO
+  source: string; // e.g. "passport.pdf (read)"
+}
+
+/** Document read-facts whose key is a validity slot → dated candidates, per person.
+ *  A passport's own expiry becomes a sourced candidate on the conflict — evidence
+ *  standing beside the claimed dates, never overwriting them. */
+export function docDatesFrom(
+  docs: { personId?: string; fileName: string; pendingFacts?: { key: string; value: string }[] }[],
+): DocDate[] {
+  const out: DocDate[] = [];
+  for (const d of docs) {
+    if (!d.personId) continue;
+    for (const f of d.pendingFacts ?? []) {
+      if (!VALIDITY_ITEMS.has(f.key)) continue;
+      const iso = parseDate(f.value);
+      if (iso) out.push({ itemKey: f.key, personId: d.personId, value: iso, source: `${d.fileName} (read)` });
+    }
+  }
+  return out;
+}
+
+/** Merge document-sourced dates into the slots as extra candidates (dedup by value). */
+export function mergeDocDates(slots: MigrationDateSlot[], docDates: DocDate[]): MigrationDateSlot[] {
+  const out = slots.map((s) => ({ ...s, candidates: [...s.candidates] }));
+  for (const d of docDates) {
+    const slot = out.find((s) => s.itemKey === d.itemKey && s.personId === d.personId);
+    if (!slot) continue;
+    if (!slot.candidates.some((c) => c.value === d.value)) slot.candidates.push({ value: d.value, source: d.source });
+  }
+  return out;
+}
+
 export function slotStatus(slot: MigrationDateSlot): SlotStatus {
   const distinct = [...new Map(slot.candidates.map((c) => [c.value, c])).values()];
   if (distinct.length === 0) return { state: "empty" };

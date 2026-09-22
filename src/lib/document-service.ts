@@ -9,6 +9,16 @@ import {
 } from "./documents";
 import { readDocumentPdf } from "./document-read";
 import { addEvent } from "./events";
+import { isMigrationMatter } from "./migration";
+
+// A migration document that carries a validity date → the field to read from it, keyed
+// by the matching date slot so the read expiry lands on that slot as a candidate.
+const DOC_DATE_FIELD: Record<string, { key: string; label: string; description: string }> = {
+  passport: { key: "passport_expiry", label: "Passport expiry date", description: "The date of EXPIRY from the passport bio page / MRZ — NOT the date of issue and NOT the date of birth. Return as YYYY-MM-DD." },
+  police_cert: { key: "police_cert_validity", label: "Police certificate date", description: "The issue or valid-until date printed on the police certificate. Return as YYYY-MM-DD." },
+  emedical: { key: "emedical_validity", label: "Medical date", description: "The date the medical / chest x-ray was completed. Return as YYYY-MM-DD." },
+};
+const MIG_DATE_KEYS = new Set(["passport_expiry", "police_cert_validity", "emedical_validity"]);
 
 /**
  * Read a STORED matter document into pending facts — the one read path shared by
@@ -48,11 +58,13 @@ export async function readStoredDocument(
   if (!matter.result) return { ok: false, reason: "error" };
   const owner = doc.accountId;
 
-  const fields = (rubric?.fields ?? []).map((f) => ({
-    key: f.key,
-    label: f.label,
-    description: f.description,
-  }));
+  // Migration attachment bound to a passport/medical/police item → read its validity
+  // date (into the matching slot); otherwise read the rubric's fields as before.
+  const mig = isMigrationMatter(matter.result);
+  const migDateField = mig && doc.itemKey ? DOC_DATE_FIELD[doc.itemKey] : undefined;
+  const fields = migDateField
+    ? [migDateField]
+    : (rubric?.fields ?? []).map((f) => ({ key: f.key, label: f.label, description: f.description }));
   const byKey = new Map(matter.result.fields.map((f) => [f.key, f]));
 
   doc.status = "reading";
@@ -97,14 +109,15 @@ export async function readStoredDocument(
     const res = await readDocumentPdf(bytes, { fields: fields.length ? fields : undefined });
 
     const pending: PendingDocFact[] = res.facts
-      .filter((f) => (rubric ? byKey.has(f.key) : true))
+      // Keep rubric-field facts (conveyancing) AND migration validity-date facts.
+      .filter((f) => (migDateField ? MIG_DATE_KEYS.has(f.key) : rubric ? byKey.has(f.key) : true))
       .map((f) => {
         const field = byKey.get(f.key);
         const stated = field?.present && field.value ? field.value : null;
         return {
           id: randomUUID(),
           key: f.key,
-          label: field?.label ?? f.key,
+          label: migDateField && f.key === migDateField.key ? migDateField.label : field?.label ?? f.key,
           value: f.value,
           quote: f.quote,
           page: f.page,

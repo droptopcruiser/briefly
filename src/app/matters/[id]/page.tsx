@@ -18,7 +18,7 @@ import { InsightCallout } from "@/app/insight-callout";
 import { DecisionPane } from "@/app/decision-pane";
 import { workflowStatus, statusTone, firstSentence, factSlug } from "@/lib/matter-status";
 import { formatWhen, formatInstant } from "@/lib/format";
-import { listDocuments } from "@/lib/documents";
+import { listDocuments, type MatterDocument } from "@/lib/documents";
 import {
   DocumentUpload,
   DeleteDocButton,
@@ -46,7 +46,7 @@ import { CriticalDatesStrip } from "@/app/critical-dates-strip";
 import { isMigrationMatter, migrationMatterTitle, groupByPerson, type Party } from "@/lib/migration";
 import { getBook } from "@/lib/migration-books";
 import { buildMigrationGaps } from "@/lib/migration-gaps";
-import { fillDatesFromText, slotStatus, staleSlotKeys, datesStrip } from "@/lib/migration-dates";
+import { fillDatesFromText, slotStatus, staleSlotKeys, datesStrip, mergeDocDates, docDatesFrom } from "@/lib/migration-dates";
 import { extractMigration } from "@/lib/migration-extract";
 import { buildConsultationPacket } from "@/lib/migration-packet";
 import { PacketControls } from "@/app/packet-controls";
@@ -704,7 +704,9 @@ async function RecordPanel({ matter, timezone }: { matter: Matter; timezone: str
     const docs = await listDocuments(matter.id);
     const attached = new Set(docs.filter((d) => d.personId && d.itemKey).map((d) => `${d.itemKey}:${d.personId}`));
     const liveGaps = book ? buildMigrationGaps(book, migration, sub, attached).gaps : r.gaps;
-    const slots = book ? fillDatesFromText(buildMigrationGaps(book, migration, sub).dateSlots, sub, migration) : [];
+    const slots = book
+      ? mergeDocDates(fillDatesFromText(buildMigrationGaps(book, migration, sub).dateSlots, sub, migration), docDatesFrom(docs))
+      : [];
     const factGroups = groupByPerson(migration, facts).filter((g) => g.items.length);
     const gapGroups = groupByPerson(migration, liveGaps).filter((g) => g.items.length);
     const dated = slots.map((s) => ({ s, st: slotStatus(s) })).filter((x) => x.st.state !== "empty");
@@ -993,10 +995,13 @@ function slotLabel(profile: MigrationProfile, personId: string, itemKey: string)
  * three chips that carry a fact: the lodgement target, any validity that dies before
  * it (stale), and any date with two sourced values (conflict, expandable to both).
  */
-function MigrationDatesStrip({ profile, submission }: { profile: MigrationProfile; submission: string }) {
+function MigrationDatesStrip({ profile, submission, docs }: { profile: MigrationProfile; submission: string; docs: MatterDocument[] }) {
   const book = getBook(profile.stream);
   if (!book) return null;
-  const slots = fillDatesFromText(buildMigrationGaps(book, profile, submission).dateSlots, submission, profile);
+  const slots = mergeDocDates(
+    fillDatesFromText(buildMigrationGaps(book, profile, submission).dateSlots, submission, profile),
+    docDatesFrom(docs),
+  );
   const stale = staleSlotKeys(slots);
   const lodge = slots.find((s) => s.itemKey === "lodgement_target");
   const lodgeSt = lodge ? slotStatus(lodge) : { state: "empty" as const };
@@ -1056,7 +1061,7 @@ function MigrationDatesStrip({ profile, submission }: { profile: MigrationProfil
  * gated for export. Shows the section summary + held-back count + cover line; the full
  * artefact is the .docx. Approve → export; new material since approval → stale.
  */
-function MigrationPacketCard({ matter, profile, attached }: { matter: Matter; profile: MigrationProfile; attached: Set<string> }) {
+function MigrationPacketCard({ matter, profile, attached, docs }: { matter: Matter; profile: MigrationProfile; attached: Set<string>; docs: MatterDocument[] }) {
   const sub = matter.submission ?? "";
   const book = getBook(profile.stream);
   if (!book) return null;
@@ -1064,7 +1069,7 @@ function MigrationPacketCard({ matter, profile, attached }: { matter: Matter; pr
   const { gaps, dateSlots } = buildMigrationGaps(book, profile, sub, attached);
   // Only meaningful dates reach the packet — the lodgement target, stales, and
   // conflicts. Empty slots are noise (they must not print "Hua NZPC: —").
-  const keyDates = datesStrip(profile, fillDatesFromText(dateSlots, sub, profile))
+  const keyDates = datesStrip(profile, mergeDocDates(fillDatesFromText(dateSlots, sub, profile), docDatesFrom(docs)))
     .filter((s) => (s.label === "Lodge" ? !!s.value : s.stale || s.conflict));
   const approved = !!matter.approvedAt;
   const stale = !!(approved && matter.updatedAt && matter.updatedAt > matter.approvedAt!);
@@ -1321,7 +1326,7 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
           confirmed={r.migrationRouting.confirmed}
         />
       ) : null}
-      {isMig && migration ? <MigrationDatesStrip profile={migration} submission={matter.submission} /> : null}
+      {isMig && migration ? <MigrationDatesStrip profile={migration} submission={matter.submission} docs={migDocs} /> : null}
       {isMig && since && since.resolved.length ? (
         <div className="rounded-xl border border-accent/30 bg-accent-soft/30 p-3 text-sm">
           <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">Since your last review</div>
@@ -1332,7 +1337,7 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
         </div>
       ) : null}
       {isMig && migration ? <MigrationPeopleSection profile={migration} gaps={liveGaps} /> : null}
-      {isMig && migration ? <MigrationPacketCard matter={matter} profile={migration} attached={attached} /> : null}
+      {isMig && migration ? <MigrationPacketCard matter={matter} profile={migration} attached={attached} docs={migDocs} /> : null}
 
       {/* Critical dates (settlement/finance) — a property-path noun; hidden on migration
           matters (their validity-window dates arrive in P3). */}
