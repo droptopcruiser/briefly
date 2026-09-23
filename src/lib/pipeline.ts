@@ -399,6 +399,16 @@ export async function augmentWithMigration(
     return { ...result, migration: null, migrationRouting: { status: "unrouted", reason: routing.reason } };
   }
 
+  // Only Partner / AEWV / Student have a book. A stream we don't support yet (resident,
+  // visitor, …) must NEVER get an empty book + a green "ready" — it's Unrouted, pick one.
+  if (!getBook(routing.stream)) {
+    return {
+      ...result,
+      migration: null,
+      migrationRouting: { status: "unrouted", reason: `${STREAM_LABEL[routing.stream]} isn't a supported book yet — pick Partner, AEWV or Student` },
+    };
+  }
+
   // Keyed → guarded Haiku (handles any real phrasing, with the code bars + a
   // deterministic fallback). Keyless → the deterministic extractor.
   const ex = isConfigured()

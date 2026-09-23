@@ -20,6 +20,15 @@ const DOC_DATE_FIELD: Record<string, { key: string; label: string; description: 
 };
 const MIG_DATE_KEYS = new Set(["passport_expiry", "police_cert_validity", "emedical_validity"]);
 
+// A migration doc with no bound date-item still reads SAFE passport facts only — never
+// the conveyancing rubric (which is what invented a "status" from a passport's TYPE P).
+const SAFE_MIG_FIELDS = [
+  { key: "passport_expiry", label: "Passport expiry date", description: "Date of EXPIRY from the passport bio page / MRZ — NOT date of issue, NOT date of birth. Return YYYY-MM-DD." },
+  { key: "full_name", label: "Full name", description: "The holder's full name exactly as printed." },
+  { key: "nationality", label: "Nationality", description: "Nationality / citizenship as printed — NOT the passport type letter, NOT place of birth." },
+];
+const MIG_SAFE_KEYS = new Set(["passport_expiry", "full_name", "nationality"]);
+
 /**
  * Read a STORED matter document into pending facts — the one read path shared by
  * the manual "Read now" action and the inbound auto-read. Rubric-targeted, and it
@@ -62,10 +71,15 @@ export async function readStoredDocument(
   // date (into the matching slot); otherwise read the rubric's fields as before.
   const mig = isMigrationMatter(matter.result);
   const migDateField = mig && doc.itemKey ? DOC_DATE_FIELD[doc.itemKey] : undefined;
+  // Migration: the bound date-item's field, else SAFE passport facts — NEVER the
+  // conveyancing rubric. Conveyancing: the rubric's fields, as before.
   const fields = migDateField
     ? [migDateField]
-    : (rubric?.fields ?? []).map((f) => ({ key: f.key, label: f.label, description: f.description }));
+    : mig
+      ? SAFE_MIG_FIELDS
+      : (rubric?.fields ?? []).map((f) => ({ key: f.key, label: f.label, description: f.description }));
   const byKey = new Map(matter.result.fields.map((f) => [f.key, f]));
+  const keep = (key: string) => (migDateField ? MIG_DATE_KEYS.has(key) : mig ? MIG_SAFE_KEYS.has(key) : rubric ? byKey.has(key) : true);
 
   doc.status = "reading";
   await updateDocument(doc);
@@ -109,8 +123,8 @@ export async function readStoredDocument(
     const res = await readDocumentPdf(bytes, { fields: fields.length ? fields : undefined });
 
     const pending: PendingDocFact[] = res.facts
-      // Keep rubric-field facts (conveyancing) AND migration validity-date facts.
-      .filter((f) => (migDateField ? MIG_DATE_KEYS.has(f.key) : rubric ? byKey.has(f.key) : true))
+      // Keep rubric-field facts (conveyancing) AND migration validity/safe facts.
+      .filter((f) => keep(f.key))
       .map((f) => {
         const field = byKey.get(f.key);
         const stated = field?.present && field.value ? field.value : null;

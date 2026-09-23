@@ -77,15 +77,43 @@ export async function extractMigrationLLM(submission: string, stream: MigrationS
   return sanitizeLlm(data, submission, stream);
 }
 
+const firstName = (f: string) => f.trim().split(/\s+/)[0]?.toLowerCase() || f.toLowerCase();
+
+/**
+ * Backfill location / nationality that Haiku left blank from the DETERMINISTIC extractor
+ * (reliable + cited) — matched by first name. Haiku owns the structure (who's who); the
+ * deterministic cues own the two attributes it reads well. This is what makes "currently
+ * in Auckland" survive (and, via na:not_onshore, keeps the current-visa item on the list).
+ */
+function backfill(llm: MigrationExtraction, det: MigrationExtraction): MigrationExtraction {
+  const applicants = llm.profile.applicants.map((a) => ({ ...a }));
+  const facts = [...llm.facts];
+  for (const a of applicants) {
+    const d = det.profile.applicants.find((x) => firstName(x.fullName) === firstName(a.fullName));
+    if (!d) continue;
+    if (a.location === "unknown" && d.location !== "unknown") {
+      a.location = d.location;
+      const df = det.facts.find((f) => f.personId === d.id && f.label === "Location");
+      facts.push({ key: `${a.id}_location`, label: "Location", value: a.location, present: true, source: df?.source ?? null, personId: a.id });
+    }
+    if (!a.nationality && d.nationality) {
+      a.nationality = d.nationality;
+      const df = det.facts.find((f) => f.personId === d.id && f.label === "Nationality");
+      facts.push({ key: `${a.id}_nationality`, label: "Nationality", value: d.nationality, present: true, source: df?.source ?? null, personId: a.id });
+    }
+  }
+  return { ...llm, profile: { ...llm.profile, applicants }, facts };
+}
+
 /**
  * Extract via Haiku, falling back to the deterministic extractor on any failure OR when
- * Haiku finds no applicant (unset > wrong). Keyless callers use the deterministic
- * extractor directly and never reach here.
+ * Haiku finds no applicant (unset > wrong), and backfilling location/nationality Haiku
+ * missed. Keyless callers use the deterministic extractor directly and never reach here.
  */
 export async function extractMigrationGuarded(submission: string, stream: MigrationStream): Promise<MigrationExtraction> {
   try {
     const llm = await extractMigrationLLM(submission, stream);
-    if (llm.profile.applicants.length > 0) return llm;
+    if (llm.profile.applicants.length > 0) return backfill(llm, extractMigration(submission, stream));
   } catch (err) {
     console.error("extractMigrationLLM failed — deterministic fallback:", err);
   }

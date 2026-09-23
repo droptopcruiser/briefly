@@ -8,6 +8,7 @@ import { computeGaps, computeReadiness } from "@/lib/gaps";
 import { addEvent } from "@/lib/events";
 import { uploadDocument, deleteDocument, getDocument, updateDocument } from "@/lib/documents";
 import { readStoredDocument } from "@/lib/document-service";
+import { isMigrationMatter } from "@/lib/migration";
 import { ensureBriefOnReady } from "@/lib/work-brief";
 import { recordReview } from "@/lib/reviews";
 
@@ -47,6 +48,14 @@ export async function uploadMatterDocument(
     const doc = await uploadDocument(owner, matter.id, file.name, file.type, bytes, attach);
     const note = itemKey ? `${itemKey}${personId ? ` · ${personId}` : ""}` : "unassigned";
     await addEvent(owner, matter.id, "document_attached", `Attached ${doc.fileName} → ${note}`);
+    // Migration: a dated identity doc bound to a person is READ on attach, so its
+    // bio-page date joins the conflict and the gap drops in one step (no separate click).
+    const READABLE = new Set(["passport", "police_cert", "emedical"]);
+    if (isMigrationMatter(matter.result) && personId && itemKey && READABLE.has(itemKey)) {
+      const rubrics = await getEffectiveRubrics(owner);
+      const rubric = rubrics.find((r) => r.id === matter.result?.rubricId);
+      await readStoredDocument(matter, rubric, doc).catch((e) => console.error("auto-read on attach failed:", e));
+    }
     return { ok: true };
   } catch (err) {
     console.error("uploadMatterDocument failed:", err);
