@@ -607,12 +607,7 @@ function fileSize(bytes: number): string {
  * read. Content reading + page-cited facts land in Slice 2.
  */
 async function AttachedFilesSection({ matter }: { matter: Matter }) {
-  // Date-slot reads (passport expiry, etc.) MERGE onto the Key dates board as cited
-  // candidates — they are not confirm items, so strip them from the confirm list here.
-  const docs = (await listDocuments(matter.id)).map((d) => ({
-    ...d,
-    pendingFacts: d.pendingFacts.filter((f) => !MIG_DATE_KEYS.has(f.key)),
-  }));
+  const docs = await listDocuments(matter.id);
   const anyReading = docs.some((d) => d.status === "reading");
   return (
     <section className="space-y-2">
@@ -627,10 +622,11 @@ async function AttachedFilesSection({ matter }: { matter: Matter }) {
       {docs.length > 0 ? (
         <ul className="space-y-3">
           {docs.map((d) => {
+            const reviewCount = d.pendingFacts.filter((f) => !MIG_DATE_KEYS.has(f.key)).length;
             const statusLabel =
               d.status === "read"
-                ? d.pendingFacts.length > 0
-                  ? `read · ${d.pendingFacts.length} for review`
+                ? reviewCount > 0
+                  ? `read · ${reviewCount} for review`
                   : "read"
                 : d.status === "unreadable"
                   ? "couldn't read"
@@ -676,11 +672,22 @@ async function AttachedFilesSection({ matter }: { matter: Matter }) {
                     <p className="mt-0.5 text-xs text-muted">
                       Nothing affects the matter until you confirm it.
                     </p>
-                    <ul className="mt-2 divide-y divide-border">
-                      {d.pendingFacts.map((f) => (
-                        <PendingFactRow key={f.id} matterId={matter.id} docId={d.id} fact={f} />
-                      ))}
-                    </ul>
+                    {/* Date reads (passport expiry, etc.) are shown as read and placed on
+                        the Key dates board as a cited candidate — resolved in the conflict
+                        there, not confirmed here. */}
+                    {d.pendingFacts.filter((f) => MIG_DATE_KEYS.has(f.key)).map((f) => (
+                      <div key={f.id} className="mt-2 rounded-lg border border-accent/30 bg-accent-soft/30 px-3 py-2 text-xs">
+                        <div className="font-medium text-foreground">{f.label}: <span className="tabular-nums">{f.value}</span></div>
+                        <div className="mt-0.5 text-muted">Read from the document → added to <span className="font-medium">Key dates</span> as a candidate. Resolve the conflict there.</div>
+                      </div>
+                    ))}
+                    {d.pendingFacts.some((f) => !MIG_DATE_KEYS.has(f.key)) ? (
+                      <ul className="mt-2 divide-y divide-border">
+                        {d.pendingFacts.filter((f) => !MIG_DATE_KEYS.has(f.key)).map((f) => (
+                          <PendingFactRow key={f.id} matterId={matter.id} docId={d.id} fact={f} />
+                        ))}
+                      </ul>
+                    ) : null}
                   </div>
                 ) : null}
               </li>
