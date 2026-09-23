@@ -19,6 +19,7 @@ import { DecisionPane } from "@/app/decision-pane";
 import { workflowStatus, statusTone, firstSentence, factSlug } from "@/lib/matter-status";
 import { formatWhen, formatInstant } from "@/lib/format";
 import { listDocuments, type MatterDocument } from "@/lib/documents";
+import { MIG_DATE_KEYS } from "@/lib/document-service";
 import {
   DocumentUpload,
   DeleteDocButton,
@@ -606,7 +607,12 @@ function fileSize(bytes: number): string {
  * read. Content reading + page-cited facts land in Slice 2.
  */
 async function AttachedFilesSection({ matter }: { matter: Matter }) {
-  const docs = await listDocuments(matter.id);
+  // Date-slot reads (passport expiry, etc.) MERGE onto the Key dates board as cited
+  // candidates — they are not confirm items, so strip them from the confirm list here.
+  const docs = (await listDocuments(matter.id)).map((d) => ({
+    ...d,
+    pendingFacts: d.pendingFacts.filter((f) => !MIG_DATE_KEYS.has(f.key)),
+  }));
   const anyReading = docs.some((d) => d.status === "reading");
   return (
     <section className="space-y-2">

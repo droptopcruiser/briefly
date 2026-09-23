@@ -11,23 +11,27 @@ import { readDocumentPdf } from "./document-read";
 import { addEvent } from "./events";
 import { isMigrationMatter } from "./migration";
 
-// A migration document that carries a validity date → the field to read from it, keyed
-// by the matching date slot so the read expiry lands on that slot as a candidate.
-const DOC_DATE_FIELD: Record<string, { key: string; label: string; description: string }> = {
-  passport: { key: "passport_expiry", label: "Passport expiry date", description: "The date of EXPIRY from the passport bio page / MRZ — NOT the date of issue and NOT the date of birth. Return as YYYY-MM-DD." },
-  police_cert: { key: "police_cert_validity", label: "Police certificate date", description: "The issue or valid-until date printed on the police certificate. Return as YYYY-MM-DD." },
-  emedical: { key: "emedical_validity", label: "Medical date", description: "The date the medical / chest x-ray was completed. Return as YYYY-MM-DD." },
+type ReadField = { key: string; label: string; description: string };
+const F = {
+  passport_expiry: { key: "passport_expiry", label: "Passport expiry date", description: "Date of EXPIRY from the passport bio page / MRZ — NOT date of issue, NOT date of birth, NOT place of birth. Return YYYY-MM-DD." } as ReadField,
+  full_name: { key: "full_name", label: "Full name", description: "The holder's full name exactly as printed." } as ReadField,
+  nationality: { key: "nationality", label: "Nationality", description: "Nationality / citizenship — NOT the passport TYPE letter (e.g. 'P'), NOT place of birth." } as ReadField,
+  police_cert_validity: { key: "police_cert_validity", label: "Police certificate date", description: "The issue or valid-until date printed on the police certificate. Return YYYY-MM-DD." } as ReadField,
+  emedical_validity: { key: "emedical_validity", label: "Medical date", description: "The date the medical / chest x-ray was completed. Return YYYY-MM-DD." } as ReadField,
 };
-const MIG_DATE_KEYS = new Set(["passport_expiry", "police_cert_validity", "emedical_validity"]);
-
-// A migration doc with no bound date-item still reads SAFE passport facts only — never
-// the conveyancing rubric (which is what invented a "status" from a passport's TYPE P).
-const SAFE_MIG_FIELDS = [
-  { key: "passport_expiry", label: "Passport expiry date", description: "Date of EXPIRY from the passport bio page / MRZ — NOT date of issue, NOT date of birth. Return YYYY-MM-DD." },
-  { key: "full_name", label: "Full name", description: "The holder's full name exactly as printed." },
-  { key: "nationality", label: "Nationality", description: "Nationality / citizenship as printed — NOT the passport type letter, NOT place of birth." },
-];
-const MIG_SAFE_KEYS = new Set(["passport_expiry", "full_name", "nationality"]);
+// A migration document bound to an item → the fields to read from it. A passport gives
+// name + nationality + expiry (one read, no re-reading for sport); the others their date.
+const DOC_ITEM_FIELDS: Record<string, ReadField[]> = {
+  passport: [F.passport_expiry, F.full_name, F.nationality],
+  police_cert: [F.police_cert_validity],
+  emedical: [F.emedical_validity],
+};
+// A migration doc with no bound item still reads SAFE passport facts only — never the
+// conveyancing rubric (which is what invented a "status" from a passport's TYPE P).
+const SAFE_MIG_FIELDS = [F.passport_expiry, F.full_name, F.nationality];
+// Date-slot keys — these MERGE onto the board (a cited conflict candidate), so they are
+// NOT shown as confirm items (the read already places them; no separate Confirm).
+export const MIG_DATE_KEYS = new Set(["passport_expiry", "police_cert_validity", "emedical_validity"]);
 
 /**
  * Read a STORED matter document into pending facts — the one read path shared by
@@ -70,16 +74,14 @@ export async function readStoredDocument(
   // Migration attachment bound to a passport/medical/police item → read its validity
   // date (into the matching slot); otherwise read the rubric's fields as before.
   const mig = isMigrationMatter(matter.result);
-  const migDateField = mig && doc.itemKey ? DOC_DATE_FIELD[doc.itemKey] : undefined;
-  // Migration: the bound date-item's field, else SAFE passport facts — NEVER the
+  // Migration: the bound item's fields, else SAFE passport facts — NEVER the
   // conveyancing rubric. Conveyancing: the rubric's fields, as before.
-  const fields = migDateField
-    ? [migDateField]
-    : mig
-      ? SAFE_MIG_FIELDS
-      : (rubric?.fields ?? []).map((f) => ({ key: f.key, label: f.label, description: f.description }));
+  const fields = mig
+    ? (doc.itemKey && DOC_ITEM_FIELDS[doc.itemKey]) || SAFE_MIG_FIELDS
+    : (rubric?.fields ?? []).map((f) => ({ key: f.key, label: f.label, description: f.description }));
+  const wantKeys = new Set(fields.map((f) => f.key));
   const byKey = new Map(matter.result.fields.map((f) => [f.key, f]));
-  const keep = (key: string) => (migDateField ? MIG_DATE_KEYS.has(key) : mig ? MIG_SAFE_KEYS.has(key) : rubric ? byKey.has(key) : true);
+  const keep = (key: string) => (mig ? wantKeys.has(key) : rubric ? byKey.has(key) : true);
 
   doc.status = "reading";
   await updateDocument(doc);
@@ -131,7 +133,7 @@ export async function readStoredDocument(
         return {
           id: randomUUID(),
           key: f.key,
-          label: migDateField && f.key === migDateField.key ? migDateField.label : field?.label ?? f.key,
+          label: fields.find((x) => x.key === f.key)?.label ?? field?.label ?? f.key,
           value: f.value,
           quote: f.quote,
           page: f.page,
