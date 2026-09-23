@@ -142,6 +142,18 @@ export function computeMigrationUrgency(
     };
   }
 
+  // Unrouted (a stream with no supported book) is never "ready" — it needs a book picked.
+  if (matter.result?.migrationRouting?.status === "unrouted") {
+    return {
+      priority: "review",
+      score: BASE.review,
+      reason: "Pick a visa book to prepare this file",
+      signals: ["Unrouted — no supported book chosen yet"],
+      when: null,
+      actionLabel: "Pick a book",
+    };
+  }
+
   const slots = slotsFor(matter, profile);
   const lodge = slots.find((s) => s.itemKey === LODGEMENT_ITEM);
   const lodgeStatus = lodge ? slotStatus(lodge) : { state: "empty" as const };

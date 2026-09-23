@@ -8,7 +8,16 @@ import { computeGaps, computeReadiness } from "@/lib/gaps";
 import { addEvent } from "@/lib/events";
 import { uploadDocument, deleteDocument, getDocument, updateDocument } from "@/lib/documents";
 import { readStoredDocument } from "@/lib/document-service";
-import { isMigrationMatter } from "@/lib/migration";
+import { isMigrationMatter, principalApplicant } from "@/lib/migration";
+
+/** Infer a migration rubric item from a file name ("passport.pdf" → passport). */
+function inferItemFromName(name: string): string | undefined {
+  const n = name.toLowerCase();
+  if (/passport/.test(n)) return "passport";
+  if (/police|nzpc/.test(n)) return "police_cert";
+  if (/medical|emedical|x-?ray|chest/.test(n)) return "emedical";
+  return undefined;
+}
 import { ensureBriefOnReady } from "@/lib/work-brief";
 import { recordReview } from "@/lib/reviews";
 
@@ -41,8 +50,17 @@ export async function uploadMatterDocument(
     // Migration attach: file goes to a party (Applicant | Sponsor | Employer) + rubric
     // item. No person picked → Unassigned (never the principal). Sensitive on for the
     // identity/clearance docs.
-    const personId = (formData.get("personId") as string | null)?.trim() || undefined;
-    const itemKey = (formData.get("itemKey") as string | null)?.trim() || undefined;
+    let personId = (formData.get("personId") as string | null)?.trim() || undefined;
+    let itemKey = (formData.get("itemKey") as string | null)?.trim() || undefined;
+    // Bind on EVERY attach path. On a migration matter with a single applicant, default
+    // the person to them (unambiguous — a family stays unassigned, unset > wrong), and
+    // infer the item from the file name — so the general/Evidence upload never lands
+    // "unassigned" and the gap/date can bind.
+    const migration = isMigrationMatter(matter.result) ? matter.result?.migration ?? null : null;
+    if (migration) {
+      if (!personId && migration.applicants.length === 1) personId = principalApplicant(migration)?.id;
+      if (!itemKey) itemKey = inferItemFromName(file.name);
+    }
     const SENSITIVE = new Set(["passport", "police_cert", "emedical"]);
     const attach = personId || itemKey ? { personId, itemKey, sensitive: itemKey ? SENSITIVE.has(itemKey) : undefined } : undefined;
     const doc = await uploadDocument(owner, matter.id, file.name, file.type, bytes, attach);

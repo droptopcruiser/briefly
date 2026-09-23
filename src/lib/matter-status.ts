@@ -34,6 +34,7 @@ export function workflowStatus(matter: Matter, rubric: Rubric | undefined, planR
   // details" — that's a conveyancing/readiness phrasing that was banned on this path.
   if (isMigrationMatter(matter.result)) {
     if (matter.status === "completed") return "Completed";
+    if (matter.result?.migrationRouting?.status === "unrouted") return "Unrouted — pick a visa book";
     return computeMigrationUrgency(matter, null).reason;
   }
   const intent = rubric?.nextActionIntent?.trim();

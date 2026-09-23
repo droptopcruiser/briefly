@@ -358,6 +358,15 @@ async function OverviewSection({ matter, account }: { matter: Matter; account: A
  */
 async function NextStepSection({ matter, account }: { matter: Matter; account: Account }) {
   const r = matter.result!;
+  // Unrouted migration: nothing is prepared until a book is chosen — no "ready", no brief.
+  if (isMigrationMatter(r) && r.migrationRouting?.status === "unrouted") {
+    return (
+      <div className="rounded-lg border border-awaiting bg-awaiting-soft px-4 py-3 text-sm text-awaiting">
+        Pick a visa book above (Keep / Move) to prepare this file. Nothing is prepared — and nothing
+        is sent — until you choose one.
+      </div>
+    );
+  }
   // The default outbound subject: the conversation's "Re:" subject when this matter
   // came in by email, so what's shown is what threads (and what gets sent).
   const threadSubject = r.emailThread?.subject ? replySubject(r.emailThread.subject) : null;
