@@ -47,7 +47,8 @@ import { CriticalDatesStrip } from "@/app/critical-dates-strip";
 import { isMigrationMatter, migrationMatterTitle, groupByPerson, principalApplicant, type Party } from "@/lib/migration";
 import { getBook } from "@/lib/migration-books";
 import { buildMigrationGaps } from "@/lib/migration-gaps";
-import { fillDatesFromText, slotStatus, staleSlotKeys, datesStrip, mergeDocDates, docDatesFrom } from "@/lib/migration-dates";
+import { fillDatesFromText, slotStatus, staleSlotKeys, datesStrip, mergeDocDates, docDatesFrom, applyResolutions, slotValue } from "@/lib/migration-dates";
+import { ConflictChip, ResolvedChip } from "@/app/migration-date-chip";
 import { extractMigration } from "@/lib/migration-extract";
 import { buildConsultationPacket } from "@/lib/migration-packet";
 import { PacketControls } from "@/app/packet-controls";
@@ -727,7 +728,7 @@ async function RecordPanel({ matter, timezone }: { matter: Matter; timezone: str
     const attached = new Set(docs.filter((d) => d.personId && d.itemKey).map((d) => `${d.itemKey}:${d.personId}`));
     const liveGaps = book ? buildMigrationGaps(book, migration, sub, attached).gaps : r.gaps;
     const slots = book
-      ? mergeDocDates(fillDatesFromText(buildMigrationGaps(book, migration, sub).dateSlots, sub, migration), docDatesFrom(docs))
+      ? applyResolutions(mergeDocDates(fillDatesFromText(buildMigrationGaps(book, migration, sub).dateSlots, sub, migration), docDatesFrom(docs)), matter.migrationDateResolutions ?? {})
       : [];
     const factGroups = groupByPerson(migration, facts).filter((g) => g.items.length);
     const gapGroups = groupByPerson(migration, liveGaps).filter((g) => g.items.length);
@@ -768,6 +769,13 @@ async function RecordPanel({ matter, timezone }: { matter: Matter; timezone: str
                   <div className="font-medium">{slotLabel(migration, s.personId, s.itemKey)}</div>
                   {st.state === "set" ? (
                     <div className="text-foreground/80"><span className="tabular-nums">{fmtISO(st.value)}</span> — <span className="italic text-foreground/70">“{st.source}”</span></div>
+                  ) : st.state === "resolved" ? (
+                    <div className="text-foreground/80">
+                      <span className="tabular-nums font-medium text-accent">{fmtISO(st.value)}</span> <span className="text-accent">· resolved</span>
+                      {st.candidates.filter((c) => c.value !== st.value).map((c, j) => (
+                        <div key={j} className="text-xs text-muted"><span className="tabular-nums line-through">{fmtISO(c.value)}</span> — “{c.source}”</div>
+                      ))}
+                    </div>
                   ) : st.state === "conflict" ? (
                     <ul className="mt-0.5 space-y-0.5 text-awaiting">
                       {st.candidates.map((c, j) => (
@@ -1017,28 +1025,30 @@ function slotLabel(profile: MigrationProfile, personId: string, itemKey: string)
  * three chips that carry a fact: the lodgement target, any validity that dies before
  * it (stale), and any date with two sourced values (conflict, expandable to both).
  */
-function MigrationDatesStrip({ profile, submission, docs }: { profile: MigrationProfile; submission: string; docs: MatterDocument[] }) {
+function MigrationDatesStrip({ matterId, profile, submission, docs, resolutions }: { matterId: string; profile: MigrationProfile; submission: string; docs: MatterDocument[]; resolutions: Record<string, string> }) {
   const book = getBook(profile.stream);
   if (!book) return null;
-  const slots = mergeDocDates(
-    fillDatesFromText(buildMigrationGaps(book, profile, submission).dateSlots, submission, profile),
-    docDatesFrom(docs),
+  const slots = applyResolutions(
+    mergeDocDates(fillDatesFromText(buildMigrationGaps(book, profile, submission).dateSlots, submission, profile), docDatesFrom(docs)),
+    resolutions,
   );
   const stale = staleSlotKeys(slots);
   const lodge = slots.find((s) => s.itemKey === "lodgement_target");
-  const lodgeSt = lodge ? slotStatus(lodge) : { state: "empty" as const };
-  const lodgeIso = lodgeSt.state === "set" ? lodgeSt.value : null;
+  const lodgeIso = lodge ? slotValue(lodge) : null;
 
   const staleChips: { label: string; value: string }[] = [];
-  const conflictChips: { label: string; candidates: { value: string; source: string }[] }[] = [];
+  const conflictChips: { key: string; label: string; candidates: { value: string; source: string }[] }[] = [];
+  const resolvedChips: { key: string; label: string; value: string; candidates: { value: string; source: string }[] }[] = [];
   for (const s of slots) {
     if (s.itemKey === "lodgement_target") continue;
     const st = slotStatus(s);
-    if (st.state === "conflict") conflictChips.push({ label: slotLabel(profile, s.personId, s.itemKey), candidates: st.candidates });
-    else if (st.state === "set" && stale.has(s.key)) staleChips.push({ label: slotLabel(profile, s.personId, s.itemKey), value: st.value });
+    const label = slotLabel(profile, s.personId, s.itemKey);
+    if (st.state === "conflict") conflictChips.push({ key: s.key, label, candidates: st.candidates });
+    else if (st.state === "resolved") resolvedChips.push({ key: s.key, label, value: st.value, candidates: st.candidates });
+    else if (st.state === "set" && stale.has(s.key)) staleChips.push({ label, value: st.value });
   }
 
-  if (!lodgeIso && staleChips.length === 0 && conflictChips.length === 0) return null;
+  if (!lodgeIso && !staleChips.length && !conflictChips.length && !resolvedChips.length) return null;
 
   return (
     <div className="rounded-xl border border-border bg-raise p-3">
@@ -1056,22 +1066,11 @@ function MigrationDatesStrip({ profile, submission, docs }: { profile: Migration
             <span className="font-medium">{c.label} {fmtISO(c.value)} — dies before lodge</span>
           </span>
         ))}
-        {conflictChips.map((c, i) => (
-          <details key={`c${i}`} className="group rounded-lg border border-awaiting/50 bg-awaiting-soft px-2.5 py-1 text-awaiting">
-            <summary className="flex cursor-pointer list-none items-center gap-1.5">
-              <span className="text-[10px] font-semibold uppercase tracking-wide">Conflict</span>
-              <span className="font-medium">{c.label} — two dates, pick one</span>
-              <span aria-hidden="true" className="text-xs">▸</span>
-            </summary>
-            <ul className="mt-1.5 space-y-1 border-t border-awaiting/30 pt-1.5 text-xs text-foreground/85">
-              {c.candidates.map((cand, j) => (
-                <li key={j}>
-                  <span className="font-medium tabular-nums">{fmtISO(cand.value)}</span>
-                  <span className="text-muted"> — “{cand.source}”</span>
-                </li>
-              ))}
-            </ul>
-          </details>
+        {conflictChips.map((c) => (
+          <ConflictChip key={c.key} matterId={matterId} slotKey={c.key} label={c.label} candidates={c.candidates} />
+        ))}
+        {resolvedChips.map((c) => (
+          <ResolvedChip key={c.key} matterId={matterId} slotKey={c.key} label={c.label} value={c.value} candidates={c.candidates} />
         ))}
       </div>
     </div>
@@ -1091,7 +1090,7 @@ function MigrationPacketCard({ matter, profile, attached, docs }: { matter: Matt
   const { gaps, dateSlots } = buildMigrationGaps(book, profile, sub, attached);
   // Only meaningful dates reach the packet — the lodgement target, stales, and
   // conflicts. Empty slots are noise (they must not print "Hua NZPC: —").
-  const keyDates = datesStrip(profile, mergeDocDates(fillDatesFromText(dateSlots, sub, profile), docDatesFrom(docs)))
+  const keyDates = datesStrip(profile, applyResolutions(mergeDocDates(fillDatesFromText(dateSlots, sub, profile), docDatesFrom(docs)), matter.migrationDateResolutions ?? {}))
     .filter((s) => (s.label === "Lodge" ? !!s.value : s.stale || s.conflict));
   const approved = !!matter.approvedAt;
   const stale = !!(approved && matter.updatedAt && matter.updatedAt > matter.approvedAt!);
@@ -1349,7 +1348,7 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
           confirmed={r.migrationRouting.confirmed}
         />
       ) : null}
-      {isMig && migration ? <MigrationDatesStrip profile={migration} submission={matter.submission} docs={migDocs} /> : null}
+      {isMig && migration ? <MigrationDatesStrip matterId={matter.id} profile={migration} submission={matter.submission} docs={migDocs} resolutions={matter.migrationDateResolutions ?? {}} /> : null}
       {isMig && since && since.resolved.length ? (
         <div className="rounded-xl border border-accent/30 bg-accent-soft/30 p-3 text-sm">
           <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">Since your last review</div>

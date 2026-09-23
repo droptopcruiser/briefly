@@ -53,6 +53,8 @@ function rowToMatter(r: MatterRow): Matter {
     priorityOverride:
       ((r as { priority_override?: Matter["priorityOverride"] }).priority_override ?? null) || null,
     sample: Boolean((r as { sample?: boolean }).sample),
+    migrationDateResolutions:
+      ((r as { migration_date_resolutions?: Record<string, string> }).migration_date_resolutions ?? {}) || {},
   };
 }
 
@@ -119,6 +121,25 @@ export async function deleteMatter(accountId: string, id: string): Promise<void>
   }
   const { error } = await db.from("matters").delete().eq("id", id).eq("account_id", accountId);
   if (error) throw new Error(`deleteMatter: ${error.message}`);
+}
+
+/** Persist the migration date-conflict resolutions map (targeted write). */
+export async function setMigrationDateResolutions(
+  accountId: string,
+  id: string,
+  resolutions: Record<string, string>,
+): Promise<void> {
+  const db = getSupabase();
+  if (!db) {
+    const m = memory.get(id);
+    if (m && m.accountId === accountId) m.migrationDateResolutions = resolutions;
+    return;
+  }
+  try {
+    await db.from("matters").update({ migration_date_resolutions: resolutions }).eq("id", id).eq("account_id", accountId);
+  } catch (err) {
+    console.error("setMigrationDateResolutions failed (run migration_date_resolutions?):", err);
+  }
 }
 
 /** Flag a matter as the seeded sample (targeted write, like the queue columns). */

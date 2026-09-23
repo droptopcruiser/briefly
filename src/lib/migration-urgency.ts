@@ -26,7 +26,7 @@ import type { Urgency } from "./urgency";
 import type { MigrationDateSlot } from "./migration-dates";
 import { getBook } from "./migration-books";
 import { buildMigrationGaps } from "./migration-gaps";
-import { fillDatesFromText, slotStatus, staleSlotKeys } from "./migration-dates";
+import { fillDatesFromText, slotStatus, staleSlotKeys, applyResolutions } from "./migration-dates";
 
 const HOUR = 3_600_000;
 const BASE: Record<Urgency["priority"], number> = {
@@ -88,7 +88,10 @@ function slotsFor(matter: Matter, profile: MigrationProfile): MigrationDateSlot[
   const book = getBook(profile.stream);
   if (!book) return [];
   const sub = matter.submission ?? "";
-  return fillDatesFromText(buildMigrationGaps(book, profile, sub).dateSlots, sub, profile);
+  return applyResolutions(
+    fillDatesFromText(buildMigrationGaps(book, profile, sub).dateSlots, sub, profile),
+    matter.migrationDateResolutions ?? {},
+  );
 }
 
 /** The single dominant next action for the matched rule. */

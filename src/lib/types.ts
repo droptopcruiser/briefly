@@ -303,4 +303,8 @@ export interface Matter {
   /** True for the seeded demo matter ("Load sample partner file"). Backed by
    *  matters.sample (onboarding-p6.sql); badged in the list, deletable. */
   sample?: boolean;
+  /** Migration date-conflict resolutions the human picked: `${itemKey}:${personId}` →
+   *  chosen ISO value. Backed by matters.migration_date_resolutions. Kept off `result`
+   *  so a re-extract never wipes a human decision. */
+  migrationDateResolutions?: Record<string, string>;
 }

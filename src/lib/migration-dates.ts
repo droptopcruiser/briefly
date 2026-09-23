@@ -29,12 +29,26 @@ export interface MigrationDateSlot {
   personId: string; // applicant id | "matter"
   label: string;
   candidates: DateCandidate[];
+  /** A value the human picked to resolve a conflict — clears it, others kept for audit. */
+  resolvedValue?: string;
 }
 
 export type SlotStatus =
   | { state: "empty" }
   | { state: "set"; value: string; source: string }
-  | { state: "conflict"; candidates: DateCandidate[] };
+  | { state: "conflict"; candidates: DateCandidate[] }
+  | { state: "resolved"; value: string; source: string; candidates: DateCandidate[] };
+
+/** Apply the human's saved conflict resolutions onto slots (by slot key). */
+export function applyResolutions(slots: MigrationDateSlot[], resolutions: Record<string, string> = {}): MigrationDateSlot[] {
+  return slots.map((s) => (resolutions[s.key] ? { ...s, resolvedValue: resolutions[s.key] } : s));
+}
+
+/** The effective ISO value of a slot (resolved wins, else a single set value), or null. */
+export function slotValue(slot: MigrationDateSlot): string | null {
+  const st = slotStatus(slot);
+  return st.state === "set" || st.state === "resolved" ? st.value : null;
+}
 
 const VALIDITY_ITEMS = new Set(["passport_expiry", "police_cert_validity", "emedical_validity"]);
 const LODGEMENT_ITEM = "lodgement_target";
@@ -169,6 +183,11 @@ export function mergeDocDates(slots: MigrationDateSlot[], docDates: DocDate[]): 
 
 export function slotStatus(slot: MigrationDateSlot): SlotStatus {
   const distinct = [...new Map(slot.candidates.map((c) => [c.value, c])).values()];
+  // A human-picked value clears the conflict but keeps every candidate for audit.
+  if (slot.resolvedValue) {
+    const match = distinct.find((c) => c.value === slot.resolvedValue);
+    return { state: "resolved", value: slot.resolvedValue, source: match?.source ?? "resolved by you", candidates: distinct };
+  }
   if (distinct.length === 0) return { state: "empty" };
   if (distinct.length === 1) return { state: "set", value: distinct[0].value, source: distinct[0].source };
   return { state: "conflict", candidates: distinct };
@@ -178,12 +197,12 @@ export function slotStatus(slot: MigrationDateSlot): SlotStatus {
 export function staleSlotKeys(slots: MigrationDateSlot[]): Set<string> {
   const stale = new Set<string>();
   const lodge = slots.find((s) => s.itemKey === LODGEMENT_ITEM);
-  const lodgeStatus = lodge ? slotStatus(lodge) : { state: "empty" as const };
-  if (lodgeStatus.state !== "set") return stale; // no lodgement target → nothing stale
+  const lodgeVal = lodge ? slotValue(lodge) : null;
+  if (!lodgeVal) return stale; // no lodgement target → nothing stale
   for (const s of slots) {
     if (!VALIDITY_ITEMS.has(s.itemKey)) continue;
-    const st = slotStatus(s);
-    if (st.state === "set" && st.value < lodgeStatus.value) stale.add(s.key);
+    const v = slotValue(s); // resolved wins; a live conflict has no single value → not stale
+    if (v && v < lodgeVal) stale.add(s.key);
   }
   return stale;
 }
@@ -203,7 +222,7 @@ export function datesStrip(profile: MigrationProfile, slots: MigrationDateSlot[]
     const st = slotStatus(slot);
     return {
       label,
-      value: st.state === "set" ? st.value : null,
+      value: st.state === "set" || st.state === "resolved" ? st.value : null,
       conflict: st.state === "conflict",
       stale: stale.has(slot.key),
     };
