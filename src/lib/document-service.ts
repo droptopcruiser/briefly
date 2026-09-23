@@ -9,7 +9,58 @@ import {
 } from "./documents";
 import { readDocumentPdf } from "./document-read";
 import { addEvent } from "./events";
-import { isMigrationMatter } from "./migration";
+import { saveMatter } from "./store";
+import { isMigrationMatter, principalApplicant } from "./migration";
+
+const titleCase = (s: string) => s.trim().toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+const tok = (s: string) => s.toLowerCase().split(/\s+/).filter(Boolean);
+
+/**
+ * Write a bound passport's bio-page facts onto the person record — but only when the scan
+ * REFINES what's there (a fuller name whose current tokens are all present, a first
+ * nationality). A different name is a real clash and stays behind Confirm. Returns the
+ * keys that were applied (so they leave the confirm list). Mutates matter.result.
+ */
+function applyPassportIdentity(
+  matter: Matter,
+  personId: string,
+  facts: { key: string; value: string }[],
+): Set<string> {
+  const applied = new Set<string>();
+  const mig = matter.result?.migration;
+  if (!mig) return applied;
+  const applicant = mig.applicants.find((a) => a.id === personId) ?? null;
+  const person = applicant ?? (mig.sponsor?.id === personId ? mig.sponsor : null);
+  if (!person) return applied;
+
+  const name = facts.find((f) => f.key === "full_name" && f.value?.trim())?.value.trim();
+  if (name) {
+    const cur = tok(person.fullName);
+    const scan = tok(name);
+    // Current tokens all present in the scan → a refinement (e.g. add a middle name). Apply.
+    if (cur.length === 0 || cur.every((t) => scan.includes(t))) {
+      person.fullName = titleCase(name);
+      applied.add("full_name");
+      // Principal's name drives the matter title + client record.
+      if (applicant && principalApplicant(mig)?.id === applicant.id && matter.result) {
+        matter.result.clientName = person.fullName;
+        matter.clientName = person.fullName;
+      }
+    }
+  }
+
+  const nat = facts.find((f) => f.key === "nationality" && f.value?.trim())?.value.trim();
+  if (nat && applicant) {
+    if (!applicant.nationality) {
+      applicant.nationality = titleCase(nat);
+      applied.add("nationality");
+    } else if (applicant.nationality.toLowerCase() === nat.toLowerCase()) {
+      applied.add("nationality"); // already on record → drop from confirm, no change
+    }
+    // else a different nationality → clash → stays behind Confirm
+  }
+  return applied;
+}
 
 type ReadField = { key: string; label: string; description: string };
 const F = {
@@ -124,9 +175,16 @@ export async function readStoredDocument(
 
     const res = await readDocumentPdf(bytes, { fields: fields.length ? fields : undefined });
 
+    // Migration: a passport bound to a person WRITES that person's record when the scan
+    // only completes/confirms what's there (a fuller name, a first nationality). A real
+    // clash (a different name) stays behind Confirm. Those applied facts leave the
+    // confirm list — the record now carries them.
+    const appliedKeys = mig && doc.personId ? applyPassportIdentity(matter, doc.personId, res.facts) : new Set<string>();
+
     const pending: PendingDocFact[] = res.facts
-      // Keep rubric-field facts (conveyancing) AND migration validity/safe facts.
-      .filter((f) => keep(f.key))
+      // Keep rubric-field facts (conveyancing) AND migration validity/safe facts; drop
+      // anything already written to the person record.
+      .filter((f) => keep(f.key) && !appliedKeys.has(f.key))
       .map((f) => {
         const field = byKey.get(f.key);
         const stated = field?.present && field.value ? field.value : null;
@@ -141,6 +199,7 @@ export async function readStoredDocument(
         };
       });
 
+    if (appliedKeys.size > 0) await saveMatter(matter);
     doc.pendingFacts = pending;
     doc.costCents = res.costCents;
     doc.readAt = new Date().toISOString();

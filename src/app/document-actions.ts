@@ -58,7 +58,16 @@ export async function uploadMatterDocument(
     // "unassigned" and the gap/date can bind.
     const migration = isMigrationMatter(matter.result) ? matter.result?.migration ?? null : null;
     if (migration) {
-      if (!personId && migration.applicants.length === 1) personId = principalApplicant(migration)?.id;
+      if (!personId) {
+        if (migration.applicants.length === 1) {
+          personId = principalApplicant(migration)?.id; // single applicant → unambiguous
+        } else {
+          // Family file: match the file NAME to one person; unassigned if unclear.
+          const fn = file.name.toLowerCase();
+          const hits = migration.applicants.filter((a) => fn.includes(a.fullName.trim().split(/\s+/)[0].toLowerCase()));
+          if (hits.length === 1) personId = hits[0].id;
+        }
+      }
       if (!itemKey) itemKey = inferItemFromName(file.name);
     }
     const SENSITIVE = new Set(["passport", "police_cert", "emedical"]);

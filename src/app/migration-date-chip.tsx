@@ -27,7 +27,7 @@ export function ConflictChip({
     <details className="group rounded-lg border border-awaiting/50 bg-awaiting-soft px-2.5 py-1 text-awaiting">
       <summary className="flex cursor-pointer list-none items-center gap-1.5">
         <span className="text-[10px] font-semibold uppercase tracking-wide">Conflict</span>
-        <span className="font-medium">{label} — two dates, pick one</span>
+        <span className="font-medium">{label} — {candidates.length} sources, pick one</span>
         <span aria-hidden="true" className="text-xs">▸</span>
       </summary>
       <ul className="mt-1.5 space-y-1.5 border-t border-awaiting/30 pt-1.5">
