@@ -16,11 +16,12 @@ export interface PartyOpt { id: string; label: string }
 export interface ItemOpt { key: string; label: string }
 
 export function MigrationDocuments({
-  matterId, parties, items, docs,
-}: { matterId: string; parties: PartyOpt[]; items: ItemOpt[]; docs: DocRow[] }) {
+  matterId, parties, items, docs, defaultPersonId,
+}: { matterId: string; parties: PartyOpt[]; items: ItemOpt[]; docs: DocRow[]; defaultPersonId?: string }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [personId, setPersonId] = useState("");
+  // Default to the principal so a single-applicant file binds on attach without fiddling.
+  const [personId, setPersonId] = useState(defaultPersonId ?? "");
   const [itemKey, setItemKey] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -35,13 +36,12 @@ export function MigrationDocuments({
       if (personId) fd.set("personId", personId);
       if (itemKey) fd.set("itemKey", itemKey);
       const res = await uploadMatterDocument(matterId, fd);
-      if (res.ok) { if (fileRef.current) fileRef.current.value = ""; setPersonId(""); setItemKey(""); router.refresh(); }
+      if (res.ok) { if (fileRef.current) fileRef.current.value = ""; setPersonId(defaultPersonId ?? ""); setItemKey(""); router.refresh(); }
       else setError(res.error ?? "Upload failed.");
     });
 
   const onDelete = (id: string) => start(async () => { await deleteMatterDocument(matterId, id); router.refresh(); });
 
-  const labelFor = (id?: string) => parties.find((p) => p.id === id)?.label ?? null;
   const itemLabel = (k?: string) => items.find((i) => i.key === k)?.label ?? k ?? "";
   const groups = [
     ...parties.map((p) => ({ id: p.id, name: p.label, unassigned: false, rows: docs.filter((d) => d.personId === p.id) })),

@@ -113,6 +113,8 @@ const AEWV_BOOK: MigBook = {
     { key: "employment_agreement", label: "Signed employment agreement", type: "document_present", scope: "employer" },
     { key: "offered_pay", label: "Offered pay rate", type: "fact", scope: "employer" },
     { key: "role_anzsco", label: "Role / ANZSCO", type: "fact", scope: "employer" },
+    // matter
+    { key: "lodgement_target", label: "Lodgement target", type: "date", scope: "matter" },
     // judgment
     { key: "job_genuine", label: "Job is genuine", type: "human_only", scope: "employer" },
     { key: "pay_meets_threshold", label: "Pay meets median-wage threshold", type: "human_only", scope: "employer" },
@@ -130,6 +132,7 @@ const STUDENT_BOOK: MigBook = {
     { key: "funds", label: "Evidence of funds", type: "document_present", scope: "each_applicant" },
     { key: "insurance", label: "Insurance", type: "document_present", scope: "each_applicant" },
     { key: "medical_police", label: "Medical / police (if required)", type: "document_present", scope: "each_applicant", optional: true },
+    { key: "lodgement_target", label: "Lodgement target", type: "date", scope: "matter" },
     { key: "bona_fide", label: "Bona fide / genuine intent", type: "human_only", scope: "each_applicant" },
   ],
 };

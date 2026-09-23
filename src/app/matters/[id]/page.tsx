@@ -43,7 +43,7 @@ import { listMessages } from "@/lib/messages";
 import { getMatterDateDecisions, staleDatesEnabled } from "@/lib/critical-dates";
 import { resolveMatterDates } from "@/lib/critical-date-derive";
 import { CriticalDatesStrip } from "@/app/critical-dates-strip";
-import { isMigrationMatter, migrationMatterTitle, groupByPerson, type Party } from "@/lib/migration";
+import { isMigrationMatter, migrationMatterTitle, groupByPerson, principalApplicant, type Party } from "@/lib/migration";
 import { getBook } from "@/lib/migration-books";
 import { buildMigrationGaps } from "@/lib/migration-gaps";
 import { fillDatesFromText, slotStatus, staleSlotKeys, datesStrip, mergeDocDates, docDatesFrom } from "@/lib/migration-dates";
@@ -1224,6 +1224,7 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
                 matterId={matter.id}
                 parties={partyOpts}
                 items={itemOpts}
+                defaultPersonId={principalApplicant(migration)?.id}
                 docs={migDocs.map((d) => ({ id: d.id, fileName: d.fileName, personId: d.personId, itemKey: d.itemKey, sensitive: d.sensitive }))}
               />
             ),

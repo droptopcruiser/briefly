@@ -395,31 +395,41 @@ export async function augmentWithMigration(
       return { ...result, migration: null, migrationRouting: { status: "unrouted", reason: "no visa stream detected — pick a book" } };
     return result; // non-immigration firm → normal matter, no banner
   }
+  // A pure Unrouted (mixed / purchase / no signal) — no clear stream to extract for, so
+  // no profile. Kill any mock chase so no wrong "spousal shopping list" goes out.
   if (routing.status === "unrouted") {
-    return { ...result, migration: null, migrationRouting: { status: "unrouted", reason: routing.reason } };
+    return { ...result, migration: null, draftEmail: null, migrationRouting: { status: "unrouted", reason: routing.reason } };
   }
 
-  // Only Partner / AEWV / Student have a book. A stream we don't support yet (resident,
-  // visitor, …) must NEVER get an empty book + a green "ready" — it's Unrouted, pick one.
-  if (!getBook(routing.stream)) {
-    return {
-      ...result,
-      migration: null,
-      migrationRouting: { status: "unrouted", reason: `${STREAM_LABEL[routing.stream]} isn't a supported book yet — pick Partner, AEWV or Student` },
-    };
-  }
-
-  // Keyed → guarded Haiku (handles any real phrasing, with the code bars + a
-  // deterministic fallback). Keyless → the deterministic extractor.
+  // Extract the parties even for an unsupported stream, so the PERSON still shows.
+  // Keyed → guarded Haiku (any phrasing, with bars + fallback). Keyless → deterministic.
   const ex = isConfigured()
     ? await extractMigrationGuarded(submission, routing.stream)
     : extractMigration(submission, routing.stream);
   if (ex.profile.applicants.length === 0) {
-    return { ...result, migration: null, migrationRouting: { status: "unrouted", reason: "no applicant identified" } };
+    return { ...result, migration: null, draftEmail: null, migrationRouting: { status: "unrouted", reason: "no applicant identified" } };
   }
   const migration: MigrationProfile = { ...ex.profile, stream: routing.stream };
+  const principalNow = principalApplicant(migration);
+  const clientNameNow = principalNow ? principalNow.fullName : result.clientName;
+
+  // Only Partner / AEWV / Student have a book. An unsupported stream (resident, visitor)
+  // keeps its PEOPLE + an Unrouted "pick a book" banner — but NO gaps and NO chase (never
+  // an empty book + green "ready", never a Partner shopping list).
   const book = getBook(routing.stream);
-  const gaps = book ? buildMigrationGaps(book, migration, submission).gaps : ex.gaps;
+  if (!book) {
+    return {
+      ...result,
+      migration,
+      clientName: clientNameNow,
+      gaps: [],
+      draftEmail: null,
+      summary: `${STREAM_LABEL[routing.stream]} — pick a supported book (Partner, AEWV or Student) to prepare this file.`,
+      migrationRouting: { status: "unrouted", reason: `${STREAM_LABEL[routing.stream]} isn't a supported book yet — pick Partner, AEWV or Student` },
+    };
+  }
+
+  const gaps = buildMigrationGaps(book, migration, submission).gaps;
   // Stream language only (no demo / "Spousal Visa" copy).
   const streamLabel = STREAM_LABEL[routing.stream];
   const n = migration.applicants.length;
