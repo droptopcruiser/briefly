@@ -49,6 +49,7 @@ import { getBook } from "@/lib/migration-books";
 import { buildMigrationGaps } from "@/lib/migration-gaps";
 import { fillDatesFromText, slotStatus, staleSlotKeys, datesStrip, mergeDocDates, docDatesFrom, applyResolutions, slotValue } from "@/lib/migration-dates";
 import { ConflictChip, ResolvedChip } from "@/app/migration-date-chip";
+import { PersonTiles, type PersonProfile, type DateLine, type IdLine } from "@/app/person-panel";
 import { extractMigration } from "@/lib/migration-extract";
 import { buildConsultationPacket } from "@/lib/migration-packet";
 import { PacketControls } from "@/app/packet-controls";
@@ -1129,62 +1130,82 @@ function MigrationPacketCard({ matter, profile, attached, docs }: { matter: Matt
   );
 }
 
-function partyHeading(p: Party): string {
-  if (p.kind === "sponsor") return "Sponsor · NZ partner";
-  if (p.kind === "employer") return "Employer";
-  if (p.kind === "matter") return "File-level";
-  return `Applicant · ${p.sub}`;
-}
-
 /**
  * Migration path (P1): the matter as a family of parties. Sections run applicants →
  * sponsor → employer → Unassigned. The Unassigned bucket is deliberately VISIBLE — an
  * item Briefly could not confidently place stays here rather than being guessed onto the
  * principal. Each party shows only its own outstanding items (never flattened).
  */
-function MigrationPeopleSection({ profile, gaps }: { profile: MigrationProfile; gaps: Gap[] }) {
-  const groups = groupByPerson(profile, gaps);
-  return (
-    <section className="rounded-2xl border border-border bg-surface p-5">
-      <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">Applicants &amp; parties</div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {groups.map((g) => {
-          const unassigned = !g.party;
-          const applicant = g.party?.kind === "applicant" ? profile.applicants.find((a) => a.id === g.party!.id) : null;
-          return (
-            <div
-              key={g.party?.id ?? "unassigned"}
-              className={`rounded-xl border p-4 ${unassigned ? "border-awaiting/50 bg-awaiting-soft/40" : "border-border bg-raise"}`}
-            >
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="font-medium text-foreground">{unassigned ? "Unassigned" : g.party!.name}</span>
-                <span className="text-[11px] uppercase tracking-wide text-muted">{unassigned ? "not yet linked to a person" : partyHeading(g.party!)}</span>
-              </div>
-              {applicant ? (
-                <div className="mt-0.5 text-xs text-muted">
-                  {[applicant.location !== "unknown" ? applicant.location : null, applicant.nationality, applicant.passportExpiry ? `passport exp ${applicant.passportExpiry}` : null]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </div>
-              ) : null}
-              {g.items.length ? (
-                <ul className="mt-2 space-y-1 text-sm text-foreground/85">
-                  {g.items.map((gap, i) => (
-                    <li key={i}>· {gap.label}</li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="mt-2 text-sm text-muted">Nothing outstanding.</div>
-              )}
-              {unassigned ? (
-                <div className="mt-2 text-[11px] text-awaiting">Assign to a person before relying on readiness — Briefly won&apos;t guess.</div>
-              ) : null}
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
+/** Assemble each party's full profile for the drill-in panel: identity (sourced), their
+ *  dates, files, and outstanding. Empty stays empty — nothing is guessed. */
+function buildPersonProfiles(
+  profile: MigrationProfile,
+  submission: string,
+  docs: MatterDocument[],
+  gaps: Gap[],
+  resolutions: Record<string, string>,
+): PersonProfile[] {
+  const book = getBook(profile.stream);
+  const slots = book
+    ? applyResolutions(mergeDocDates(fillDatesFromText(buildMigrationGaps(book, profile, submission).dateSlots, submission, profile), docDatesFrom(docs)), resolutions)
+    : [];
+  const facts = extractMigration(submission).facts;
+  const factSource = (personId: string, label: string) => {
+    const s = facts.find((f) => f.personId === personId && f.label === label)?.source;
+    return s ? `“${s}”` : null;
+  };
+  const readDocFor = (personId: string, itemKey: string) =>
+    docs.find((d) => d.personId === personId && d.itemKey === itemKey && d.status === "read");
+  const filesFor = (personId: string) => docs.filter((d) => d.personId === personId).map((d) => d.fileName);
+  const outstandingFor = (personId: string) => gaps.filter((g) => (g.personId ?? "matter") === personId).map((g) => g.label);
+  const datesFor = (personId: string): DateLine[] =>
+    slots
+      .filter((s) => s.personId === personId && s.itemKey !== "lodgement_target")
+      .map((s) => {
+        const st = slotStatus(s);
+        const label = slotLabel(profile, s.personId, s.itemKey);
+        if (st.state === "conflict") return { label, kind: "conflict", value: null, candidates: st.candidates };
+        if (st.state === "resolved") return { label, kind: "resolved", value: st.value, candidates: st.candidates };
+        if (st.state === "set") return { label, kind: "set", value: st.value, candidates: [] };
+        return null;
+      })
+      .filter((x): x is DateLine => x !== null);
+
+  const idLine = (label: string, value: string | undefined | null, source: string | null): IdLine | null =>
+    value ? { label, value, source } : null;
+
+  const out: PersonProfile[] = [];
+  for (const a of profile.applicants) {
+    const passport = readDocFor(a.id, "passport");
+    const identity = [
+      idLine("Full name", a.fullName, passport ? `${passport.fileName} (read)` : null),
+      idLine("Nationality", a.nationality, factSource(a.id, "Nationality") ?? (passport ? `${passport.fileName} (read)` : null)),
+      idLine("Location", a.location !== "unknown" ? a.location : null, factSource(a.id, "Location")),
+      idLine("Date of birth", a.dob, passport ? `${passport.fileName} (read)` : null),
+      idLine("Passport no.", a.passportNo, passport ? `${passport.fileName} (read)` : null),
+      idLine("Current visa", a.currentVisa ? [a.currentVisa.type, a.currentVisa.expiry].filter(Boolean).join(" · ") || null : null, null),
+    ].filter((x): x is IdLine => x !== null);
+    out.push({ id: a.id, name: a.fullName, heading: `Applicant · ${a.role}`, identity, dates: datesFor(a.id), files: filesFor(a.id), outstanding: outstandingFor(a.id) });
+  }
+  if (profile.sponsor) {
+    const sp = profile.sponsor;
+    const status = sp.status === "nz_citizen" ? "NZ citizen" : sp.status === "resident" ? "NZ resident" : null;
+    const identity = [idLine("Full name", sp.fullName, null), idLine("Status", status, factSource(sp.id, "Sponsor status"))].filter((x): x is IdLine => x !== null);
+    out.push({ id: sp.id, name: sp.fullName, heading: "Sponsor · NZ partner", identity, dates: datesFor(sp.id), files: filesFor(sp.id), outstanding: outstandingFor(sp.id) });
+  }
+  if (profile.employer) {
+    const e = profile.employer;
+    const identity = [idLine("Legal name", e.legalName, null), idLine("NZBN", e.nzbn, null), idLine("Accreditation", e.accreditationStatus !== "unknown" ? e.accreditationStatus : null, null)].filter((x): x is IdLine => x !== null);
+    out.push({ id: e.id, name: e.legalName, heading: "Employer", identity, dates: [], files: filesFor(e.id), outstanding: outstandingFor(e.id) });
+  }
+  const matterOut = outstandingFor("matter");
+  if (matterOut.length) out.push({ id: "matter", name: "Matter", heading: "File-level", identity: [], dates: [], files: [], outstanding: matterOut });
+  const known = new Set([...profile.applicants.map((a) => a.id), profile.sponsor?.id, profile.employer?.id, "matter"]);
+  const unassignedGaps = gaps.filter((g) => !g.personId || !known.has(g.personId)).map((g) => g.label);
+  const unassignedFiles = docs.filter((d) => !d.personId || !known.has(d.personId)).map((d) => d.fileName);
+  if (unassignedGaps.length || unassignedFiles.length)
+    out.push({ id: "__unassigned", name: "Unassigned", heading: "not yet linked to a person", unassigned: true, identity: [], dates: [], files: unassignedFiles, outstanding: unassignedGaps });
+  return out;
 }
 
 export default async function MatterPage({ params }: { params: Promise<{ id: string }> }) {
@@ -1358,7 +1379,9 @@ export default async function MatterPage({ params }: { params: Promise<{ id: str
           {since.stillMissing.length ? <div className="mt-1 text-xs text-muted">{since.stillMissing.length} still missing</div> : null}
         </div>
       ) : null}
-      {isMig && migration ? <MigrationPeopleSection profile={migration} gaps={liveGaps} /> : null}
+      {isMig && migration ? (
+        <PersonTiles people={buildPersonProfiles(migration, matter.submission ?? "", migDocs, liveGaps, matter.migrationDateResolutions ?? {})} />
+      ) : null}
       {isMig && migration ? <MigrationPacketCard matter={matter} profile={migration} attached={attached} docs={migDocs} /> : null}
 
       {/* Critical dates (settlement/finance) — a property-path noun; hidden on migration
